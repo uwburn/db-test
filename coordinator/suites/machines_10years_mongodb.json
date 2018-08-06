@@ -1,0 +1,32 @@
+{
+    "workers": 4,
+    "database": "mongo",
+    "databaseOpts": {
+        "options": {
+            "url": "mongodb://localhost:27017"
+        }
+    },
+    "steps": [{
+        "name": "Year 1 - Bulk insert",
+        "workload": "BulkMachineData",
+        "workloadOpts": {
+            "machineTypeId": "0a2d38f9-9e1c-4717-955a-e04690d5725e",
+            "machines": 1,
+            "startTime": 1388530800000,
+            "endTime": 1420065900000,
+            "machineUptime": 0.01,
+            "ratePerSecond": 10000
+        }
+    }, {
+        "name": "Year 2 - Bulk insert",
+        "workload": "BulkMachineData",
+        "workloadOpts": {
+            "machineTypeId": "0a2d38f9-9e1c-4717-955a-e04690d5725e",
+            "machines": 1,
+            "startTime": 1420066800000,
+            "endTime": 1451601900000,
+            "machineUptime": 0.01,
+            "ratePerSecond": 10000
+        }
+    }]
+}
