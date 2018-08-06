@@ -15,28 +15,7 @@ services:
       - ./suites:/usr/src/app/suites
     depends_on:
       - mqtt
-  worker-1:
-    build:
-      context: worker
-    environment:
-      MQTT_ADDRESS: mqtt://mqtt:1883
-    depends_on:
-      - mqtt
-  worker-2:
-    build:
-      context: worker
-    environment:
-      MQTT_ADDRESS: mqtt://mqtt:1883
-    depends_on:
-      - mqtt
-  worker-3:
-    build:
-      context: worker
-    environment:
-      MQTT_ADDRESS: mqtt://mqtt:1883
-    depends_on:
-      - mqtt
-  worker-4:
+  worker:
     build:
       context: worker
     environment:

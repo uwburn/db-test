@@ -1,5 +1,5 @@
 {
-    "workers": 4,
+    "workers": 8,
     "database": "mongo",
     "databaseOpts": {
         "url": "mongodb://mongodb:27017",
