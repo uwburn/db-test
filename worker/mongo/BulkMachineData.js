@@ -3,6 +3,7 @@
 const uuidv4 = require('uuid/v4');
 const MongoClient = require('mongodb').MongoClient;
 const intervalPromise = require('interval-promise')
+const LinkedList = require('linkedlist');
 
 const MAX_WORKER_DELAY = 10000;
 
@@ -55,6 +56,7 @@ module.exports = class BulkMachineData {
         }
         this.totalSamples *= this.workloadOpts.machines;
         this.maxSamplesPerCycle = this.workloadOpts.ratePerSecond / INSERTION_INTERVAL * 1000;
+        this.samplesRecorded = 0;
 
         this.machines = {};
         for (let i = 0; i < this.workloadOpts.machines; ++i) {
@@ -98,12 +100,13 @@ module.exports = class BulkMachineData {
     }
 
     log() {
-        console.log(`Cycles: ${this.cycles}, samples: ${this.samplesProduced}/${this.totalSamples}, errors: ${this.errors}, ${Math.round(this.samplesProduced/this.totalSamples*100)}%`);
+        console.log(`Cycles: ${this.cycles}, samples: ${this.samplesProduced}/${this.totalSamples}, records: ${this.samplesRecorded}/${this.totalSamples}, errors: ${this.errors}, ${Math.round(this.samplesProduced/this.totalSamples*100)}%`);
 
         this.mqttClient.publish(`worker/${this.workerId}/work/${this.id}/log`, JSON.stringify({
             time: new Date().getTime(),
             totalSamples: this.totalSamples,
             samples: this.samplesProduced,
+            records: this.samplesRecorded,
             cycles: this.cycles,
             errors: this.errors,
             startTime: this.startTime,
@@ -141,11 +144,13 @@ module.exports = class BulkMachineData {
         await new Promise((resolve) => {
             let done = false;
             let absTime = this.workloadOpts.startTime;
+            let absDate = new Date(absTime);
             let relTime = 0;
             let i = 0;
             let j = 0;
 
             let logInterval;
+            let cycleInterval;
 
             console.log(`Waiting worker delay (${Math.round(this.workerDelay / 1000)} s) to pass... `);
 
@@ -154,7 +159,7 @@ module.exports = class BulkMachineData {
 
                 logInterval = setInterval(this.log.bind(this), LOG_INTERVAL);
 
-                intervalPromise(async (iterationNumber, stop) => {
+                cycleInterval = setInterval(() => {
                     ++this.cycles;
                     let cycleSamples = 0;
                     while (!done) {
@@ -171,7 +176,20 @@ module.exports = class BulkMachineData {
 
                                 done = false;
                                 if ((relTime + machine.machineDelay) % INTERVALS[groupName] === 0) {
-                                    this.sample(id, groupName, absTime);
+                                    this.sample(id, groupName, absDate).catch(() => {
+                                        ++this.errors;
+                                    }).then(() => {
+                                        if (++this.samplesRecorded === this.totalSamples) {
+                                            this.endTime = new Date().getTime();
+                                            clearInterval(logInterval);
+                                            clearInterval(cycleInterval);
+                                            
+                                            this.log();
+                                            console.log(`Workload completed`);
+
+                                            resolve();
+                                        }
+                                    });
                                     ++machine.groups[groupName];
                                     ++cycleSamples;
                                     ++this.samplesProduced;
@@ -189,37 +207,29 @@ module.exports = class BulkMachineData {
         
                         i = 0;
                         absTime += TIME_STEP;
+                        absDate = new Date(absTime);
                         relTime += TIME_STEP;
                     }
-
-                    this.endTime = new Date().getTime();
-                    stop();
-                    clearInterval(logInterval);
-                    
-                    this.log();
-                    console.log(`Workload completed`);
-                    resolve();
                 }, INSERTION_INTERVAL);
             }, this.workerDelay);
         });
     }
 
-    async sample(id, groupName, absTime) {
-        let sample = this.sampleMethods[groupName](id, groupName, absTime);
+    async sample(id, groupName, absDate) {
+        let sample = this.sampleMethods[groupName](id, groupName, absDate);
         this.recordMethods[groupName](id, groupName, sample);
     }
 
-    statusSample(id, groupName, absTime) {
+    statusSample(id, groupName, absDate) {
         let sample = {
-            deviceType: this.workloadOpts.deviceType,
+            deviceType: this.workloadOpts.machineTypeId,
             device: id,
-            originalTime: absTime,
-            time: absTime
+            time: absDate
         };
 
         sample[groupName] = {
             group: {
-                time: absTime,
+                time: absDate,
                 value: groupName
             }
         }
@@ -227,16 +237,16 @@ module.exports = class BulkMachineData {
         return sample;
     }
 
-    countersSample(id, groupName, absTime) {
+    countersSample(id, groupName, absDate) {
         let sample = {
-            deviceType: this.workloadOpts.deviceType,
+            deviceType: this.workloadOpts.machineTypeId,
             device: id,
-            time: absTime
+            time: absDate
         };
 
         sample[groupName] = {
             group: {
-                time: absTime,
+                time: absDate,
                 value: groupName
             }
         }
@@ -244,16 +254,16 @@ module.exports = class BulkMachineData {
         return sample;
     }
 
-    setupSample(id, groupName, absTime) {
+    setupSample(id, groupName, absDate) {
         let sample = {
-            deviceType: this.workloadOpts.deviceType,
+            deviceType: this.workloadOpts.machineTypeId,
             device: id,
-            time: absTime
+            time: absDate
         };
 
         sample[groupName] = {
             group: {
-                time: absTime,
+                time: absDate,
                 value: groupName
             }
         }
@@ -261,13 +271,13 @@ module.exports = class BulkMachineData {
         return sample;
     }
 
-    temperatureSample(id, groupName, absTime) {
+    temperatureSample(id, groupName, absDate) {
         let sample = {
-            deviceType: this.workloadOpts.deviceType,
+            deviceType: this.workloadOpts.machineTypeId,
             device: id,
-            time: absTime,
+            time: absDate,
             temperature: {
-                time: absTime,
+                time: absDate,
                 value: Math.random() * 100 + 50
             }
         };
@@ -275,27 +285,27 @@ module.exports = class BulkMachineData {
         return sample;
     }
 
-    pressureSample(id, groupName, absTime) {
+    pressureSample(id, groupName, absDate) {
         let sample = {
-            deviceType: this.workloadOpts.deviceType,
+            deviceType: this.workloadOpts.machineTypeId,
             device: id,
-            time: absTime,
+            time: absDate,
             pressure: {
-                time: absTime,
-                vale: Math.random() * 4 +1
+                time: absDate,
+                value: Math.random() * 4 +1
             }
         };
 
         return sample;
     }
 
-    alarmSample(id, groupName, absTime) {
+    alarmSample(id, groupName, absDate) {
         let interval = {
             _id: uuidv4(),
-            deviceType: this.workloadOpts.deviceType,
+            deviceType: this.workloadOpts.machineTypeId,
             device: id,
-            startTime: absTime,
-            endTime: absTime + Math.round(Math.number * 300 + 60) * 1000,
+            startTime: absDate,
+            endTime: new Date(absDate.getTime() + Math.round(Math.number * 300 + 60) * 1000),
             value: Math.ceil(Math.random() * 100).toString()
         }
 
@@ -305,15 +315,26 @@ module.exports = class BulkMachineData {
     async recordTimeComplex(id, groupName, sample) {
         let criteria = {
             deviceType: sample.deviceType,
-            device: sample.id,
+            device: sample.device,
             time: sample.time
         };
+
+        let update = {
+            $setOnInsert: { 
+                deviceType: sample.deviceType,
+                device: sample.device,
+                time: sample.time
+            },
+            $set: { }
+        }
+
+        update.$set[groupName] = sample[groupName];
 
         let options = {
             upsert: true
         }
 
-        await this.timeComplexColl.update(criteria, sample, options);
+        await this.timeComplexColl.update(criteria, update, options);
     }
 
     async recordInterval(id, groupName, sample) {

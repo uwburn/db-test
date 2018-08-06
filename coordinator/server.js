@@ -161,7 +161,7 @@ setInterval(() => {
 
     for (let workerId in workers) {
         let workerStatus = workers[workerId];
-        if (now - workerStatus.time >= 30000) {
+        if (now - workerStatus.time >= 60000) {
             console.log(`Worker ${workerId} timed out, aborting`);
             shutdown();
         }

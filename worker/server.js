@@ -6,7 +6,7 @@ const workerId = uuidv4();
 
 const mqttClient  = mqtt.connect(process.env.MQTT_ADDRESS);
 
-const WORKER_STATUS_INTERVAL = 5000;
+const WORKER_STATUS_INTERVAL = 1000;
 
 const matcher = new Qlobber({
     separator: `/`,
