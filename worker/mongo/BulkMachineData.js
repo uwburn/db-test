@@ -2,8 +2,6 @@
 
 const uuidv4 = require('uuid/v4');
 const MongoClient = require('mongodb').MongoClient;
-const intervalPromise = require('interval-promise')
-const LinkedList = require('linkedlist');
 
 const MAX_WORKER_DELAY = 10000;
 
@@ -14,7 +12,7 @@ const INTERVALS = {
     temperature: 1000,
     pressure: 1000,
     alarm: 1800000
-}
+};
 
 const TIME_STEP = Math.min(
     INTERVALS.status,
@@ -48,7 +46,7 @@ module.exports = class BulkMachineData {
             temperature: Math.floor(timeInterval / INTERVALS.temperature * this.workloadOpts.machineUptime),
             pressure: Math.floor(timeInterval / INTERVALS.pressure * this.workloadOpts.machineUptime),
             alarm: Math.floor(timeInterval / INTERVALS.alarm * this.workloadOpts.machineUptime)
-        }
+        };
 
         this.totalSamples = 0;
         for (let k in this.samples) {
@@ -232,7 +230,7 @@ module.exports = class BulkMachineData {
                 time: absDate,
                 value: groupName
             }
-        }
+        };
 
         return sample;
     }
@@ -249,7 +247,7 @@ module.exports = class BulkMachineData {
                 time: absDate,
                 value: groupName
             }
-        }
+        };
 
         return sample;
     }
@@ -266,13 +264,13 @@ module.exports = class BulkMachineData {
                 time: absDate,
                 value: groupName
             }
-        }
+        };
 
         return sample;
     }
 
     temperatureSample(id, groupName, absDate) {
-        let sample = {
+        return {
             deviceType: this.workloadOpts.machineTypeId,
             device: id,
             time: absDate,
@@ -281,12 +279,10 @@ module.exports = class BulkMachineData {
                 value: Math.random() * 100 + 50
             }
         };
-
-        return sample;
     }
 
     pressureSample(id, groupName, absDate) {
-        let sample = {
+        return {
             deviceType: this.workloadOpts.machineTypeId,
             device: id,
             time: absDate,
@@ -295,21 +291,17 @@ module.exports = class BulkMachineData {
                 value: Math.random() * 4 +1
             }
         };
-
-        return sample;
     }
 
     alarmSample(id, groupName, absDate) {
-        let interval = {
+        return {
             _id: uuidv4(),
             deviceType: this.workloadOpts.machineTypeId,
             device: id,
             startTime: absDate,
             endTime: new Date(absDate.getTime() + Math.round(Math.number * 300 + 60) * 1000),
             value: Math.ceil(Math.random() * 100).toString()
-        }
-
-        return interval;
+        };
     }
 
     async recordTimeComplex(id, groupName, sample) {
@@ -326,13 +318,13 @@ module.exports = class BulkMachineData {
                 time: sample.time
             },
             $set: { }
-        }
+        };
 
         update.$set[groupName] = sample[groupName];
 
         let options = {
             upsert: true
-        }
+        };
 
         await this.timeComplexColl.update(criteria, update, options);
     }
@@ -341,4 +333,4 @@ module.exports = class BulkMachineData {
 
     }
 
-}
+};
