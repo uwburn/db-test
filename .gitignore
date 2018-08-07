@@ -1,2 +1,4 @@
 .vscode
 package-lock.json
+.idea/
+*.iml
