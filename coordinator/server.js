@@ -16,9 +16,11 @@ matcher.add(`worker/+/status`, workerStatus);
 matcher.add(`worker/+/work/+/status`, workStatus);
 matcher.add(`worker/+/work/+/log`, workLog);
 
-const suite = require(`./suites/${process.env.SUITE}`);
+const config = require(`./config/${process.env.CONFIG}`);
+const suite = require(`./buildSuite`)(config.database, config.databaseOpts, config.suite, config.suiteOpts);
 let status = `DISCOVERING_WORKERS`;
 let stepIndex = 0;
+let step;
 
 const mqttClient  = mqtt.connect(process.env.MQTT_ADDRESS);
 
@@ -63,7 +65,11 @@ function workLog(levels, message) {
     let workerId = levels[1];
     let workId = levels[3];
 
-    console.log(`Worker: ${workerId}, work: ${workId}, records: ${message.samplesRecorded}/${message.totalSamples}, errors: ${message.errors}, ${Math.round(message.samplesRecorded/message.totalSamples*100)}%`);
+  let percent = Math.round(message.samplesRecorded/message.totalSamples*100);
+  if (isNaN(percent))
+    percent = 100;
+
+    console.log(`Worker: ${workerId}, work: ${workId}, records: ${message.samplesRecorded}/${message.totalSamples}, errors: ${message.errors}, ${percent}%`);
 }
 
 function waitForWorkers() {
@@ -106,10 +112,10 @@ function checkStep(workerId, workId, message) {
         shutdown();
     }
 
-    suite.steps[stepIndex].workers[workerId] = message;
+    step.workers[workerId] = message;
 
-    for (workerId in suite.steps[stepIndex].workers) {
-        let worker = suite.steps[stepIndex].workers[workerId];
+    for (workerId in step.workers) {
+        let worker = step.workers[workerId];
         if (worker.status !== "COMPLETED")
             return;
     }
@@ -119,7 +125,7 @@ function checkStep(workerId, workId, message) {
 
 function nextStep() {
     ++stepIndex;
-    if (stepIndex >= suite.steps.length) {
+    if (stepIndex >= suite.length) {
         console.log(`Suite completed`);
         shutdown();
         return;
@@ -131,27 +137,26 @@ function nextStep() {
 function startStep() {
     status = `RUNNING_STEP`;
 
-    let step = suite.steps[stepIndex];
-
-    console.log(`Starting step ${step.name}`);
-
-    let workId = uuidv4();
-    let workForWorker = {
-        database: suite.database,
-        databaseOpts: suite.databaseOpts,
-        workload: step.workload,
-        workloadOpts: step.workloadOpts
+    step = {
+        workers: {}
     };
 
-    step.workers = {};
+    console.log(`Starting step ${suite.getStepName(stepIndex)}`);
 
+    let workId = uuidv4();
+
+    let workerIndex = 0;
     for (let workerId in workers) {
+        let stepForWorker = suite.getStepForWorker(stepIndex, workerIndex, workersCount);
+
         step.workers[workerId] = {
             status: "PENDING"
-        }
-    }
+        };
 
-    mqttClient.publish(`work/${workId}`, JSON.stringify(workForWorker));
+      mqttClient.publish(`worker/${workerId}/work/${workId}`, JSON.stringify(stepForWorker));
+
+        ++workerIndex;
+    }
 }
 
 function shutdown() {

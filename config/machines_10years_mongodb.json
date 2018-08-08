@@ -1,0 +1,16 @@
+{
+    "database": "mongo",
+    "databaseOpts": {
+        "url": "mongodb://mongodb:27017",
+        "options": {
+        }
+    },
+    "suite": "MachineData",
+    "suiteOpts": {
+        "machineTypeId": "0a2d38f9-9e1c-4717-955a-e04690d5725e",
+        "machines": 2,
+        "startYear": 2010,
+        "years": 2,
+        "machineUptime": 0.001
+    }
+}

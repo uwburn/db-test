@@ -9,10 +9,9 @@ services:
     build:
       context: coordinator
     environment:
-      SUITE: machines_10years_mongodb.json
       MQTT_ADDRESS: mqtt://mqtt:1883
     volumes:
-      - ./suites:/usr/src/app/suites
+      - ./config:/usr/src/app/config
     depends_on:
       - mqtt
   worker:

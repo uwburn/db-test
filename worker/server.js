@@ -13,7 +13,7 @@ const matcher = new Qlobber({
     wildcard_one: `+`,
     wildcard_some: `#`
 });
-matcher.add(`work/+`, addWork);
+matcher.add(`worker/${workerId}/work/+`, addWork);
 matcher.add(`shutdown`, shutdown);
 
 let status = `READY`;
@@ -21,7 +21,7 @@ let currentWorkload;
  
 mqttClient.on(`connect`, function () {
     console.log(`Worker ${workerId} connected to MQTT`);
-    mqttClient.subscribe(`work/+`);
+    mqttClient.subscribe(`worker/${workerId}/work/+`);
     mqttClient.subscribe(`shutdown`);
 
     publishWorkerStatusInterval = setInterval(function() {
@@ -44,7 +44,7 @@ mqttClient.on(`message`, function (topic, message) {
 });
 
 async function addWork(levels, message) {
-    let workId = levels[1];
+    let workId = levels[3];
 
     const Workload = require(`./${message.database}/${message.workload}`);
 
@@ -55,7 +55,7 @@ async function addWork(levels, message) {
         return;
     }
 
-    console.log(`Accepting work ${workId}`)
+    console.log(`Accepting work ${workId}`);
     currentWorkload = new Workload(workId, workerId, message.workloadOpts, message.databaseOpts, mqttClient);
     status = `BUSY`;
     mqttClient.publish(`worker/${workerId}/work/${workId}/status`, JSON.stringify({
@@ -63,7 +63,7 @@ async function addWork(levels, message) {
     }));
 
     await currentWorkload.run();
-    console.log(`Work ${workId} completed`)
+    console.log(`Work ${workId} completed`);
     currentWorkload = undefined;
     status = `READY`;
     mqttClient.publish(`worker/${workerId}/work/${workId}/status`, JSON.stringify({

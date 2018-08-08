@@ -53,15 +53,15 @@ module.exports = class BulkMachineData {
         for (let k in this.samples) {
             this.totalSamples += this.samples[k];
         }
-        this.totalSamples *= this.workloadOpts.machines;
+        this.totalSamples *= this.workloadOpts.machines.length;
         this.samplesRecorded = 0;
 
         this.machines = {};
-        for (let i = 0; i < this.workloadOpts.machines; ++i) {
+        for (let machineId of this.workloadOpts.machines) {
             let machineDelay = timeInterval * (1 - this.workloadOpts.machineUptime) * Math.random();
             machineDelay = Math.round(machineDelay / TIME_STEP) * TIME_STEP;
 
-            this.machines[uuidv4()] = {
+            this.machines[machineId] = {
                 groups: {
                     status: 0,
                     counters: 0,
@@ -97,7 +97,11 @@ module.exports = class BulkMachineData {
     }
 
     log() {
-        console.log(`Records: ${this.samplesRecorded}/${this.totalSamples}, errors: ${this.errors}, ${Math.round(this.samplesRecorded/this.totalSamples*100)}%`);
+      let percent = Math.round(this.samplesRecorded/this.totalSamples*100);
+      if (isNaN(percent))
+        percent = 100;
+
+        console.log(`Records: ${this.samplesRecorded}/${this.totalSamples}, errors: ${this.errors}, ${percent}%`);
 
         this.mqttClient.publish(`worker/${this.workerId}/work/${this.id}/log`, JSON.stringify({
             time: new Date().getTime(),
