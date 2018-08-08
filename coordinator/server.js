@@ -1,6 +1,7 @@
 const uuidv4 = require(`uuid/v4`);
 const mqtt = require(`mqtt`);
 const Qlobber = require(`qlobber`).Qlobber;
+const envConfig = require(`env-config`);
 
 const DISCOVER_WORKERS_TIMEOUT = 10000;
 const CHECK_WORKERS_INTERVAL = 1000;
@@ -16,7 +17,7 @@ matcher.add(`worker/+/status`, workerStatus);
 matcher.add(`worker/+/work/+/status`, workStatus);
 matcher.add(`worker/+/work/+/log`, workLog);
 
-const config = require(`./config/${process.env.CONFIG}`);
+const config = envConfig({});
 const suite = require(`./buildSuite`)(config.database, config.databaseOpts, config.suite, config.suiteOpts);
 let status = `DISCOVERING_WORKERS`;
 let stepIndex = 0;

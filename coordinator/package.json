@@ -8,6 +8,7 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
+    "env-config": "git+https://github.com/uwburn/env-config.git#master",
     "moment": "^2.22.2",
     "mqtt": "^2.18.3",
     "qlobber": "^3.0.2",

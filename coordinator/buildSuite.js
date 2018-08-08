@@ -14,6 +14,8 @@ module.exports = function(database, databaseOpts, suite, suiteOptions) {
 
 function buildMachineDataSuite(database, databaseOpts, suiteOptions) {
   let startYear = moment(suiteOptions.startYear, "YYYY");
+  suiteOptions.machines = parseInt(suiteOptions.machines);
+  suiteOptions.machineUptime = parseFloat(suiteOptions.machineUptime);
 
   const machines = [];
   for (let i = 0; i < suiteOptions.machines; ++i)

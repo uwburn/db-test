@@ -8,4 +8,11 @@ services:
       - "27017:27017"
   coordinator:
     environment:
-      CONFIG: machines_10years_mongodb.json
+      DATABASE: "mongo"
+      DATABASE-OPTS_URL: "mongodb://mongodb:27017"
+      SUITE: "MachineData"
+      SUITE-OPTS_MACHINE-TYPE-ID: "0a2d38f9-9e1c-4717-955a-e04690d5725e"
+      SUITE-OPTS_MACHINES: 2
+      SUITE-OPTS_START-YEAR: 2010
+      SUITE-OPTS_YEARS: 2
+      SUITE-OPTS_MACHINE-UPTIME: 0.001
