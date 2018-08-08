@@ -55,7 +55,7 @@ function workLog(levels, message) {
     let workerId = levels[1];
     let workId = levels[3];
 
-    console.log(`Worker: ${workerId}, work: ${workId}, cycles: ${message.cycles}, samples: ${message.samples}/${message.totalSamples}, errors: ${message.errors}, ${Math.round(message.samples/message.totalSamples*100)}%`);
+    console.log(`Worker: ${workerId}, work: ${workId}, records: ${message.samplesRecorded}/${message.totalSamples}, errors: ${message.errors}, ${Math.round(message.samplesRecorded/message.totalSamples*100)}%`);
 }
 
 function waitForWorkers() {

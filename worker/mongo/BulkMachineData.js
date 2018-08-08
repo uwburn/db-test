@@ -1,8 +1,10 @@
 "use strict";
 
+const { Readable, Writable } = require('stream');
 const uuidv4 = require('uuid/v4');
 const MongoClient = require('mongodb').MongoClient;
 
+const STREAM_HIGH_WATERMARK = 256;
 const MAX_WORKER_DELAY = 10000;
 
 const INTERVALS = {
@@ -23,7 +25,6 @@ const TIME_STEP = Math.min(
     INTERVALS.alarm
 );
 
-const INSERTION_INTERVAL = 1000;
 const LOG_INTERVAL = 10000;
 
 module.exports = class BulkMachineData {
@@ -53,7 +54,6 @@ module.exports = class BulkMachineData {
             this.totalSamples += this.samples[k];
         }
         this.totalSamples *= this.workloadOpts.machines;
-        this.maxSamplesPerCycle = this.workloadOpts.ratePerSecond / INSERTION_INTERVAL * 1000;
         this.samplesRecorded = 0;
 
         this.machines = {};
@@ -92,20 +92,17 @@ module.exports = class BulkMachineData {
             alarm: this.recordInterval.bind(this),
         };
 
-        this.cycles = 0;
-        this.samplesProduced = 0;
+        this.samplesRecorded = 0;
         this.errors = 0;
     }
 
     log() {
-        console.log(`Cycles: ${this.cycles}, samples: ${this.samplesProduced}/${this.totalSamples}, records: ${this.samplesRecorded}/${this.totalSamples}, errors: ${this.errors}, ${Math.round(this.samplesProduced/this.totalSamples*100)}%`);
+        console.log(`Records: ${this.samplesRecorded}/${this.totalSamples}, errors: ${this.errors}, ${Math.round(this.samplesRecorded/this.totalSamples*100)}%`);
 
         this.mqttClient.publish(`worker/${this.workerId}/work/${this.id}/log`, JSON.stringify({
             time: new Date().getTime(),
             totalSamples: this.totalSamples,
-            samples: this.samplesProduced,
-            records: this.samplesRecorded,
-            cycles: this.cycles,
+            samplesRecorded: this.samplesRecorded,
             errors: this.errors,
             startTime: this.startTime,
             endTime: this.endTime
@@ -138,84 +135,110 @@ module.exports = class BulkMachineData {
         this.mongoClient.close();
     }
 
+    machineDataStream() {
+      let done = false;
+      let absTime = this.workloadOpts.startTime;
+      let absDate = new Date(absTime);
+      let relTime = 0;
+      let i = 0;
+      let j = 0;
+
+      let rs = Readable({
+        objectMode: true,
+        highWaterMark: STREAM_HIGH_WATERMARK
+      });
+      rs._read = (size) => {
+        let readSamples = 0;
+        while (!done) {
+          done = true;
+
+          let ids = Object.keys(this.machines);
+          for (; i < ids.length; ++i) {
+            let id = ids[i];
+            let machine = this.machines[id];
+
+            let groupNames = Object.keys(machine.groups);
+            for (; j < groupNames.length; ++j) {
+              let groupName = groupNames[j];
+
+              done = false;
+              if ((relTime + machine.machineDelay) % INTERVALS[groupName] === 0) {
+                rs.push({
+                  id: id,
+                  groupName: groupName,
+                  sample: this.sample(id, groupName, absDate)
+                });
+
+                ++machine.groups[groupName];
+
+                if (machine.groups[groupName] >= this.samples[groupName])
+                  delete machine.groups[groupName];
+
+                if (++readSamples >= size)
+                  return;
+              }
+            }
+
+            j = 0;
+          }
+
+          i = 0;
+          absTime += TIME_STEP;
+          absDate = new Date(absTime);
+          relTime += TIME_STEP;
+        }
+
+        rs.push(null);
+      };
+
+      return rs;
+    }
+
+    mongoRecordStream() {
+      let ws = Writable({
+        objectMode: true,
+        highWaterMark: STREAM_HIGH_WATERMARK
+      });
+
+      ws._write = (chunk, enc, callback) => {
+        this.record(chunk.id, chunk.groupName, chunk.sample).catch((err) => {
+          console.error(err);
+          ++this.errors;
+        }).then(() => {
+          ++this.samplesRecorded;
+        }).then(callback);
+      };
+
+      return ws;
+    }
+
     async _run() {
         await new Promise((resolve) => {
-            let done = false;
-            let absTime = this.workloadOpts.startTime;
-            let absDate = new Date(absTime);
-            let relTime = 0;
-            let i = 0;
-            let j = 0;
-
-            let logInterval;
-            let cycleInterval;
-
             console.log(`Waiting worker delay (${Math.round(this.workerDelay / 1000)} s) to pass... `);
 
             setTimeout(() => {
+                let logInterval = setInterval(this.log.bind(this), LOG_INTERVAL);
+
                 this.startTime = new Date().getTime();
 
-                logInterval = setInterval(this.log.bind(this), LOG_INTERVAL);
+                let mongoRecordStream = this.mongoRecordStream();
+                this.machineDataStream().pipe(mongoRecordStream);
 
-                cycleInterval = setInterval(() => {
-                    ++this.cycles;
-                    let cycleSamples = 0;
-                    while (!done) {
-                        done = true;
-        
-                        let ids = Object.keys(this.machines);
-                        for (; i < ids.length; ++i) {
-                            let id = ids[i];
-                            let machine = this.machines[id];
-        
-                            let groupNames = Object.keys(machine.groups);
-                            for (; j < groupNames.length; ++j) {
-                                let groupName = groupNames[j];
+                mongoRecordStream.once("finish", () => {
+                  this.endTime = new Date().getTime();
+                  clearInterval(logInterval);
 
-                                done = false;
-                                if ((relTime + machine.machineDelay) % INTERVALS[groupName] === 0) {
-                                    this.sample(id, groupName, absDate).catch(() => {
-                                        ++this.errors;
-                                    }).then(() => {
-                                        if (++this.samplesRecorded === this.totalSamples) {
-                                            this.endTime = new Date().getTime();
-                                            clearInterval(logInterval);
-                                            clearInterval(cycleInterval);
-                                            
-                                            this.log();
-                                            console.log(`Workload completed`);
+                  this.log();
+                  console.log(`Workload completed`);
 
-                                            resolve();
-                                        }
-                                    });
-                                    ++machine.groups[groupName];
-                                    ++cycleSamples;
-                                    ++this.samplesProduced;
-        
-                                    if (machine.groups[groupName] >= this.samples[groupName])
-                                        delete machine.groups[groupName];
-        
-                                    if (cycleSamples >= this.maxSamplesPerCycle)
-                                        return;
-                                }
-                            }
-
-                            j = 0;
-                        }
-        
-                        i = 0;
-                        absTime += TIME_STEP;
-                        absDate = new Date(absTime);
-                        relTime += TIME_STEP;
-                    }
-                }, INSERTION_INTERVAL);
+                  resolve();
+                });
             }, this.workerDelay);
         });
     }
 
-    async sample(id, groupName, absDate) {
-        let sample = this.sampleMethods[groupName](id, groupName, absDate);
-        this.recordMethods[groupName](id, groupName, sample);
+    sample(id, groupName, absDate) {
+        return this.sampleMethods[groupName](id, groupName, absDate);
     }
 
     statusSample(id, groupName, absDate) {
@@ -304,6 +327,10 @@ module.exports = class BulkMachineData {
         };
     }
 
+  async record(id, groupName, sample) {
+    return this.recordMethods[groupName](id, groupName, sample);
+  }
+
     async recordTimeComplex(id, groupName, sample) {
         let criteria = {
             deviceType: sample.deviceType,
@@ -330,7 +357,26 @@ module.exports = class BulkMachineData {
     }
 
     async recordInterval(id, groupName, sample) {
+      let criteria = {
+        _id: sample.id
+      };
 
+      let update = {
+        $setOnInsert: {
+          deviceType: sample.deviceType,
+          device: sample.device,
+          time: sample.time
+        },
+        $set: {
+          value: sample.value
+        }
+      };
+
+      let options = {
+        upsert: true
+      };
+
+      await this.intervalColl.update(criteria, update, options);
     }
 
 };
