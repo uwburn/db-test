@@ -2,8 +2,10 @@ const uuidv4 = require(`uuid/v4`);
 const mqtt = require(`mqtt`);
 const Qlobber = require(`qlobber`).Qlobber;
 
+const DISCOVER_WORKERS_TIMEOUT = 10000;
 const CHECK_WORKERS_INTERVAL = 1000;
 const workers = {};
+let workersCount = 0;
 
 const matcher = new Qlobber({
     separator: `/`,
@@ -15,7 +17,7 @@ matcher.add(`worker/+/work/+/status`, workStatus);
 matcher.add(`worker/+/work/+/log`, workLog);
 
 const suite = require(`./suites/${process.env.SUITE}`);
-let status = `WAITING_WORKERS`;
+let status = `DISCOVERING_WORKERS`;
 let stepIndex = 0;
 
 const mqttClient  = mqtt.connect(process.env.MQTT_ADDRESS);
@@ -23,6 +25,12 @@ const mqttClient  = mqtt.connect(process.env.MQTT_ADDRESS);
 mqttClient.on(`connect`, function () {
     console.log(`Coordinator connected to MQTT`);
     mqttClient.subscribe(`worker/#`);
+
+    console.log(`Discovering workers`);
+    setTimeout(() => {
+      status = `WAITING_WORKERS`;
+      workersCount = Object.keys(workers).length;
+    }, DISCOVER_WORKERS_TIMEOUT);
 });
 
 mqttClient.on(`message`, function (topic, message) {
@@ -77,8 +85,8 @@ function waitForWorkers() {
     }
 
     let ready = true;
-    if (readyWorkersCount < suite.workers) {
-        console.log(`${readyWorkersCount} ready workers, ${suite.workers} needed`);
+    if (readyWorkersCount < workersCount) {
+        console.log(`${readyWorkersCount} ready workers, ${workersCount} needed`);
         ready = false;
     }
     if (busyWorkersCount > 0) {
