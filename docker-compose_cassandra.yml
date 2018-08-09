@@ -1,0 +1,17 @@
+version: '3'
+
+services:
+  cassandra:
+    image: cassandra
+    ports:
+      - "9042:9042"
+  coordinator:
+    environment:
+      DATABASE: "cassandra"
+      DATABASE-OPTS_CONTACT-POINTS_0: "cassandra"
+      SUITE: "MachineData"
+      SUITE-OPTS_MACHINE-TYPE-ID: "0a2d38f9-9e1c-4717-955a-e04690d5725e"
+      SUITE-OPTS_MACHINES: 4
+      SUITE-OPTS_START-YEAR: 2010
+      SUITE-OPTS_YEARS: 2
+      SUITE-OPTS_MACHINE-UPTIME: 0.001
