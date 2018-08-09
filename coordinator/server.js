@@ -23,9 +23,11 @@ let status = `DISCOVERING_WORKERS`;
 let stepIndex = 0;
 let step;
 
-const mqttClient  = mqtt.connect(process.env.MQTT_ADDRESS);
+let mqttClient;
+suite.prepareDatabase().then(function() {
+  mqttClient = mqtt.connect(process.env.MQTT_ADDRESS);
 
-mqttClient.on(`connect`, function () {
+  mqttClient.on(`connect`, function () {
     console.log(`Coordinator connected to MQTT`);
     mqttClient.subscribe(`worker/#`);
 
@@ -34,17 +36,18 @@ mqttClient.on(`connect`, function () {
       status = `WAITING_WORKERS`;
       workersCount = Object.keys(workers).length;
     }, DISCOVER_WORKERS_TIMEOUT);
-});
+  });
 
-mqttClient.on(`message`, function (topic, message) {
+  mqttClient.on(`message`, function (topic, message) {
     let handlers = matcher.match(topic);
     if (!handlers.length)
-        return;
+      return;
 
     let levels = topic.split(`/`);
     message = JSON.parse(message);
 
     handlers[0](levels, message);
+  });
 });
 
 function workerStatus(levels, message) {

@@ -8,8 +8,10 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "env-config": "git+https://github.com/uwburn/env-config.git#master",
+    "cassandra-driver": "^3.5.0",
+    "env-config": "git+https://github.com/uwburn/env-config.git",
     "moment": "^2.22.2",
+    "mongodb": "^3.1.1",
     "mqtt": "^2.18.3",
     "qlobber": "^3.0.2",
     "uuid": "^3.3.2"
