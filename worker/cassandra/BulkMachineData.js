@@ -11,11 +11,11 @@ module.exports = class BulkMachineData extends BaseBulkMachineData {
       super(id, workerId, workloadOpts, databaseOpts, mqttClient);
 
         this.recordMethods = {
-            status: this.recordTimeComplex.bind(this),
+            status: this.recordInterval.bind(this),
             counters: this.recordTimeComplex.bind(this),
             setup: this.recordTimeComplex.bind(this),
-            temperature: this.recordTimeComplex.bind(this),
-            pressure: this.recordTimeComplex.bind(this),
+            temperatureProbe1: this.recordTimeComplex.bind(this),
+            temperatureProbe2: this.recordTimeComplex.bind(this),
             alarm: this.recordInterval.bind(this),
         };
     }
@@ -50,7 +50,7 @@ module.exports = class BulkMachineData extends BaseBulkMachineData {
       let flattened = FlattenJS.convert(sample[groupName].value);
 
       for (let path in flattened) {
-        promises.push(this.cassandraClient.execute("INSERT INTO time_flat_complex (device_type, device, group, path, timestamp, original_timestamp, value) VALUES (?, ?, ?. ?, ?, ?, ?)", [
+        promises.push(this.cassandraClient.execute("INSERT INTO time_flat_complex (device_type, device, group, path, timestamp, original_timestamp, value) VALUES (?, ?, ?, ?, ?, ?, ?)", [
           sample.deviceType,
           id,
           groupName,

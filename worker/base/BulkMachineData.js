@@ -6,11 +6,11 @@ const uuidv4 = require('uuid/v4');
 const MAX_WORKER_DELAY = 10000;
 
 const INTERVALS = {
-    status: 30000,
+    status: 3600000,
     counters: 120000,
     setup: 300000,
-    temperature: 1000,
-    pressure: 1000,
+    temperatureProbe1: 1000,
+    temperatureProbe2: 1000,
     alarm: 1800000
 };
 
@@ -18,8 +18,8 @@ const TIME_STEP = Math.min(
     INTERVALS.status,
     INTERVALS.counters,
     INTERVALS.setup,
-    INTERVALS.temperature,
-    INTERVALS.pressure,
+    INTERVALS.temperatureProbe1,
+    INTERVALS.temperatureProbe2,
     INTERVALS.alarm
 );
 
@@ -42,8 +42,8 @@ module.exports = class BulkMachineData {
             status: Math.floor(timeInterval / INTERVALS.status * this.workloadOpts.machineUptime),
             counters: Math.floor(timeInterval / INTERVALS.counters * this.workloadOpts.machineUptime),
             setup: Math.floor(timeInterval / INTERVALS.setup * this.workloadOpts.machineUptime),
-            temperature: Math.floor(timeInterval / INTERVALS.temperature * this.workloadOpts.machineUptime),
-            pressure: Math.floor(timeInterval / INTERVALS.pressure * this.workloadOpts.machineUptime),
+            temperatureProbe1: Math.floor(timeInterval / INTERVALS.temperatureProbe1 * this.workloadOpts.machineUptime),
+            temperatureProbe2: Math.floor(timeInterval / INTERVALS.temperatureProbe2 * this.workloadOpts.machineUptime),
             alarm: Math.floor(timeInterval / INTERVALS.alarm * this.workloadOpts.machineUptime)
         };
 
@@ -64,8 +64,8 @@ module.exports = class BulkMachineData {
                     status: 0,
                     counters: 0,
                     setup: 0,
-                    temperature: 0,
-                    pressure: 0,
+                    temperatureProbe1: 0,
+                    temperatureProbe2: 0,
                     alarm: 0
                 },
                 machineDelay: machineDelay
@@ -76,8 +76,8 @@ module.exports = class BulkMachineData {
             status: this.statusSample.bind(this),
             counters: this.countersSample.bind(this),
             setup: this.setupSample.bind(this),
-            temperature: this.temperatureSample.bind(this),
-            pressure: this.pressureSample.bind(this),
+            temperatureProbe1: this.temperatureProbe1Sample.bind(this),
+            temperatureProbe2: this.temperatureProbe2Sample.bind(this),
             alarm: this.alarmSample.bind(this)
         };
 
@@ -227,76 +227,216 @@ module.exports = class BulkMachineData {
     }
 
     statusSample(id, groupName, absDate) {
-        let sample = {
-            deviceType: this.workloadOpts.machineTypeId,
-            device: id,
-            time: absDate
-        };
-
-        sample[groupName] = {
-            group: {
-                time: absDate,
-                value: groupName
-            }
-        };
-
-        return sample;
+      return {
+        _id: uuidv4(),
+        deviceType: this.workloadOpts.machineTypeId,
+        device: id,
+        startTime: absDate,
+        endTime: new Date(absDate.getTime() + Math.round(Math.random() * 300 + 60) * 1000),
+        value: Math.random() > 0.5 ? "WORKING" : "IDLE"
+      };
     }
 
     countersSample(id, groupName, absDate) {
-        let sample = {
-            deviceType: this.workloadOpts.machineTypeId,
-            device: id,
-            time: absDate
-        };
-
-        sample[groupName] = {
-            group: {
-                time: absDate,
-                value: groupName
+        return {
+          deviceType: this.workloadOpts.machineTypeId,
+          device: id,
+          time: absDate,
+          counters: {
+            time: absDate,
+            value: {
+              activeEnergyConsumed: Math.round(Math.random() * 1000000),
+              reactiveEnergyProduced: Math.round(Math.random() * 1000000),
+              totalLengthProcessed: Math.random() * 1000000,
+              partialLengthProcessed: Math.random() * 1000000,
+              totalWorkedTime: Math.round(Math.random() * 1000000),
+              partialWorkedTime: Math.round(Math.random() * 1000000),
+              totalPartsProcessed: Math.round(Math.random() * 1000000),
+              partialPartProcessed: Math.round(Math.random() * 1000000),
+              clutches: [
+                {
+                  cycles: Math.round(Math.random() * 10000)
+                },
+                {
+                  cycles: Math.round(Math.random() * 10000)
+                }
+              ],
+              oilPumps: [
+                {
+                  cycles: Math.round(Math.random() * 10000),
+                  workingTime: Math.round(Math.random() * 1000000),
+                },
+                {
+                  cycles: Math.round(Math.random() * 10000),
+                  workingTime: Math.round(Math.random() * 1000000),
+                },
+                {
+                  cycles: Math.round(Math.random() * 10000),
+                  workingTime: Math.round(Math.random() * 1000000),
+                },
+                {
+                  cycles: Math.round(Math.random() * 10000),
+                  workingTime: Math.round(Math.random() * 1000000),
+                }
+              ],
+              belts: [
+                {
+                  failures: Math.round(Math.random() * 100),
+                  workingTime: Math.round(Math.random() * 1000000),
+                },
+                {
+                  failures: Math.round(Math.random() * 100),
+                  workingTime: Math.round(Math.random() * 1000000),
+                },
+                {
+                  failures: Math.round(Math.random() * 100),
+                  workingTime: Math.round(Math.random() * 1000000),
+                },
+                {
+                  failures: Math.round(Math.random() * 100),
+                  workingTime: Math.round(Math.random() * 1000000),
+                },
+                {
+                  failures: Math.round(Math.random() * 100),
+                  workingTime: Math.round(Math.random() * 1000000),
+                },
+                {
+                  failures: Math.round(Math.random() * 100),
+                  workingTime: Math.round(Math.random() * 1000000),
+                }
+              ],
+              lamps: [
+                {
+                  cycles: Math.round(Math.random() * 10000),
+                  failures: Math.round(Math.random() * 100),
+                  workingTime: Math.round(Math.random() * 1000000),
+                },
+                {
+                  cycles: Math.round(Math.random() * 10000),
+                  failures: Math.round(Math.random() * 100),
+                  workingTime: Math.round(Math.random() * 1000000),
+                }
+              ],
+              drives: [
+                {
+                  cycles: Math.round(Math.random() * 10000),
+                },
+                {
+                  cycles: Math.round(Math.random() * 10000),
+                },
+                {
+                  cycles: Math.round(Math.random() * 10000),
+                },
+                {
+                  cycles: Math.round(Math.random() * 10000),
+                },
+                {
+                  cycles: Math.round(Math.random() * 10000),
+                },
+                {
+                  cycles: Math.round(Math.random() * 10000),
+                },
+                {
+                  cycles: Math.round(Math.random() * 10000),
+                },
+                {
+                  cycles: Math.round(Math.random() * 10000),
+                }
+              ]
             }
+          }
         };
-
-        return sample;
     }
 
     setupSample(id, groupName, absDate) {
-        let sample = {
-            deviceType: this.workloadOpts.machineTypeId,
-            device: id,
-            time: absDate
-        };
-
-        sample[groupName] = {
-            group: {
-                time: absDate,
-                value: groupName
-            }
-        };
-
-        return sample;
-    }
-
-    temperatureSample(id, groupName, absDate) {
         return {
             deviceType: this.workloadOpts.machineTypeId,
             device: id,
             time: absDate,
-            temperature: {
+            setup:  {
+                time: absDate,
+                value: {
+                  partDiameter: Math.round(Math.random() * 500),
+                  partThickness: Math.round(Math.random() * 10),
+                  partLength: Math.round(Math.random() * 5000),
+                  partType: Math.round(Math.random() * 5),
+                  partCode: Math.round(Math.random() * 10000).toString(),
+                  batchCode: Math.round(Math.random() * 10000).toString(),
+                  heaters: [
+                    {
+                      preheatPosition: Math.round(Math.random() * 1000),
+                      heatPosition: Math.round(Math.random() * 1000),
+                      temperature: Math.round(Math.random() * 200),
+                      preheatTime: Math.round(Math.random() * 10),
+                      heatTime: Math.round(Math.random() * 20)
+                    },
+                    {
+                      preheatPosition: Math.round(Math.random() * 1000),
+                      heatPosition: Math.round(Math.random() * 1000),
+                      temperature: Math.round(Math.random() * 200),
+                      preheatTime: Math.round(Math.random() * 10),
+                      heatTime: Math.round(Math.random() * 20)
+                    }
+                  ],
+                  drives: [
+                    {
+                      time: Math.round(Math.random() * 10),
+                      delay: Math.round(Math.random() * 5)
+                    },
+                    {
+                      time: Math.round(Math.random() * 10),
+                      delay: Math.round(Math.random() * 5)
+                    },
+                    {
+                      time: Math.round(Math.random() * 10),
+                      delay: Math.round(Math.random() * 5)
+                    },
+                    {
+                      time: Math.round(Math.random() * 10),
+                      delay: Math.round(Math.random() * 5)
+                    },
+                    {
+                      time: Math.round(Math.random() * 10),
+                      delay: Math.round(Math.random() * 5)
+                    },
+                    {
+                      time: Math.round(Math.random() * 10),
+                      delay: Math.round(Math.random() * 5)
+                    },
+                    {
+                      time: Math.round(Math.random() * 10),
+                      delay: Math.round(Math.random() * 5)
+                    },
+                    {
+                      time: Math.round(Math.random() * 10),
+                      delay: Math.round(Math.random() * 5)
+                    }
+                  ]
+                }
+            }
+        };
+    }
+
+    temperatureProbe1Sample(id, groupName, absDate) {
+        return {
+            deviceType: this.workloadOpts.machineTypeId,
+            device: id,
+            time: absDate,
+            temperatureProbe1: {
                 time: absDate,
                 value: Math.random() * 100 + 50
             }
         };
     }
 
-    pressureSample(id, groupName, absDate) {
+    temperatureProbe2Sample(id, groupName, absDate) {
         return {
             deviceType: this.workloadOpts.machineTypeId,
             device: id,
             time: absDate,
-            pressure: {
+            temperatureProbe2: {
                 time: absDate,
-                value: Math.random() * 4 +1
+              value: Math.random() * 100 + 50
             }
         };
     }

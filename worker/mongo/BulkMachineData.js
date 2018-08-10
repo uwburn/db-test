@@ -10,11 +10,11 @@ module.exports = class BulkMachineData extends BaseBulkMachineData {
       super(id, workerId, workloadOpts, databaseOpts, mqttClient);
 
         this.recordMethods = {
-            status: this.recordTimeComplex.bind(this),
+            status: this.recordInterval.bind(this),
             counters: this.recordTimeComplex.bind(this),
             setup: this.recordTimeComplex.bind(this),
-            temperature: this.recordTimeComplex.bind(this),
-            pressure: this.recordTimeComplex.bind(this),
+            temperatureProbe1: this.recordTimeComplex.bind(this),
+            temperatureProbe2: this.recordTimeComplex.bind(this),
             alarm: this.recordInterval.bind(this),
         };
     }
