@@ -21,7 +21,7 @@ const config = envConfig({});
 const suite = require(`./buildSuite`)(config.database, config.databaseOpts, config.suite, config.suiteOpts);
 let status = `DISCOVERING_WORKERS`;
 let stepIndex = 0;
-let step;
+let steps = [];
 
 let mqttClient;
 suite.prepareDatabase().then(function () {
@@ -112,15 +112,15 @@ function checkStep(workerId, workId, message) {
     shutdown();
   }
 
-  step.workers[workerId] = message;
+  steps[stepIndex].workers[workerId] = message;
 
-  for (workerId in step.workers) {
-    let worker = step.workers[workerId];
+  for (workerId in steps[stepIndex].workers) {
+    let worker = steps[stepIndex].workers[workerId];
     if (worker.status !== "COMPLETED")
       return;
   }
 
-  step.endTime = new Date().getTime();
+  steps[stepIndex].endTime = new Date().getTime();
 
   logStep();
 
@@ -130,30 +130,62 @@ function checkStep(workerId, workId, message) {
 function logStep() {
   console.log("Step completed");
 
-  let totalTime = 0;
-  let totalWrites = 0;
-  let totalReads = 0;
-  let totalErrors = 0;
-  let workers = 0;
-  for (workerId in step.workers) {
-    ++workers;
-    let worker = step.workers[workerId];
-    totalTime += (worker.endTime - worker.startTime);
-    totalWrites += worker.writes;
-    totalReads += worker.reads;
-    totalErrors += worker.errors;
+  let stats = {
+    totalTime: 0,
+    totalWrites: 0,
+    totalReads: 0,
+    totalErrors: 0,
+    workers: 0
   }
 
-  let wps = Math.round(totalWrites * 1000 / totalTime * workers);
-  let rps = Math.round(totalReads * 1000 / totalTime * workers);
+  for (workerId in steps[stepIndex].workers) {
+    ++stats.workers;
+    let worker = steps[stepIndex].workers[workerId];
+    stats.totalTime += (worker.endTime - worker.startTime);
+    stats.totalWrites += worker.writes;
+    stats.totalReads += worker.reads;
+    stats.totalErrors += worker.errors;
+  }
 
-  console.log(`Total time: ${totalTime / 1000} s, writes per second: ${wps}, reads per second: ${rps}, errors: ${totalErrors}`);
+  stats.wps = stats.totalWrites * 1000 / stats.totalTime * stats.workers;
+  stats.rps = stats.totalReads * 1000 / stats.totalTime * stats.workers;
+
+  steps[stepIndex].stats = stats;
+
+  console.log(`Total time: ${Math.round(stats.totalTime / 1000)} s, writes per second: ${Math.round(stats.wps)}, reads per second: ${Math.round(stats.rps)}, errors: ${stats.totalErrors}`);
+}
+
+function logSuite() {
+  console.log(`Suite completed`);
+
+  let stats = {
+    totalTime: 0,
+    totalWrites: 0,
+    totalReads: 0,
+    totalErrors: 0,
+    wps: 0,
+    rps: 0
+  };
+
+  for (let step of steps) {
+    stats.totalTime += step.stats.totalTime;
+    stats.totalWrites += step.stats.totalWrites;
+    stats.totalReads += step.stats.totalReads;
+    stats.totalErrors += step.stats.totalErrors;
+    stats.wps += step.stats.wps * step.stats.totalTime;
+    stats.rps += step.stats.rps * step.stats.totalTime;
+  }
+
+  stats.wps = stats.wps / stats.totalTime;
+  stats.rps = stats.rps / stats.totalTime;
+
+  console.log(`Total time: ${Math.round(stats.totalTime / 1000)} s, writes per second: ${Math.round(stats.wps)}, reads per second: ${Math.round(stats.rps)}, errors: ${stats.totalErrors}`);
 }
 
 function nextStep() {
   ++stepIndex;
   if (stepIndex >= suite.length) {
-    console.log(`Suite completed`);
+    logSuite();
     shutdown();
     return;
   }
@@ -164,7 +196,7 @@ function nextStep() {
 function startStep() {
   status = `RUNNING_STEP`;
 
-  step = {
+  steps[stepIndex] = {
     startTime: new Date().getTime(),
     workers: {}
   };
@@ -177,7 +209,7 @@ function startStep() {
   for (let workerId in workers) {
     let stepForWorker = suite.getStepForWorker(stepIndex, workerIndex, workersCount);
 
-    step.workers[workerId] = {
+    steps[stepIndex].workers[workerId] = {
       status: "PENDING"
     };
 
