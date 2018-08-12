@@ -5,7 +5,7 @@ const moment = require(`moment`);
 const MongoClient = require('mongodb').MongoClient;
 const cassandra = require('cassandra-driver');
 
-module.exports = function(database, databaseOpts, suite, suiteOptions) {
+module.exports = function (database, databaseOpts, suite, suiteOptions) {
   switch (suite) {
     case "MachineData":
       return buildMachineDataSuite(database, databaseOpts, suiteOptions);
@@ -77,7 +77,7 @@ async function prepareMachineDataMongo(databaseOpts) {
     try {
       mongoClient = await MongoClient.connect(databaseOpts.url);
       break;
-    } catch (err) {}
+    } catch (err) { }
   }
 
   console.log("Preparing db, collections and indexes");
@@ -101,11 +101,11 @@ async function prepareMachineDataCassandra(databaseOpts) {
   let cassandraClient = new cassandra.Client(databaseOpts);
 
   console.log("Waiting for Cassandra");
-  while(true) {
+  while (true) {
     try {
       await cassandraClient.execute("SELECT * FROM system_schema.keyspaces", [], {});
       break;
-    } catch (err) {}
+    } catch (err) { }
   }
 
   console.log("Preparing keyspace and tables");
