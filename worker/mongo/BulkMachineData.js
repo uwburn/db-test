@@ -1,6 +1,8 @@
 "use strict";
 
 const MongoClient = require('mongodb').MongoClient;
+const Binary = require('mongodb').Binary;
+const uuidParse = require('uuid-parse');
 
 const BaseBulkMachineData = require("../base/BulkMachineData");
 
@@ -36,15 +38,15 @@ module.exports = class BulkMachineData extends BaseBulkMachineData {
 
   async recordTimeComplex(id, groupName, sample) {
     let criteria = {
-      deviceType: sample.deviceType,
-      device: sample.device,
+      deviceType: Binary(uuidParse.parse(sample.deviceType, Buffer.allocUnsafe(16)), Binary.SUBTYPE_UUID),
+        device: Binary(uuidParse.parse(sample.device, Buffer.allocUnsafe(16)), Binary.SUBTYPE_UUID),
       time: sample.time
     };
 
     let update = {
       $setOnInsert: {
-        deviceType: sample.deviceType,
-        device: sample.device,
+        deviceType: Binary(uuidParse.parse(sample.deviceType, Buffer.allocUnsafe(16)), Binary.SUBTYPE_UUID),
+        device: Binary(uuidParse.parse(sample.device, Buffer.allocUnsafe(16)), Binary.SUBTYPE_UUID),
         time: sample.time
       },
       $set: {}
@@ -61,14 +63,15 @@ module.exports = class BulkMachineData extends BaseBulkMachineData {
 
   async recordInterval(id, groupName, sample) {
     let criteria = {
-      _id: sample.id
+      _id: Binary(uuidParse.parse(sample.id, Buffer.allocUnsafe(16)), Binary.SUBTYPE_UUID),
     };
 
     let update = {
       $setOnInsert: {
-        deviceType: sample.deviceType,
-        device: sample.device,
-        time: sample.time
+        deviceType: Binary(uuidParse.parse(sample.deviceType, Buffer.allocUnsafe(16)), Binary.SUBTYPE_UUID),
+        device: Binary(uuidParse.parse(sample.device, Buffer.allocUnsafe(16)), Binary.SUBTYPE_UUID),
+        startTime: sample.startTime,
+        endTime: sample.endTime,
       },
       $set: {
         value: sample.value

@@ -85,14 +85,8 @@ async function prepareMachineDataMongo(databaseOpts) {
   let timeComplexColl = db.collection(`timeComplex`);
   let intervalColl = db.collection(`interval`);
 
-  await timeComplexColl.ensureIndex(`deviceType`);
-  await timeComplexColl.ensureIndex(`device`);
-  await timeComplexColl.ensureIndex(`time`);
-
-  await intervalColl.ensureIndex(`deviceType`);
-  await intervalColl.ensureIndex(`device`);
-  await intervalColl.ensureIndex(`startTime`);
-  await intervalColl.ensureIndex(`endTime`);
+  await timeComplexColl.ensureIndex({ device: 1, deviceType: 1, time: 1 }, { "unique": true });
+  await intervalColl.ensureIndex({ device: 1, deviceType: 1, endTime: 1, startTime: 1 });
 
   mongoClient.close();
 }
