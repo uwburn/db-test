@@ -230,7 +230,7 @@ module.exports = class BulkMachineData {
 
   statusSample(id, groupName, absDate) {
     return {
-      _id: uuidv4(),
+      id: uuidv4(),
       deviceType: this.workloadOpts.machineTypeId,
       device: id,
       startTime: absDate,
@@ -445,7 +445,7 @@ module.exports = class BulkMachineData {
 
   alarmSample(id, groupName, absDate) {
     return {
-      _id: uuidv4(),
+      id: uuidv4(),
       deviceType: this.workloadOpts.machineTypeId,
       device: id,
       startTime: absDate,
