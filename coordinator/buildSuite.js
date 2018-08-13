@@ -105,9 +105,9 @@ async function prepareMachineDataCassandra(databaseOpts) {
   console.log("Preparing keyspace and tables");
   await cassandraClient.execute("CREATE KEYSPACE IF NOT EXISTS db_test WITH replication = {'class' : 'SimpleStrategy', 'replication_factor' : 1};", [], {});
   await cassandraClient.execute("USE db_test;", [], {});
-  await cassandraClient.execute("CREATE TABLE time_complex (device_type text, device text, group text, timestamp timestamp, original_timestamp timestamp, value text, PRIMARY KEY (( device_type, device, group ), timestamp));", [], {});
-  await cassandraClient.execute("CREATE TABLE time_flat_complex (device_type text, device text, group text, path text, timestamp timestamp, original_timestamp timestamp, value text, PRIMARY KEY (( device_type, device, group ), path, timestamp));", [], {});
-  await cassandraClient.execute("CREATE TABLE interval (device_type text, device text, group text, start_time timestamp, end_time timestamp, value text, PRIMARY KEY (device_type, device, group, start_time, end_time));", [], {});
+  await cassandraClient.execute("CREATE TABLE IF NOT EXISTS time_complex (device_type text, device text, group text, timestamp timestamp, original_timestamp timestamp, value text, PRIMARY KEY (( device_type, device, group ), timestamp));", [], {});
+  await cassandraClient.execute("CREATE TABLE IF NOT EXISTS time_flat_complex (device_type text, device text, group text, path text, timestamp timestamp, original_timestamp timestamp, value text, PRIMARY KEY (( device_type, device, group ), path, timestamp));", [], {});
+  await cassandraClient.execute("CREATE TABLE IF NOT EXISTS interval (device_type text, device text, group text, start_time timestamp, end_time timestamp, value text, PRIMARY KEY (device_type, device, group, start_time, end_time));", [], {});
 
   await cassandraClient.shutdown();
 }
