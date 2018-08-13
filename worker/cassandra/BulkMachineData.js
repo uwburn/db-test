@@ -5,6 +5,8 @@ const FlattenJS = require('flattenjs');
 
 const BaseBulkMachineData = require("../base/BulkMachineData");
 
+const TIME_COMPLEX_MODE = process.env.CASSANDRA_TIME_COMPLEX_MODE || "BOTH";
+
 module.exports = class BulkMachineData extends BaseBulkMachineData {
 
   constructor(id, workerId, workloadOpts, databaseOpts, mqttClient) {
@@ -36,31 +38,38 @@ module.exports = class BulkMachineData extends BaseBulkMachineData {
   async recordTimeComplex(id, groupName, sample) {
     let promises = [];
 
-    promises.push(this.cassandraClient.execute("INSERT INTO time_complex (device_type, device, group, timestamp, original_timestamp, value) VALUES (?, ?, ?, ?, ?, ?)", [
-      sample.deviceType,
-      id,
-      groupName,
-      sample.time,
-      sample[groupName].time,
-      JSON.stringify(sample[groupName].value)
-    ], {
-        prepare: true
-      }));
-
-    let flattened = FlattenJS.convert(sample[groupName].value);
-
-    for (let path in flattened) {
-      promises.push(this.cassandraClient.execute("INSERT INTO time_flat_complex (device_type, device, group, path, timestamp, original_timestamp, value) VALUES (?, ?, ?, ?, ?, ?, ?)", [
+    if (TIME_COMPLEX_MODE === "BOTH" || TIME_COMPLEX_MODE === "WHOLE") {
+      promises.push(this.cassandraClient.execute("INSERT INTO time_complex (device_type, device, group, timestamp, original_timestamp, value) VALUES (?, ?, ?, ?, ?, ?)", [
         sample.deviceType,
         id,
         groupName,
-        path,
         sample.time,
         sample[groupName].time,
-        JSON.stringify(flattened[path])
+        JSON.stringify(sample[groupName].value)
       ], {
           prepare: true
         }));
+    }
+
+    if (TIME_COMPLEX_MODE === "BOTH" || TIME_COMPLEX_MODE === "FLAT") {
+      let flattened = FlattenJS.convert(sample[groupName].value);
+
+      if (Object.keys(flattened).length === 0)
+        flattened[""] = sample[groupName].value;
+
+      for (let path in flattened) {
+        promises.push(this.cassandraClient.execute("INSERT INTO time_flat_complex (device_type, device, group, path, timestamp, original_timestamp, value) VALUES (?, ?, ?, ?, ?, ?, ?)", [
+          sample.deviceType,
+          id,
+          groupName,
+          path,
+          sample.time,
+          sample[groupName].time,
+          JSON.stringify(flattened[path])
+        ], {
+            prepare: true
+          }));
+      }
     }
 
     await Promise.all(promises);
