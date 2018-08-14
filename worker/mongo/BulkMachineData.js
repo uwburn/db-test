@@ -38,16 +38,15 @@ module.exports = class BulkMachineData extends BaseBulkMachineData {
 
   async recordTimeComplex(id, groupName, sample) {
     let criteria = {
-      deviceType: Binary(uuidParse.parse(sample.deviceType, Buffer.allocUnsafe(16)), Binary.SUBTYPE_UUID),
+      _id: {
         device: Binary(uuidParse.parse(sample.device, Buffer.allocUnsafe(16)), Binary.SUBTYPE_UUID),
-      time: sample.time
+        time: sample.time
+      }
     };
 
     let update = {
       $setOnInsert: {
         deviceType: Binary(uuidParse.parse(sample.deviceType, Buffer.allocUnsafe(16)), Binary.SUBTYPE_UUID),
-        device: Binary(uuidParse.parse(sample.device, Buffer.allocUnsafe(16)), Binary.SUBTYPE_UUID),
-        time: sample.time
       },
       $set: {}
     };
