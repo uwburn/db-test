@@ -2,7 +2,8 @@
 
 const { Readable } = require('stream');
 
-const HIGH_WATERMARK = 512;
+const HIGH_WATERMARK = 256;
+const REAL_TIME_STEP = 1000;
 
 module.exports = class MachineDataStreams {
 
@@ -17,7 +18,7 @@ module.exports = class MachineDataStreams {
     else if (this.workloadOpts.duration)
       timeInterval = this.workloadOpts.duration;
 
-    this.timeStep = 1000;
+    this.timeStep = Number.MAX_SAFE_INTEGER;
     this.maxStep = 1000;
     this.samples = {};
     for (let k in this.eventIntervals) {
@@ -49,12 +50,15 @@ module.exports = class MachineDataStreams {
       this.machines[machineId] = {
         active: i < activeMachines,
         groups: groups,
+        groupNames: Object.keys(groups),
         machineDelay: machineDelay,
         machinePhase: machinePhase
       }
 
       ++i;
     }
+
+    this.machineIds = Object.keys(this.machines);
 
     this.absTime = this.workloadOpts.startTime;
     this.absDate = new Date(this.absTime);
@@ -66,8 +70,6 @@ module.exports = class MachineDataStreams {
     let i = 0;
     let j = 0;
 
-    let ids = Object.keys(this.machines);
-
     let rs = Readable({
       objectMode: true,
       highWaterMark: HIGH_WATERMARK
@@ -76,13 +78,12 @@ module.exports = class MachineDataStreams {
       let readSamples = 0;
       while (!done) {
         done = true;
-        for (; i < ids.length; ++i) {
-          let id = ids[i];
+        for (; i < this.machineIds.length; ++i) {
+          let id = this.machineIds[i];
           let machine = this.machines[id];
 
-          let groupNames = Object.keys(machine.groups);
-          for (; j < groupNames.length; ++j) {
-            let groupName = groupNames[j];
+          for (; j < machine.groupNames.length; ++j) {
+            let groupName = machine.groupNames[j];
 
             done = false;
             if ((relTime + machine.machineDelay) % this.eventIntervals[groupName] === 0) {
@@ -94,8 +95,10 @@ module.exports = class MachineDataStreams {
 
               ++machine.groups[groupName];
 
-              if (machine.groups[groupName] >= this.samples[groupName])
+              if (machine.groups[groupName] >= this.samples[groupName]) {
                 delete machine.groups[groupName];
+                machine.groupNames = Object.keys(machine.groups);
+              }
 
               if (++readSamples >= size)
                 return;
@@ -149,7 +152,7 @@ module.exports = class MachineDataStreams {
 
       this.absTime += this.timeStep;
       this.absDate = new Date(this.absTime);
-    }, 1000);
+    }, REAL_TIME_STEP);
 
     rs._read = (size) => {
       lastSize = size;

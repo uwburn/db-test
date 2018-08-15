@@ -6,7 +6,7 @@ const MongoClient = require('mongodb').MongoClient;
 const Binary = require('mongodb').Binary;
 const uuidParse = require('uuid-parse');
 
-const HIGH_WATERMARK = 512;
+const HIGH_WATERMARK = 256;
 
 module.exports = class MongoMachineData {
 
