@@ -19,6 +19,7 @@ function buildMachineDataSuite(database, databaseOpts, suiteOptions) {
   suiteOptions.machines = parseInt(suiteOptions.machines);
   suiteOptions.machineUptime = parseFloat(suiteOptions.machineUptime);
   let machineSize = suiteOptions.machineSize || `Big`;
+  let machineTypeId = uuidv4();
 
   const machines = [];
   for (let i = 0; i < suiteOptions.machines; ++i)
@@ -34,9 +35,9 @@ function buildMachineDataSuite(database, databaseOpts, suiteOptions) {
 
       let mod = stepIndex % 2;
       switch (mod) {
-        case 1:
-          return `Year ${year + 1} - Bulk insert`;
         case 0:
+          return `Year ${year + 1} - Bulk insert`;
+        case 1:
           return `Year ${year + 1} - Real time`;
       }
     },
@@ -53,32 +54,32 @@ function buildMachineDataSuite(database, databaseOpts, suiteOptions) {
 
       let mod = stepIndex % 2;
       switch (mod) {
-        case 1:
+        case 0:
           return {
             name: `Year ${year + 1} - Bulk insert`,
             database: database,
             databaseOpts: databaseOpts,
-            workload: `Bulk${machineSize}MachineData`,
+            workload: `Bulk${machineSize}Machine`,
             workloadOpts: {
               startTime: startYear.clone().add(year, `year`).valueOf(),
               endTime: startYear.clone().add(year, `year`).month(11).date(31).hour(23).minute(45).valueOf(),
               machineUptime: suiteOptions.machineUptime,
               machines: machines.slice(startIndex, endIndex),
-              machineTypeId: suiteOptions.machineTypeId
+              machineTypeId: machineTypeId
             }
           }
-        case 0:
+        case 1:
           return {
             name: `Year ${year + 1} - Real time`,
             database: database,
             databaseOpts: databaseOpts,
-            workload: `RealTime${machineSize}MachineData`,
+            workload: `RealTime${machineSize}Machine`,
             workloadOpts: {
               startTime: startYear.clone().add(year, `year`).month(11).date(31).hour(23).minute(45).valueOf(),
               duration: 900000,
               machineUptime: suiteOptions.machineUptime,
               machines: machines.slice(startIndex, endIndex),
-              machineTypeId: suiteOptions.machineTypeId
+              machineTypeId: machineTypeId
             }
           }
       }
