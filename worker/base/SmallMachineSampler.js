@@ -2,10 +2,26 @@
 
 const uuidv4 = require('uuid/v4');
 
-module.exports = class SmallMachineData {
+module.exports = class SmallMachineSampler {
 
   constructor(workloadOpts) {
     this.workloadOpts = workloadOpts;
+
+    this.sampleTypes = {
+      counters: "TIME_COMPLEX",
+      setup: "TIME_COMPLEX",
+      mng: "TIME_COMPLEX",
+      geo: "TIME_COMPLEX",
+      alarm: "INTERVAL",
+    }
+
+    this.nominalIntervals = {
+      counters: 3600000,
+      setup: 86400000,
+      mng: 86400000,
+      geo: 86400000,
+      alarm: 3888000000
+    };
 
     this.sampleMethods = {
       counters: this.countersSample.bind(this),
@@ -17,7 +33,10 @@ module.exports = class SmallMachineData {
   }
 
   sample(id, groupName, absDate) {
-    return this.sampleMethods[groupName](id, groupName, absDate);
+    return {
+      type: this.sampleTypes[groupName],
+      value: this.sampleMethods[groupName](id, groupName, absDate)
+    }
   }
 
   countersSample(id, groupName, absDate) {

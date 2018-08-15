@@ -67,12 +67,7 @@ async function addWork(levels, message) {
   status = `READY`;
   mqttClient.publish(`worker/${workerId}/work/${workId}/status`, JSON.stringify({
     status: "COMPLETED",
-    startTime: currentWorkload.startTime,
-    endTime: currentWorkload.endTime,
-    totalSamples: currentWorkload.totalSamples,
-    reads: currentWorkload.reads,
-    writes: currentWorkload.writes,
-    errors: currentWorkload.errors
+    stats: currentWorkload.getStats()
   }));
   currentWorkload = undefined;
 }

@@ -1,9 +1,13 @@
+"use strict";
+
 const uuidv4 = require(`uuid/v4`);
 const mqtt = require(`mqtt`);
 const Qlobber = require(`qlobber`).Qlobber;
 const envConfig = require(`env-config`);
 
-const DISCOVER_WORKERS_TIMEOUT = 10000;
+const DECIMAL_DIGITS = 2;
+
+const DISCOVER_WORKERS_TIMEOUT = 3000;
 const CHECK_WORKERS_INTERVAL = 1000;
 const workers = {};
 let workersCount = 0;
@@ -69,7 +73,12 @@ function workLog(levels, message) {
   let workerId = levels[1];
   let workId = levels[3];
 
-  console.log(`Worker: ${workerId}, work: ${workId}, writes: ${message.writes}, reads: ${message.reads}, errors: ${message.errors}, ${message.percent}%`);
+  let d = Math.pow(10, DECIMAL_DIGITS);
+
+  let readLatency = Math.round(message.readLatency * d) / d;
+  let writeLatency = Math.round(message.writeLatency * d) / d;
+
+  console.log(`Worker: ${workerId}, R/W: ${message.reads}/${message.writes}, avg. latency R/W: ${readLatency}/${writeLatency}, errors: ${message.errors}, ${message.percent}%`);
 }
 
 function waitForWorkers() {
@@ -132,27 +141,38 @@ function logStep() {
 
   let stats = {
     totalTime: 0,
-    totalWrites: 0,
     totalReads: 0,
+    avgReadLatency: 0,
+    totalWrites: 0,
+    avgWriteLatency: 0,
     totalErrors: 0,
     workers: 0
   }
 
-  for (workerId in steps[stepIndex].workers) {
+  for (let workerId in steps[stepIndex].workers) {
     ++stats.workers;
     let worker = steps[stepIndex].workers[workerId];
-    stats.totalTime += (worker.endTime - worker.startTime);
-    stats.totalWrites += worker.writes;
-    stats.totalReads += worker.reads;
-    stats.totalErrors += worker.errors;
+    stats.totalTime += (worker.stats.endTime - worker.stats.startTime);
+    stats.totalReads += worker.stats.reads;
+    stats.avgReadLatency += worker.stats.readLatency;
+    stats.totalWrites += worker.stats.writes;
+    stats.avgWriteLatency += worker.stats.writeLatency;
+    stats.totalErrors += worker.stats.errors;
   }
 
   stats.wps = stats.totalWrites * 1000 / stats.totalTime * stats.workers;
   stats.rps = stats.totalReads * 1000 / stats.totalTime * stats.workers;
+  stats.avgReadLatency /= stats.workers;
+  stats.avgWriteLatency /= stats.workers;
 
   steps[stepIndex].stats = stats;
 
-  console.log(`Total time: ${Math.round(stats.totalTime / 1000)} s, writes per second: ${Math.round(stats.wps)}, reads per second: ${Math.round(stats.rps)}, errors: ${stats.totalErrors}`);
+  let d = Math.pow(10, DECIMAL_DIGITS);
+
+  let readLatency = Math.round(stats.avgReadLatency * d) / d;
+  let writeLatency = Math.round(stats.avgWriteLatency * d) / d;
+
+  console.log(`Total time: ${Math.round(stats.totalTime / 1000)} s, OPS R/W: ${Math.round(stats.wps)}/${Math.round(stats.rps)}, avg. latency R/W: ${readLatency}/${writeLatency}  errors: ${stats.totalErrors}`);
 }
 
 function logSuite() {
