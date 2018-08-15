@@ -5,9 +5,9 @@ const Binary = require('mongodb').Binary;
 const uuidParse = require('uuid-parse');
 
 module.exports = function (machineSize, recordMethods) {
-  const BaseBulkMachineData = require(`../base/Bulk${machineSize}MachineData`);
+  const BaseRealTimeMachineData = require(`../base/RealTime${machineSize}MachineData`);
 
-  return class BulkMachineData extends BaseBulkMachineData {
+  return class RealTimeMachineData extends BaseRealTimeMachineData {
 
     constructor(id, workerId, workloadOpts, databaseOpts, mqttClient) {
       super(id, workerId, workloadOpts, databaseOpts, mqttClient);

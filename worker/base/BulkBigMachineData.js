@@ -25,7 +25,7 @@ const TIME_STEP = Math.min(
 
 const LOG_INTERVAL = 10000;
 
-module.exports = class BulkMachineData {
+module.exports = class BulkBigMachineData {
 
   constructor(id, workerId, workloadOpts, databaseOpts, mqttClient) {
     this.id = id;
