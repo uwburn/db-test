@@ -1,5 +1,7 @@
 "use strict";
 
+const { Readable, Writable } = require('stream');
+
 const SmallMachineData = require(`./SmallMachineData`);
 
 const MAX_WORKER_DELAY = 10000;
@@ -28,8 +30,6 @@ let MAX_STEP = Math.max(
   WRITE_INTERVALS.geo,
   WRITE_INTERVALS.alarm
 );
-
-const MAX_RETRIES = 5;
 
 const LOG_INTERVAL = 10000;
 
@@ -104,70 +104,91 @@ module.exports = class RealTimeSmallMachineData extends SmallMachineData {
     throw new Error("Base class doesn't implement cleanup method");
   }
 
+  machineDataStream() {
+    let rs = Readable({
+      objectMode: true,
+      highWaterMark: this.streamHighWatermark
+    });
+
+    let pushed = false;
+    let lastSize = 0;
+    let queue = [];
+
+    let realTimeInterval = setInterval(() => {
+      for (let machineId in this.machines) {
+        let machinePhase = this.machines[machineId].machinePhase;
+        for (let groupName in WRITE_INTERVALS) {
+          if ((this.absTime + machinePhase) % WRITE_INTERVALS[groupName] === 0)
+            queue.push({
+              id: machineId,
+              groupName: groupName,
+              sample: this.sample(machineId, groupName, this.absDate)
+            });
+        }
+      }
+
+      if (!pushed && queue.length > 0)
+        rs._read(lastSize);
+
+      this.absTime += TIME_STEP;
+      this.absDate = new Date(this.absTime);
+    }, 1000);
+
+    rs._read = (size) => {
+      lastSize = size;
+      pushed = false;
+      for (let i = 0; i < size && i < queue.length; ++i) {
+        pushed = true;
+        rs.push(queue.shift());
+      }
+    };
+  
+    setTimeout(() => {
+      finished = true;
+      clearInterval(realTimeInterval);
+      rs.push(null);
+    }, this.workloadOpts.duration);
+
+    return rs;
+  }
+
+  recordStream() {
+    let ws = Writable({
+      objectMode: true,
+      highWaterMark: this.streamHighWatermark
+    });
+
+    ws._write = (chunk, enc, callback) => {
+      this.record(chunk.id, chunk.groupName, chunk.sample).catch((err) => {
+        console.error(err);
+        ++this.errors;
+      }).then(() => {
+        ++this.writes;
+      }).then(callback);
+    };
+
+    return ws;
+  }
+
   async _run() {
     await new Promise((resolve) => {
-      this.startTime = new Date().getTime();
-
       let logInterval = setInterval(this.log.bind(this), LOG_INTERVAL);
 
-      let pending = 0;
-      let finished = false;
-      let checkPending = () => {
-        if (finished && pending === 0) {
-          this.endTime = new Date().getTime();
-          clearInterval(logInterval);
+      this.startTime = new Date().getTime();
 
-          this.log();
-          console.log(`Workload completed`);
+      let recordStream = this.recordStream();
+      this.machineDataStream().pipe(recordStream);
 
-          resolve();
-        }
-      }
+      recordStream.once("finish", () => {
+        this.endTime = new Date().getTime();
+        clearInterval(logInterval);
 
-      let record = (machineId, groupName, absDate) => {
-        setImmediate(async () => {
-          ++pending;
-          let retry = 0;
-          ++this.writes;
-          let writeStartTime = new Date().getTime();
-          while (++retry <= MAX_RETRIES) {
-            try {
-              let sample = this.sample(machineId, groupName, absDate);
-              await this.record(machineId, groupName, sample);
-              ++this.successfulWrites;
-              this.totalWriteLatency += new Date().getTime() - writeStartTime;
-            } catch(err) {
-              if (retry === MAX_RETRIES) {
-                console.error(err);
-                ++this.errors;
-              }
-            }
-          }
-          --pending;
-          checkPending();
-        });
-      }
+        this.log();
+        console.log(`Workload completed`);
 
-      let realTimeInterval = setInterval(() => {
-        for (let machineId in this.machines) {
-          let machinePhase = this.machines[machineId].machinePhase;
-          for (let groupName in WRITE_INTERVALS) {
-            if ((this.absTime + machinePhase) % WRITE_INTERVALS[groupName] === 0)
-              record(machineId, groupName, this.absDate);
-          }
-        }
-
-        this.absTime += TIME_STEP;
-        this.absDate = new Date(this.absTime);
-      }, 1000);
-
-    
-      setTimeout(() => {
-        finished = true;
-        clearInterval(realTimeInterval);
-        checkPending();
-      }, this.workloadOpts.duration);
-    });
+        resolve();
+      });
+    }, this.workerDelay);
   }
 
   async record(id, groupName, sample) {
