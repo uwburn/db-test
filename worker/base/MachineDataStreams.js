@@ -150,7 +150,7 @@ module.exports = class MachineDataStreams {
       if (!pushed && queue.length > 0)
         rs._read(lastSize);
 
-      this.absTime += this.timeStep;
+      this.absTime += REAL_TIME_STEP;
       this.absDate = new Date(this.absTime);
     }, REAL_TIME_STEP);
 
