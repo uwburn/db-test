@@ -101,7 +101,7 @@ async function prepareMachineDataMongo(databaseOpts) {
   let mongoClient;
   while (true) {
     try {
-      mongoClient = await MongoClient.connect(databaseOpts.url);
+      mongoClient = await MongoClient.connect(databaseOpts.url, databaseOpts.options);
       break;
     } catch (err) { }
   }

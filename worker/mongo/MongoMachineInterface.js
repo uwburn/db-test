@@ -23,7 +23,7 @@ module.exports = class MongoMachineData {
   }
 
   async init() {
-    this.mongoClient = await MongoClient.connect(this.databaseOpts.url);
+    this.mongoClient = await MongoClient.connect(this.databaseOpts.url, this.databaseOpts.options);
     this.db = this.mongoClient.db(`db-test`);
     this.timeComplexColl = this.db.collection(`timeComplex`);
     this.intervalColl = this.db.collection(`interval`);
