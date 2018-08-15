@@ -41,7 +41,7 @@ module.exports = class MachineDataStreams {
       machineDelay = Math.round(machineDelay / this.timeStep) * this.timeStep;
 
       let machinePhase = this.maxStep * Math.random();
-      machinePhase = Math.round(machinePhase / this.timeStep) * this.timeStep;
+      machinePhase = Math.round(machinePhase / REAL_TIME_STEP) * REAL_TIME_STEP;
 
       let groups = {};
       for (let k in this.eventIntervals)
@@ -133,7 +133,7 @@ module.exports = class MachineDataStreams {
     let realTimeInterval = setInterval(() => {
       for (let machineId in this.machines) {
         if (!this.machines[machineId].active)
-          break;
+          continue;
 
         let machinePhase = this.machines[machineId].machinePhase;
         for (let groupName in this.eventIntervals) {
