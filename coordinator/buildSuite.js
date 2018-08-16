@@ -59,7 +59,7 @@ function buildMachineDataSuite(database, databaseOpts, suiteOptions) {
             name: `Year ${year + 1} - Bulk insert`,
             database: database,
             databaseOpts: databaseOpts,
-            workload: `Bulk${machineSize}Machine`,
+            workload: `BulkWrite${machineSize}Machine`,
             workloadOpts: {
               startTime: startYear.clone().add(year, `year`).valueOf(),
               endTime: startYear.clone().add(year, `year`).month(11).date(31).hour(23).minute(45).valueOf(),
@@ -67,7 +67,7 @@ function buildMachineDataSuite(database, databaseOpts, suiteOptions) {
               machines: machines.slice(startIndex, endIndex),
               machineTypeId: machineTypeId
             }
-          }
+          };
         case 1:
           return {
             name: `Year ${year + 1} - Real time`,
@@ -81,7 +81,7 @@ function buildMachineDataSuite(database, databaseOpts, suiteOptions) {
               machines: machines.slice(startIndex, endIndex),
               machineTypeId: machineTypeId
             }
-          }
+          };
       }
     },
     async prepareDatabase() {
