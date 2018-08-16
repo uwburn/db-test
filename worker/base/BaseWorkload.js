@@ -10,24 +10,12 @@ module.exports = class BaseWorkload {
     this.mqttClient = mqttClient;
   }
 
-  getDbInterface() {
-    throw new Error("Base class doesn't implement getDbInterface method");
-  }
-
   log() {
-    let stats = this.getStats();
-
-    //this.localLog(stats);
-
-    this.mqttClient.publish(`worker/${this.workerId}/work/${this.id}/log`, JSON.stringify(stats));
+    this.mqttClient.publish(`worker/${this.workerId}/work/${this.id}/log`, JSON.stringify(this.stats()));
   }
 
-  getStats() {
-    throw new Error("Base class doesn't implement getStats method");
-  }
-
-  localLog(stats) {
-    throw new Error("Base class doesn't implement localLog method");
+  stats() {
+    throw new Error("Base class doesn't implement stats method");
   }
 
   async run() {
@@ -43,7 +31,7 @@ module.exports = class BaseWorkload {
   }
 
   async init() {
-    await this.getDbInterface().init();
+    await this.dbInterface.init();
   }
 
   async _run() {
@@ -51,7 +39,7 @@ module.exports = class BaseWorkload {
   }
 
   async cleanup() {
-    await this.getDbInterface().cleanup();
+    await this.dbInterface.cleanup();
   }
 
 };

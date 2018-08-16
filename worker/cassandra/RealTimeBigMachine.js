@@ -11,8 +11,4 @@ module.exports = class RealTimeBigMachine extends BaseRealTimeBigMachine {
     this.dbInterface = new CassandraMachineInterface(databaseOpts);
   }
 
-  getDbInterface() {
-    return this.dbInterface;
-  }
-
 };

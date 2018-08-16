@@ -15,16 +15,16 @@ module.exports = class BulkMachine extends BaseWorkload {
     this.machineDataStreams = new MachineDataStreams(workloadOpts, machineType);
   }
 
-  getStats() {
-    let percent = Math.round(this.getDbInterface().writes / this.machineDataStreams.totalSamples * 100);
+  stats() {
+    let percent = Math.round(this.dbInterface.writes / this.machineDataStreams.totalSamples * 100);
     if (isNaN(percent))
       percent = 100;
 
-    let avgReadLatency = this.getDbInterface().totalReadLatency / this.getDbInterface().successfulReads;
+    let avgReadLatency = this.dbInterface.totalReadLatency / this.dbInterface.successfulReads;
     if (isNaN(avgReadLatency))
       avgReadLatency = null;
 
-    let avgWriteLatency = this.getDbInterface().totalWriteLatency / this.getDbInterface().successfulWrites;
+    let avgWriteLatency = this.dbInterface.totalWriteLatency / this.dbInterface.successfulWrites;
     if (isNaN(avgWriteLatency))
       avgWriteLatency = null;
 
@@ -32,17 +32,13 @@ module.exports = class BulkMachine extends BaseWorkload {
       time: new Date().getTime(),
       startTime: this.startTime,
       endTime: this.endTime,
-      reads: this.getDbInterface().reads,
+      reads: this.dbInterface.reads,
       readLatency: avgReadLatency,
-      writes: this.getDbInterface().writes,
+      writes: this.dbInterface.writes,
       writeLatency: avgWriteLatency,
-      errors: this.getDbInterface().errors,
+      errors: this.dbInterface.errors,
       percent: percent
     };
-  }
-
-  localLog(stats) {
-    console.log(`Writes: ${stats.writes}, errors: ${stats.errors}, ${stats.percent}%`);
   }
 
   async _run() {
@@ -52,7 +48,7 @@ module.exports = class BulkMachine extends BaseWorkload {
       setTimeout(() => {
         this.startTime = new Date().getTime();
 
-        let recordStream = this.getDbInterface().recordStream();
+        let recordStream = this.dbInterface.recordStream();
         this.machineDataStreams.bulkStream().pipe(recordStream);
 
         recordStream.once("finish", () => {

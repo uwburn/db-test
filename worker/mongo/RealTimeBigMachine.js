@@ -11,8 +11,4 @@ module.exports = class RealTimeBigMachine extends BaseRealTimeBigMachine {
     this.dbInterface = new MongoMachineInterface(databaseOpts);
   }
 
-  getDbInterface() {
-    return this.dbInterface;
-  }
-
 };

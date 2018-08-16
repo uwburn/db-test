@@ -12,16 +12,16 @@ module.exports = class RealTimeMachine extends BaseWorkload {
     this.machineDataStreams = new MachineDataStreams(workloadOpts, machineType);
   }
 
-  getStats() {
+  stats() {
     let percent = Math.round((this.machineDataStreams.absTime - this.workloadOpts.startTime) / this.workloadOpts.duration * 100);
     if (isNaN(percent))
       percent = 100;
 
-    let avgReadLatency = this.getDbInterface().totalReadLatency / this.getDbInterface().successfulReads;
+    let avgReadLatency = this.dbInterface.totalReadLatency / this.dbInterface.successfulReads;
     if (isNaN(avgReadLatency))
       avgReadLatency = null;
 
-    let avgWriteLatency = this.getDbInterface().totalWriteLatency / this.getDbInterface().successfulWrites;
+    let avgWriteLatency = this.dbInterface.totalWriteLatency / this.dbInterface.successfulWrites;
     if (isNaN(avgWriteLatency))
       avgWriteLatency = null;
 
@@ -29,24 +29,20 @@ module.exports = class RealTimeMachine extends BaseWorkload {
       time: new Date().getTime(),
       startTime: this.startTime,
       endTime: this.endTime,
-      reads: this.getDbInterface().reads,
+      reads: this.dbInterface.reads,
       readLatency: avgReadLatency,
-      writes: this.getDbInterface().writes,
+      writes: this.dbInterface.writes,
       writeLatency: avgWriteLatency,
-      errors: this.getDbInterface().errors,
+      errors: this.dbInterface.errors,
       percent: percent
     };
-  }
-
-  localLog(stats) {
-    console.log(`Writes: ${stats.writes}, avg. write latency: ${Math.round(stats.writeLatency)} errors: ${stats.errors}, ${stats.percent}%`);
   }
 
   async _run() {
     await new Promise((resolve) => {
       this.startTime = new Date().getTime();
 
-      let recordStream = this.getDbInterface().recordStream();
+      let recordStream = this.dbInterface.recordStream();
       this.machineDataStreams.realTimeStream().pipe(recordStream);
 
       recordStream.once("finish", () => {

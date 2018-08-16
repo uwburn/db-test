@@ -11,8 +11,4 @@ module.exports = class BulkSmallMachine extends BaseBulkWriteSmallMachine {
     this.dbInterface = new CassandraMachineInterface(databaseOpts);
   }
 
-  getDbInterface() {
-    return this.dbInterface;
-  }
-
 };
