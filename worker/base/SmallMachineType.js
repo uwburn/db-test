@@ -15,7 +15,7 @@ module.exports = class SmallMachine {
       alarm: "INTERVAL",
     };
 
-    this.nominalIntervals = {
+    this.sampleIntervals = {
       counters: 3600000,
       setup: 86400000,
       mng: 86400000,

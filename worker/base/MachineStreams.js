@@ -9,7 +9,6 @@ module.exports = class MachineStreams {
 
   constructor(workloadOpts, machineType) {
     this.workloadOpts = workloadOpts;
-    this.eventIntervals = machineType.nominalIntervals;
     this.machineType = machineType;
 
     let timeInterval;
@@ -21,10 +20,10 @@ module.exports = class MachineStreams {
     this.timeStep = Number.MAX_SAFE_INTEGER;
     this.maxStep = 1000;
     this.samples = {};
-    for (let k in this.eventIntervals) {
-      this.timeStep = Math.min(this.timeStep, this.eventIntervals[k]);
-      this.maxStep = Math.max(this.maxStep, this.eventIntervals[k]);
-      this.samples[k] = Math.floor(timeInterval / this.eventIntervals[k] * this.workloadOpts.machineUptime);
+    for (let k in this.machineType.sampleIntervals) {
+      this.timeStep = Math.min(this.timeStep, this.machineType.sampleIntervals[k]);
+      this.maxStep = Math.max(this.maxStep, this.machineType.sampleIntervals[k]);
+      this.samples[k] = Math.floor(timeInterval / this.machineType.sampleIntervals[k] * this.workloadOpts.machineUptime);
     }
 
     this.totalSamples = 0;
@@ -44,7 +43,7 @@ module.exports = class MachineStreams {
       machinePhase = Math.round(machinePhase / REAL_TIME_STEP) * REAL_TIME_STEP;
 
       let groups = {};
-      for (let k in this.eventIntervals)
+      for (let k in this.machineType.sampleIntervals)
         groups[k] = 0;
 
       this.machines[machineId] = {
@@ -86,7 +85,7 @@ module.exports = class MachineStreams {
             let groupName = machine.groupNames[j];
 
             done = false;
-            if ((relTime + machine.machineDelay) % this.eventIntervals[groupName] === 0) {
+            if ((relTime + machine.machineDelay) % this.machineType.sampleIntervals[groupName] === 0) {
               rs.push({
                 id: id,
                 groupName: groupName,
@@ -136,8 +135,8 @@ module.exports = class MachineStreams {
           continue;
 
         let machinePhase = this.machines[machineId].machinePhase;
-        for (let groupName in this.eventIntervals) {
-          if ((this.absTime + machinePhase) % this.eventIntervals[groupName] === 0) {
+        for (let groupName in this.machineType.sampleIntervals) {
+          if ((this.absTime + machinePhase) % this.machineType.sampleIntervals[groupName] === 0) {
             queue.push({
               id: machineId,
               groupName: groupName,

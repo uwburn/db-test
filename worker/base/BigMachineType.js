@@ -16,7 +16,7 @@ module.exports = class BigMachineType {
       alarm: "INTERVAL"
     };
 
-    this.nominalIntervals = {
+    this.sampleIntervals = {
       status: 3600000,
       counters: 120000,
       setup: 300000,
