@@ -13,7 +13,7 @@ module.exports = class SmallMachineSampler {
       mng: "TIME_COMPLEX",
       geo: "TIME_COMPLEX",
       alarm: "INTERVAL",
-    }
+    };
 
     this.nominalIntervals = {
       counters: 3600000,
@@ -185,7 +185,7 @@ module.exports = class SmallMachineSampler {
         time: absDate,
         value: {
           lng: Math.random() * 180,
-          lng: Math.random() * 90
+          lat: Math.random() * 90
         }
       }
     };
