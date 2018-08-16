@@ -1,7 +1,7 @@
 "use strict";
 
 const BaseWorkload = require(`./BaseWorkload`);
-const MachineDataStreams = require(`./MachineDataStreams`);
+const MachineDataStreams = require(`./MachineStreams`);
 
 module.exports = class RealTimeMachine extends BaseWorkload {
 

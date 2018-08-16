@@ -1,7 +1,7 @@
 "use strict";
 
 const BaseWorkload = require(`./BaseWorkload`);
-const MachineDataStreams = require(`./MachineDataStreams`);
+const MachineDataStreams = require(`./MachineStreams`);
 
 const MAX_WORKER_DELAY = 10000;
 
