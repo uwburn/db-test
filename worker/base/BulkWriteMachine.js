@@ -7,12 +7,12 @@ const MAX_WORKER_DELAY = 10000;
 
 module.exports = class BulkMachine extends BaseWorkload {
 
-  constructor(id, workerId, workloadOpts, sampler, mqttClient) {
+  constructor(id, workerId, workloadOpts, machineType, mqttClient) {
     super(id, workerId, mqttClient);
 
     this.workerDelay = Math.round(Math.random() * MAX_WORKER_DELAY);
 
-    this.machineDataStreams = new MachineDataStreams(workloadOpts, sampler);
+    this.machineDataStreams = new MachineDataStreams(workloadOpts, machineType);
   }
 
   getStats() {

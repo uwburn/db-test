@@ -5,12 +5,12 @@ const { Readable } = require('stream');
 const HIGH_WATERMARK = 256;
 const REAL_TIME_STEP = 1000;
 
-module.exports = class MachineDataStreams {
+module.exports = class MachineStreams {
 
-  constructor(workloadOpts, sampler) {
+  constructor(workloadOpts, machineType) {
     this.workloadOpts = workloadOpts;
-    this.eventIntervals = sampler.nominalIntervals;
-    this.sampler = sampler;
+    this.eventIntervals = machineType.nominalIntervals;
+    this.machineType = machineType;
 
     let timeInterval;
     if (this.workloadOpts.endTime)
@@ -90,7 +90,7 @@ module.exports = class MachineDataStreams {
               rs.push({
                 id: id,
                 groupName: groupName,
-                sample: this.sampler.sample(id, groupName, this.absDate)
+                sample: this.machineType.sample(id, groupName, this.absDate)
               });
 
               ++machine.groups[groupName];
@@ -141,7 +141,7 @@ module.exports = class MachineDataStreams {
             queue.push({
               id: machineId,
               groupName: groupName,
-              sample: this.sampler.sample(machineId, groupName, this.absDate)
+              sample: this.machineType.sample(machineId, groupName, this.absDate)
             });
           }
         }

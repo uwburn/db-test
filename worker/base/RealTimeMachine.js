@@ -5,11 +5,11 @@ const MachineDataStreams = require(`./MachineDataStreams`);
 
 module.exports = class RealTimeMachine extends BaseWorkload {
 
-  constructor(id, workerId, workloadOpts, sampler, mqttClient) {
+  constructor(id, workerId, workloadOpts, machineType, mqttClient) {
     super(id, workerId, mqttClient);
     this.workloadOpts = workloadOpts;
 
-    this.machineDataStreams = new MachineDataStreams(workloadOpts, sampler);
+    this.machineDataStreams = new MachineDataStreams(workloadOpts, machineType);
   }
 
   getStats() {

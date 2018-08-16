@@ -2,7 +2,7 @@
 
 const uuidv4 = require('uuid/v4');
 
-module.exports = class SmallMachineSampler {
+module.exports = class SmallMachine {
 
   constructor(workloadOpts) {
     this.workloadOpts = workloadOpts;

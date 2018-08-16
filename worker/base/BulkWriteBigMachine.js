@@ -1,7 +1,7 @@
 "use strict";
 
 const BulkWriteMachine = require(`./BulkWriteMachine`);
-const BigMachineSampler = require(`./BigMachineSampler`);
+const BigMachineSampler = require(`./BigMachineType`);
 
 module.exports = class BulkBigMachine extends BulkWriteMachine {
 

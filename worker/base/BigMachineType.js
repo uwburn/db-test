@@ -2,7 +2,7 @@
 
 const uuidv4 = require('uuid/v4');
 
-module.exports = class BigMachineSampler {
+module.exports = class BigMachineType {
 
   constructor(workloadOpts) {
     this.workloadOpts = workloadOpts;

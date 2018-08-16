@@ -1,7 +1,7 @@
 "use strict";
 
 const RealTimeMachine = require(`./RealTimeMachine`);
-const SmallMachineSampler = require(`./SmallMachineSampler`);
+const SmallMachineSampler = require(`./SmallMachineType`);
 
 module.exports = class RealTimeSmallMachine extends RealTimeMachine {
 
