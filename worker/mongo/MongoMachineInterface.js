@@ -8,7 +8,7 @@ const uuidParse = require('uuid-parse');
 
 const HIGH_WATERMARK = 256;
 
-module.exports = class MongoMachineData {
+module.exports = class MongoMachineInterface {
 
   constructor(databaseOpts) {
     this.databaseOpts = databaseOpts;
@@ -112,4 +112,4 @@ module.exports = class MongoMachineData {
     await this.intervalColl.updateOne(criteria, update, options);
   }
 
-}
+};
