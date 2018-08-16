@@ -35,11 +35,11 @@ module.exports = class SmallMachine {
   sample(id, groupName, absDate) {
     return {
       type: this.sampleTypes[groupName],
-      value: this.sampleMethods[groupName](id, groupName, absDate)
+      value: this.sampleMethods[groupName](id, absDate)
     }
   }
 
-  countersSample(id, groupName, absDate) {
+  countersSample(id, absDate) {
     return {
       deviceType: this.workloadOpts.machineTypeId,
       device: id,
@@ -54,7 +54,7 @@ module.exports = class SmallMachine {
     };
   }
 
-  setupSample(id, groupName, absDate) {
+  setupSample(id, absDate) {
     return {
       deviceType: this.workloadOpts.machineTypeId,
       device: id,
@@ -72,7 +72,7 @@ module.exports = class SmallMachine {
   }
 
   // See https://www.neilson.co.za/mobile-network-geolocation-obtaining-the-cell-ids-the-signal-strength-of-surrounding-towers-from-a-gsm-modem
-  mngSample(id, groupName, absDate) {
+  mngSample(id, absDate) {
     return {
       deviceType: this.workloadOpts.machineTypeId,
       device: id,
@@ -176,7 +176,7 @@ module.exports = class SmallMachine {
     };
   }
 
-  geoSample(id, groupName, absDate) {
+  geoSample(id, absDate) {
     return {
       deviceType: this.workloadOpts.machineTypeId,
       device: id,
@@ -191,7 +191,7 @@ module.exports = class SmallMachine {
     };
   }
 
-  alarmSample(id, groupName, absDate) {
+  alarmSample(id, absDate) {
     return {
       id: uuidv4(),
       deviceType: this.workloadOpts.machineTypeId,

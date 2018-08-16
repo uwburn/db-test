@@ -38,11 +38,11 @@ module.exports = class BigMachineType {
   sample(id, groupName, absDate) {
     return {
       type: this.sampleTypes[groupName],
-      value: this.sampleMethods[groupName](id, groupName, absDate)
+      value: this.sampleMethods[groupName](id, absDate)
     }
   }
 
-  statusSample(id, groupName, absDate) {
+  statusSample(id, absDate) {
     return {
       id: uuidv4(),
       deviceType: this.workloadOpts.machineTypeId,
@@ -53,7 +53,7 @@ module.exports = class BigMachineType {
     };
   }
 
-  countersSample(id, groupName, absDate) {
+  countersSample(id, absDate) {
     return {
       deviceType: this.workloadOpts.machineTypeId,
       device: id,
@@ -164,7 +164,7 @@ module.exports = class BigMachineType {
     };
   }
 
-  setupSample(id, groupName, absDate) {
+  setupSample(id, absDate) {
     return {
       deviceType: this.workloadOpts.machineTypeId,
       device: id,
@@ -233,7 +233,7 @@ module.exports = class BigMachineType {
     };
   }
 
-  temperatureProbe1Sample(id, groupName, absDate) {
+  temperatureProbe1Sample(id, absDate) {
     return {
       deviceType: this.workloadOpts.machineTypeId,
       device: id,
@@ -245,7 +245,7 @@ module.exports = class BigMachineType {
     };
   }
 
-  temperatureProbe2Sample(id, groupName, absDate) {
+  temperatureProbe2Sample(id, absDate) {
     return {
       deviceType: this.workloadOpts.machineTypeId,
       device: id,
@@ -257,7 +257,7 @@ module.exports = class BigMachineType {
     };
   }
 
-  alarmSample(id, groupName, absDate) {
+  alarmSample(id, absDate) {
     return {
       id: uuidv4(),
       deviceType: this.workloadOpts.machineTypeId,
