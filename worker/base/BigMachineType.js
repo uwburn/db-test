@@ -33,6 +33,43 @@ module.exports = class BigMachineType {
       temperatureProbe2: this.temperatureProbe2Sample.bind(this),
       alarm: this.alarmSample.bind(this)
     };
+
+    this.queryTypeRatio = {
+      fullSample: 1,
+      partialSample: 1
+    };
+
+    this.querySampleRatio = {
+      status: 1,
+      counters: 1,
+      setup: 1,
+      temperatureProbe1: 1,
+      temperatureProbe2: 1,
+      alarm: 1
+    };
+
+    this.querySamplePaths = {
+      status: null,
+
+    };
+
+    this.queryIndex = 0;
+
+    this.totalQueryTypeAmount = 0;
+    this.queryTypeIndexes = [];
+    for (let k in this.queryTypeRatio) {
+      this.totalQueryTypeAmount += this.queryTypeRatio[k];
+      for (let i = 0; i < this.queryTypeRatio[k]; ++i)
+        this.queryTypeIndexes.push(k);
+    }
+
+    this.totalQuerySampleAmount = 0;
+    this.querySampleIndexes = [];
+    for (let k in this.querySampleRatio) {
+      this.totalQuerySampleAmount += this.querySampleRatio[k];
+      for (let i = 0; i < this.querySampleRatio[k]; ++i)
+        this.querySampleIndexes.push(k);
+    }
   }
 
   sample(id, groupName, absDate) {
@@ -266,6 +303,18 @@ module.exports = class BigMachineType {
       endTime: new Date(absDate.getTime() + Math.round(Math.random() * 300 + 60) * 1000),
       value: Math.ceil(Math.random() * 100).toString()
     };
+  }
+
+  query() {
+
+  }
+
+  queryFullSample() {
+
+  }
+
+  queryPartialSample() {
+
   }
 
 };
