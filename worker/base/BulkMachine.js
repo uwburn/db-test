@@ -67,4 +67,4 @@ module.exports = class BulkMachine extends BaseWorkload {
     });
   }
 
-}
+};

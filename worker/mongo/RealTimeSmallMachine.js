@@ -15,4 +15,4 @@ module.exports = class RealTimeSmallMachine extends BaseRealTimeSmallMachine {
     return this.dbInterface;
   }
 
-}
+};

@@ -15,4 +15,4 @@ module.exports = class RealTimeBigMachine extends BaseRealTimeBigMachine {
     return this.dbInterface;
   }
 
-}
+};

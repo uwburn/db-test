@@ -15,4 +15,4 @@ module.exports = class BulkBigMachine extends BaseBulkBigMachine {
     return this.dbInterface;
   }
 
-}
+};

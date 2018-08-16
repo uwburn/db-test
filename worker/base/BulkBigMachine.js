@@ -9,4 +9,4 @@ module.exports = class BulkBigMachine extends BulkMachine {
     super(id, workerId, workloadOpts, new BigMachineSampler(workloadOpts), mqttClient);
   }
 
-}
+};

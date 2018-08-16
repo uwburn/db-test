@@ -54,4 +54,4 @@ module.exports = class BaseWorkload {
     await this.getDbInterface().cleanup();
   }
 
-}
+};

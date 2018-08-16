@@ -115,4 +115,4 @@ module.exports = class CassandraMachineData {
       });
   }
 
-}
+};

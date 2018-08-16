@@ -14,7 +14,7 @@ module.exports = class BigMachineSampler {
       temperatureProbe1: "TIME_COMPLEX",
       temperatureProbe2: "TIME_COMPLEX",
       alarm: "INTERVAL"
-    }
+    };
 
     this.nominalIntervals = {
       status: 3600000,

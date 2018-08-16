@@ -9,4 +9,4 @@ module.exports = class RealTimeSmallMachine extends RealTimeMachine {
         super(id, workerId, workloadOpts, new SmallMachineSampler(workloadOpts), mqttClient);
     }
 
-}
+};
