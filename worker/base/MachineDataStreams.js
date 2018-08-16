@@ -53,7 +53,7 @@ module.exports = class MachineDataStreams {
         groupNames: Object.keys(groups),
         machineDelay: machineDelay,
         machinePhase: machinePhase
-      }
+      };
 
       ++i;
     }
@@ -164,7 +164,6 @@ module.exports = class MachineDataStreams {
     };
 
     setTimeout(() => {
-      finished = true;
       clearInterval(realTimeInterval);
       rs.push(null);
     }, this.workloadOpts.duration);
@@ -172,4 +171,4 @@ module.exports = class MachineDataStreams {
     return rs;
   }
 
-}
+};
