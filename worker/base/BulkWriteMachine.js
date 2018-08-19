@@ -49,7 +49,7 @@ module.exports = class BulkMachine extends BaseWorkload {
         this.startTime = new Date().getTime();
 
         let recordStream = this.dbInterface.recordStream();
-        this.machineDataStreams.bulkStream().pipe(recordStream);
+        this.machineDataStreams.bulkWrites().pipe(recordStream);
 
         recordStream.once("finish", () => {
           this.endTime = new Date().getTime();

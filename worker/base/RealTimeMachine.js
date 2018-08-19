@@ -43,7 +43,7 @@ module.exports = class RealTimeMachine extends BaseWorkload {
       this.startTime = new Date().getTime();
 
       let recordStream = this.dbInterface.recordStream();
-      this.machineDataStreams.realTimeStream().pipe(recordStream);
+      this.machineDataStreams.realTimeWrites().pipe(recordStream);
 
       recordStream.once("finish", () => {
         this.endTime = new Date().getTime();

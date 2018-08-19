@@ -34,42 +34,29 @@ module.exports = class BigMachineType {
       alarm: this.alarmSample.bind(this)
     };
 
-    this.queryTypeRatio = {
-      fullSample: 1,
-      partialSample: 1
+    this.queryIntervals = {
+      lastWeekStatus: 0,
+      lastDayAlarms: 0,
+      lastMonthMachineEnergy: 0,
+      lastHourTemperatures: 0,
+      lastDayAggrTemperatures: 0,
+      monthlyCountersDifference: 0,
+      oldSetup: 0,
+      topTenMachinesLastDayWorkingTime: 0,
+      topTenMachinesLastDayAlarms: 0
     };
 
-    this.querySampleRatio = {
-      status: 1,
-      counters: 1,
-      setup: 1,
-      temperatureProbe1: 1,
-      temperatureProbe2: 1,
-      alarm: 1
+    this.queryMethods = {
+      lastWeekStatus: this.lastWeekStatus.bind(this),
+      lastDayAlarms: this.lastDayAlarms.bind(this),
+      lastMonthMachineEnergy: this.lastMonthMachineEnergy.bind(this),
+      lastHourTemperatures: this.lastHourTemperatures.bind(this),
+      lastDayAggrTemperatures: this.lastDayAggrTemperatures.bind(this),
+      monthlyCountersDifference: this.monthlyCountersDifference.bind(this),
+      oldSetup: this.oldSetup.bind(this),
+      topTenMachinesLastDayWorkingTime: this.topTenMachinesLastDayWorkingTime.bind(this),
+      topTenMachinesLastDayAlarms: this.topTenMachinesLastDayAlarms.bind(this)
     };
-
-    this.querySamplePaths = {
-      status: null,
-
-    };
-
-    this.queryIndex = 0;
-
-    this.totalQueryTypeAmount = 0;
-    this.queryTypeIndexes = [];
-    for (let k in this.queryTypeRatio) {
-      this.totalQueryTypeAmount += this.queryTypeRatio[k];
-      for (let i = 0; i < this.queryTypeRatio[k]; ++i)
-        this.queryTypeIndexes.push(k);
-    }
-
-    this.totalQuerySampleAmount = 0;
-    this.querySampleIndexes = [];
-    for (let k in this.querySampleRatio) {
-      this.totalQuerySampleAmount += this.querySampleRatio[k];
-      for (let i = 0; i < this.querySampleRatio[k]; ++i)
-        this.querySampleIndexes.push(k);
-    }
   }
 
   sample(id, groupName, absDate) {
@@ -305,15 +292,43 @@ module.exports = class BigMachineType {
     };
   }
 
-  query() {
+  query(query, absDate) {
+    return this.queryMethods[query](absDate);
+  }
+
+  lastWeekStatus(absDate) {
 
   }
 
-  queryFullSample() {
+  lastDayAlarms(absDate) {
 
   }
 
-  queryPartialSample() {
+  lastMonthMachineEnergy(absDate) {
+
+  }
+
+  lastHourTemperatures(absDate) {
+
+  }
+
+  lastDayAggrTemperatures(absDate) {
+
+  }
+
+  monthlyCountersDifference(absDate) {
+
+  }
+
+  oldSetup(absDate) {
+
+  }
+
+  topTenMachinesLastDayWorkingTime(absDate) {
+
+  }
+
+  topTenMachinesLastDayAlarms(absDate) {
 
   }
 

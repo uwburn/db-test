@@ -17,13 +17,17 @@ module.exports = class MachineStreams {
     else if (this.workloadOpts.duration)
       timeInterval = this.workloadOpts.duration;
 
-    this.timeStep = Number.MAX_SAFE_INTEGER;
-    this.maxStep = 1000;
+    this.bulkWritesTimeStep = Number.MAX_SAFE_INTEGER;
+    this.maxSampleStep = 1000;
+    this.maxQueryStep = 1000;
     this.samples = {};
     for (let k in this.machineType.sampleIntervals) {
-      this.timeStep = Math.min(this.timeStep, this.machineType.sampleIntervals[k]);
-      this.maxStep = Math.max(this.maxStep, this.machineType.sampleIntervals[k]);
+      this.bulkWritesTimeStep = Math.min(this.bulkWritesTimeStep, this.machineType.sampleIntervals[k]);
+      this.maxSampleStep = Math.max(this.maxSampleStep, this.machineType.sampleIntervals[k]);
       this.samples[k] = Math.floor(timeInterval / this.machineType.sampleIntervals[k] * this.workloadOpts.machineUptime);
+    }
+    for (let k in this.machineType.queryIntervals) {
+      this.maxQueryStep = Math.max(this.maxQueryStep, this.machineType.queryIntervals[k]);
     }
 
     this.totalSamples = 0;
@@ -36,11 +40,11 @@ module.exports = class MachineStreams {
     let i = 0;
     this.machines = {};
     for (let machineId of this.workloadOpts.machines) {
-      let machineDelay = timeInterval * (1 - this.workloadOpts.machineUptime) * Math.random();
-      machineDelay = Math.round(machineDelay / this.timeStep) * this.timeStep;
+      let writeDelay = timeInterval * (1 - this.workloadOpts.machineUptime) * Math.random();
+      writeDelay = Math.round(writeDelay / this.bulkWritesTimeStep) * this.bulkWritesTimeStep;
 
-      let machinePhase = this.maxStep * Math.random();
-      machinePhase = Math.round(machinePhase / REAL_TIME_STEP) * REAL_TIME_STEP;
+      let writePhase = this.maxSampleStep * Math.random();
+      writePhase = Math.round(writePhase / REAL_TIME_STEP) * REAL_TIME_STEP;
 
       let groups = {};
       for (let k in this.machineType.sampleIntervals)
@@ -50,12 +54,15 @@ module.exports = class MachineStreams {
         active: i < activeMachines,
         groups: groups,
         groupNames: Object.keys(groups),
-        machineDelay: machineDelay,
-        machinePhase: machinePhase
+        writeDelay: writeDelay,
+        writePhase: writePhase
       };
 
       ++i;
     }
+
+    this.readPhase = this.maxQueryStep * Math.random();
+    this.readPhase = Math.round(this.readPhase / REAL_TIME_STEP) * REAL_TIME_STEP;
 
     this.machineIds = Object.keys(this.machines);
 
@@ -63,7 +70,7 @@ module.exports = class MachineStreams {
     this.absDate = new Date(this.absTime);
   }
 
-  bulkStream() {
+  bulkWrites() {
     let done = false;
     let relTime = 0;
     let i = 0;
@@ -85,7 +92,7 @@ module.exports = class MachineStreams {
             let groupName = machine.groupNames[j];
 
             done = false;
-            if ((relTime + machine.machineDelay) % this.machineType.sampleIntervals[groupName] === 0) {
+            if ((relTime + machine.writeDelay) % this.machineType.sampleIntervals[groupName] === 0) {
               rs.push({
                 id: id,
                 groupName: groupName,
@@ -108,9 +115,9 @@ module.exports = class MachineStreams {
         }
 
         i = 0;
-        this.absTime += this.timeStep;
+        this.absTime += this.bulkWritesTimeStep;
         this.absDate = new Date(this.absTime);
-        relTime += this.timeStep;
+        relTime += this.bulkWritesTimeStep;
       }
 
       rs.push(null);
@@ -119,7 +126,47 @@ module.exports = class MachineStreams {
     return rs;
   }
 
-  realTimeStream() {
+  realTimeReads() {
+    let rs = Readable({
+      objectMode: true,
+      highWaterMark: HIGH_WATERMARK
+    });
+
+    let pushed = false;
+    let lastSize = 0;
+    let queue = [];
+
+    let realTimeInterval = setInterval(() => {
+      for (let query in this.machineType.queryIntervals) {
+        if ((this.absTime + this.readPhase) % this.machineType.queryIntervals[query] === 0)
+          queue.push(this.machineType.query(query, this.absDate));
+      }
+
+      if (!pushed && queue.length > 0)
+        rs._read(lastSize);
+
+      this.absTime += REAL_TIME_STEP;
+      this.absDate = new Date(this.absTime);
+    }, REAL_TIME_STEP);
+
+    rs._read = (size) => {
+      lastSize = size;
+      pushed = false;
+      for (let i = 0; i < size && i < queue.length; ++i) {
+        pushed = true;
+        rs.push(queue.shift());
+      }
+    };
+
+    setTimeout(() => {
+      clearInterval(realTimeInterval);
+      rs.push(null);
+    }, this.workloadOpts.duration);
+
+    return rs;
+  }
+
+  realTimeWrites() {
     let rs = Readable({
       objectMode: true,
       highWaterMark: HIGH_WATERMARK
@@ -131,12 +178,9 @@ module.exports = class MachineStreams {
 
     let realTimeInterval = setInterval(() => {
       for (let machineId in this.machines) {
-        if (!this.machines[machineId].active)
-          continue;
-
-        let machinePhase = this.machines[machineId].machinePhase;
+        let writePhase = this.machines[machineId].writePhase;
         for (let groupName in this.machineType.sampleIntervals) {
-          if ((this.absTime + machinePhase) % this.machineType.sampleIntervals[groupName] === 0) {
+          if ((this.absTime + writePhase) % this.machineType.sampleIntervals[groupName] === 0) {
             queue.push({
               id: machineId,
               groupName: groupName,
