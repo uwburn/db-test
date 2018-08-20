@@ -43,15 +43,33 @@ module.exports = class RealTimeMachine extends BaseWorkload {
       this.startTime = new Date().getTime();
 
       let recordStream = this.dbInterface.recordStream();
-      this.machineDataStreams.realTimeStream().pipe(recordStream);
+      this.machineDataStreams.realTimeWrites().pipe(recordStream);
 
-      recordStream.once("finish", () => {
+      let queryStream = this.dbInterface.queryStream();
+      this.machineDataStreams.realTimeReads().pipe(queryStream);
+
+      let recordFinished = false;
+      let queryFinisched = false;
+      let checkFinished = () => {
+        if (!recordFinished || !queryFinisched)
+          return;
+
         this.endTime = new Date().getTime();
 
         this.log();
         console.log(`Workload completed`);
 
         resolve();
+      };
+
+      recordStream.once("finish", () => {
+        recordFinished();
+        checkFinished();
+      });
+
+      queryStream.once("finish", () => {
+        recordFinished();
+        checkFinished();
       });
     });
   }

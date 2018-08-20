@@ -1,6 +1,7 @@
 "use strict";
 
 const uuidv4 = require('uuid/v4');
+const moment = require('moment');
 
 module.exports = class BigMachineType {
 
@@ -34,42 +35,29 @@ module.exports = class BigMachineType {
       alarm: this.alarmSample.bind(this)
     };
 
-    this.queryTypeRatio = {
-      fullSample: 1,
-      partialSample: 1
+    this.queryIntervals = {
+      lastWeekStatus: 0,
+      lastDayAlarms: 0,
+      lastMonthMachineEnergy: 0,
+      lastHourTemperatures: 0,
+      lastDayAggrTemperatures: 0,
+      monthlyCountersDifference: 0,
+      oldSetup: 0,
+      topTenMachinesLastDayWorkingTime: 0,
+      topTenMachinesLastDayAlarms: 0
     };
 
-    this.querySampleRatio = {
-      status: 1,
-      counters: 1,
-      setup: 1,
-      temperatureProbe1: 1,
-      temperatureProbe2: 1,
-      alarm: 1
+    this.queryMethods = {
+      lastWeekStatus: this.lastWeekStatus.bind(this),
+      lastDayAlarms: this.lastDayAlarms.bind(this),
+      lastMonthMachineEnergy: this.lastMonthMachineEnergy.bind(this),
+      lastHourTemperatures: this.lastHourTemperatures.bind(this),
+      lastDayAggrTemperatures: this.lastDayAggrTemperatures.bind(this),
+      monthlyCountersDifference: this.monthlyCountersDifference.bind(this),
+      oldSetup: this.oldSetup.bind(this),
+      topTenMachinesLastDayWorkingTime: this.topTenMachinesLastDayWorkingTime.bind(this),
+      topTenMachinesLastDayAlarms: this.topTenMachinesLastDayAlarms.bind(this)
     };
-
-    this.querySamplePaths = {
-      status: null,
-
-    };
-
-    this.queryIndex = 0;
-
-    this.totalQueryTypeAmount = 0;
-    this.queryTypeIndexes = [];
-    for (let k in this.queryTypeRatio) {
-      this.totalQueryTypeAmount += this.queryTypeRatio[k];
-      for (let i = 0; i < this.queryTypeRatio[k]; ++i)
-        this.queryTypeIndexes.push(k);
-    }
-
-    this.totalQuerySampleAmount = 0;
-    this.querySampleIndexes = [];
-    for (let k in this.querySampleRatio) {
-      this.totalQuerySampleAmount += this.querySampleRatio[k];
-      for (let i = 0; i < this.querySampleRatio[k]; ++i)
-        this.querySampleIndexes.push(k);
-    }
   }
 
   sample(id, groupName, absDate) {
@@ -305,16 +293,157 @@ module.exports = class BigMachineType {
     };
   }
 
-  query() {
-
+  query(query, absDate) {
+    return this.queryMethods[query](absDate);
   }
 
-  queryFullSample() {
+  lastWeekStatus(absDate) {
+    let machineIndex = Math.floor(this.workloadOpts.machines.length * this.workloadOpts.machineUptime * Math.random());
 
+    return {
+      name: "LAST_WEEK_STATUS",
+      type: "INTERVAL_RANGE",
+      options: {
+        groups: ["status"],
+        deviceType: this.workloadOpts.machineTypeId,
+        device: this.workloadOpts.machines[machineIndex],
+        startTime: new Date(absDate.getTime() - 604800000),
+        endTime: absDate
+      }
+    };
   }
 
-  queryPartialSample() {
+  lastDayAlarms(absDate) {
+    let machineIndex = Math.floor(this.workloadOpts.machines.length * this.workloadOpts.machineUptime * Math.random());
 
+    return {
+      name: "LAST_DAY_ALARMS",
+      type: "INTERVAL_RANGE",
+      options: {
+        groups: ["alarm"],
+        device: this.workloadOpts.machines[machineIndex],
+        startTime: new Date(absDate.getTime() - 86400000),
+        endTime: absDate
+      }
+    };
+  }
+
+  lastMonthMachineEnergy(absDate) {
+    let machineIndex = Math.floor(this.workloadOpts.machines.length * this.workloadOpts.machineUptime * Math.random());
+
+    return {
+      name: "LAST_MONTH_MACHINE_ENERGY",
+      type: "TIME_COMPLEX_RANGE",
+      options: {
+        groups: ["counters"],
+        select: {
+          "counters": [
+            "activeEnergyConsumed",
+            "reactiveEnergyProduced"
+          ]
+        },
+        device: this.workloadOpts.machines[machineIndex],
+        startTime: new Date(absDate.getTime() - 2073600000),
+        endTime: absDate
+      }
+    };
+  }
+
+  lastHourTemperatures(absDate) {
+    let machineIndex = Math.floor(this.workloadOpts.machines.length * this.workloadOpts.machineUptime * Math.random());
+
+    return {
+      name: "LAST_HOUR_TEMPERATURES",
+      type: "TIME_COMPLEX_RANGE",
+      options: {
+        groups: ["temperatureProbe1", "temperatureProbe2"],
+        device: this.workloadOpts.machines[machineIndex],
+        startTime: new Date(absDate.getTime() - 3600000),
+        endTime: absDate
+      }
+    };
+  }
+
+  lastDayAggrTemperatures(absDate) {
+    let machineIndex = Math.floor(this.workloadOpts.machines.length * this.workloadOpts.machineUptime * Math.random());
+
+    return {
+      name: "LAST_HOUR_TEMPERATURES",
+      type: "TIME_COMPLEX_RANGE_BUCKET_AVG",
+      options: {
+        groups: ["temperatureProbe1", "temperatureProbe2"],
+        device: this.workloadOpts.machines[machineIndex],
+        startTime: new Date(absDate.getTime() - 86400000),
+        endTime: absDate,
+        buckets: 1024
+      }
+    };
+  }
+
+  thisYearMonthlyCountersDifference(absDate) {
+    let machineIndex = Math.floor(this.workloadOpts.machines.length * this.workloadOpts.machineUptime * Math.random());
+
+    let times = [];
+    let absM = moment(absDate);
+    let m = moment(absDate).startOf('year');
+    let year = m.year();
+    while (m.year() === year && m.isBefore(absM)) {
+      times.push(m.toDate());
+      m.add(1, 'month');
+    }
+
+    return {
+      name: "THIS_YEAR_MONTHLY_COUNTERS_DIFFERENCE",
+      type: "TIME_COMPLEX_DIFFERENCE",
+      options: {
+        groups: ["counters"],
+        device: this.workloadOpts.machines[machineIndex],
+        times: times
+      }
+    };
+  }
+
+  oldSetup(absDate) {
+    let machineIndex = Math.floor(this.workloadOpts.machines.length * this.workloadOpts.machineUptime * Math.random());
+    let yearTime = moment(absDate).startOf('year').valueOf();
+    let nowTime = absDate.getTime();
+
+    return {
+      name: "LAST_MONTH_MACHINE_ENERGY",
+      type: "TIME_COMPLEX_LAST_BEFORE",
+      options: {
+        groups: ["counters"],
+        device: this.workloadOpts.machines[machineIndex],
+        time: new Date(yearTime + (nowTime - yearTime) * Math.random())
+      }
+    };
+  }
+
+  topTenMachinesLastDayWorkingTime(absDate) {
+    return {
+      name: "TOP_TEN_MACHINES_LAST_DAY_WORKING_TIME",
+      type: "TIME_COMPLEX_TOP_DIFFERENCE",
+      options: {
+        groups: ["counters"],
+        sort: {"totalWorkedTime": -1},
+        limit: 10,
+        startTime: new Date(absDate.getTime() - 86400000),
+        endTime: absDate
+      }
+    };
+  }
+
+  topTenMachinesLastDayAlarms(absDate) {
+    return {
+      name: "TOP_TEN_MACHINES_LAST_DAY_ALARMS",
+      type: "INTERVAL_TOP_COUNT",
+      options: {
+        groups: ["alarm"],
+        limit: 10,
+        startTime: new Date(absDate.getTime() - 86400000),
+        endTime: absDate
+      }
+    };
   }
 
 };
