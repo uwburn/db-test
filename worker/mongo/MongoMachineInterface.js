@@ -12,14 +12,6 @@ module.exports = class MongoMachineInterface {
 
   constructor(databaseOpts) {
     this.databaseOpts = databaseOpts;
-
-    this.reads = 0;
-    this.successfulReads = 0;
-    this.totalReadLatency = 0;
-    this.writes = 0;
-    this.successfulWrites = 0;
-    this.totalWriteLatency = 0;
-    this.errors = 0;
   }
 
   async init() {
@@ -34,25 +26,34 @@ module.exports = class MongoMachineInterface {
   }
 
   queryStream() {
-    let ws = Writable({
-      objectMode: true,
-      highWaterMark: HIGH_WATERMARK
-    });
+    let result = {
+      stream: Writable({
+        objectMode: true,
+        highWaterMark: HIGH_WATERMARK
+      }),
+      reads: 0,
+      successfulReads: 0,
+      totalReadLatency: 0,
+      writes: 0,
+      successfulWrites: 0,
+      totalWriteLatency: 0,
+      errors: 0
+    };
 
-    ws._write = (chunk, enc, callback) => {
+    result.stream._write = (chunk, enc, callback) => {
       let t0 = Date.now();
       this.query(chunk.name, chunk.type, chunk.options).then(() => {
-        ++this.successfulReads;
-        this.totalReadLatency += Date.now() - t0;
+        ++result.successfulReads;
+        result.totalReadLatency += Date.now() - t0;
       }).catch((err) => {
         console.error(err);
-        ++this.errors;
+        ++result.errors;
       }).then(() => {
-        ++this.reads;
+        ++result.reads;
       }).then(callback);
     };
 
-    return ws;
+    return result;
   }
 
   async query(name, type, options) {
@@ -144,7 +145,7 @@ module.exports = class MongoMachineInterface {
   }
 
   async queryTimeComplexRangeBucketAvg(name, options) {
-    /*options.select = options.select || {};
+    options.select = options.select || {};
 
     let criteria = {
       "_id.device": options.device,
@@ -175,12 +176,28 @@ module.exports = class MongoMachineInterface {
       }
     }
 
-    let stages = [{
-      $bucketAuto: {
-        groupBy: "$_id.time",
-        buckets: options.buckets
+    let stages = [
+      {
+        $match: {
+          "_id.device": Binary(uuidParse.parse(options.device, Buffer.allocUnsafe(16)), Binary.SUBTYPE_UUID),
+          "_id.time": {
+            $gt: options.startTime,
+            $lt: options.endTime
+          },
+          counters: { $exists: true }
+        }
+      },
+      {
+        $bucketAuto: {
+          groupBy: "$_id.time",
+          buckets: options.buckets,
+          output: {
+            processedQuantity: { $avg: "$counters.value.processedQuantity" },
+            count: { $sum: 1 }
+          }
+        }
       }
-    }];
+    ];
 
     return await new Promise((resolve, reject) => {
       let count = 0;
@@ -193,7 +210,7 @@ module.exports = class MongoMachineInterface {
 
         resolve(count);
       });
-    });*/
+    });
   }
 
   queryTimeComplexDifference(name, options) {
@@ -213,25 +230,34 @@ module.exports = class MongoMachineInterface {
   }
 
   recordStream() {
-    let ws = Writable({
-      objectMode: true,
-      highWaterMark: HIGH_WATERMARK
-    });
+    let result = {
+      stream: Writable({
+        objectMode: true,
+        highWaterMark: HIGH_WATERMARK
+      }),
+      reads: 0,
+      successfulReads: 0,
+      totalReadLatency: 0,
+      writes: 0,
+      successfulWrites: 0,
+      totalWriteLatency: 0,
+      errors: 0
+    };
 
-    ws._write = (chunk, enc, callback) => {
+    result.stream._write = (chunk, enc, callback) => {
       let t0 = Date.now();
       this.record(chunk.id, chunk.groupName, chunk.sample).then(() => {
-        ++this.successfulWrites;
-        this.totalWriteLatency += Date.now() - t0;
+        ++result.successfulWrites;
+        result.totalWriteLatency += Date.now() - t0;
       }).catch((err) => {
         console.error(err);
-        ++this.errors;
+        ++result.errors;
       }).then(() => {
-        ++this.writes;
+        ++result.writes;
       }).then(callback);
     };
 
-    return ws;
+    return result;
   }
 
   async record(id, groupName, sample) {

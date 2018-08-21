@@ -1,6 +1,7 @@
 "use strict";
 
 const { Readable } = require('stream');
+const _ = require("lodash");
 
 const HIGH_WATERMARK = 256;
 const REAL_TIME_STEP = 1000;
@@ -71,40 +72,61 @@ module.exports = class MachineStreams {
   }
 
   bulkWrites() {
+    let machines = _.cloneDeep(this.machines);
+    let samples = _.cloneDeep(this.samples);
+
+    let samplesCount = 0;
+
+    let percent = () => {
+      let percent = Math.round(samplesCount / this.totalSamples * 100);
+      if (isNaN(percent))
+        percent = 100;
+
+      return percent;
+    };
+
+    let result = {
+      stream: Readable({
+        objectMode: true,
+        highWaterMark: HIGH_WATERMARK
+      }),
+      percent: percent
+    };
+
     let done = false;
+    let absTime = this.workloadOpts.startTime;
+    let absDate = new Date(this.workloadOpts.startTime);
     let relTime = 0;
     let i = 0;
     let j = 0;
 
-    let rs = Readable({
-      objectMode: true,
-      highWaterMark: HIGH_WATERMARK
-    });
-    rs._read = (size) => {
+    result.stream._read = (size) => {
       let readSamples = 0;
       while (!done) {
         done = true;
         for (; i < this.machineIds.length; ++i) {
           let id = this.machineIds[i];
-          let machine = this.machines[id];
+          let machine = machines[id];
 
           for (; j < machine.groupNames.length; ++j) {
             let groupName = machine.groupNames[j];
 
             done = false;
             if ((relTime + machine.writeDelay) % this.machineType.sampleIntervals[groupName] === 0) {
-              rs.push({
+              result.stream.push({
                 id: id,
                 groupName: groupName,
-                sample: this.machineType.sample(id, groupName, this.absDate)
+                sample: this.machineType.sample(id, groupName, absDate)
               });
 
               ++machine.groups[groupName];
 
-              if (machine.groups[groupName] >= this.samples[groupName]) {
+              if (machine.groups[groupName] >= samples[groupName]) {
                 delete machine.groups[groupName];
                 machine.groupNames = Object.keys(machine.groups);
               }
+
+              ++samplesCount;
 
               if (++readSamples >= size)
                 return;
@@ -115,22 +137,36 @@ module.exports = class MachineStreams {
         }
 
         i = 0;
-        this.absTime += this.bulkWritesTimeStep;
-        this.absDate = new Date(this.absTime);
+        absTime += this.bulkWritesTimeStep;
+        absDate = new Date(absTime);
         relTime += this.bulkWritesTimeStep;
       }
 
-      rs.push(null);
+      result.stream.push(null);
     };
 
-    return rs;
+    return result;
   }
 
   realTimeReads() {
-    let rs = Readable({
-      objectMode: true,
-      highWaterMark: HIGH_WATERMARK
-    });
+    let absTime = this.workloadOpts.startTime;
+    let absDate = new Date(this.workloadOpts.startTime);
+
+    let percent = () => {
+      let percent = Math.round((absTime - this.workloadOpts.startTime) / this.workloadOpts.duration * 100);
+      if (isNaN(percent))
+        percent = 100;
+
+      return percent;
+    };
+
+    let result = {
+      stream: Readable({
+        objectMode: true,
+        highWaterMark: HIGH_WATERMARK
+      }),
+      percent: percent
+    };
 
     let pushed = false;
     let lastSize = 0;
@@ -138,39 +174,53 @@ module.exports = class MachineStreams {
 
     let realTimeInterval = setInterval(() => {
       for (let query in this.machineType.queryIntervals) {
-        if ((this.absTime + this.readPhase) % this.machineType.queryIntervals[query] === 0)
-          queue.push(this.machineType.query(query, this.absDate));
+        if ((absTime + this.readPhase) % this.machineType.queryIntervals[query] === 0)
+          queue.push(this.machineType.query(query, absDate));
       }
 
       if (!pushed && queue.length > 0)
-        rs._read(lastSize);
+        result.stream._read(lastSize);
 
-      this.absTime += REAL_TIME_STEP;
-      this.absDate = new Date(this.absTime);
+      absTime += REAL_TIME_STEP;
+      absDate = new Date(absTime);
     }, REAL_TIME_STEP);
 
-    rs._read = (size) => {
+    result.stream._read = (size) => {
       lastSize = size;
       pushed = false;
       for (let i = 0; i < size && i < queue.length; ++i) {
         pushed = true;
-        rs.push(queue.shift());
+        result.stream.push(queue.shift());
       }
     };
 
     setTimeout(() => {
       clearInterval(realTimeInterval);
-      rs.push(null);
+      result.stream.push(null);
     }, this.workloadOpts.duration);
 
-    return rs;
+    return result;
   }
 
   realTimeWrites() {
-    let rs = Readable({
-      objectMode: true,
-      highWaterMark: HIGH_WATERMARK
-    });
+    let absTime = this.workloadOpts.startTime;
+    let absDate = new Date(this.workloadOpts.startTime);
+
+    let percent = () => {
+      let percent = Math.round((absTime - this.workloadOpts.startTime) / this.workloadOpts.duration * 100);
+      if (isNaN(percent))
+        percent = 100;
+
+      return percent;
+    };
+
+    let result = {
+      stream: Readable({
+        objectMode: true,
+        highWaterMark: HIGH_WATERMARK
+      }),
+      percent: percent
+    };
 
     let pushed = false;
     let lastSize = 0;
@@ -180,38 +230,38 @@ module.exports = class MachineStreams {
       for (let machineId in this.machines) {
         let writePhase = this.machines[machineId].writePhase;
         for (let groupName in this.machineType.sampleIntervals) {
-          if ((this.absTime + writePhase) % this.machineType.sampleIntervals[groupName] === 0) {
+          if ((absTime + writePhase) % this.machineType.sampleIntervals[groupName] === 0) {
             queue.push({
               id: machineId,
               groupName: groupName,
-              sample: this.machineType.sample(machineId, groupName, this.absDate)
+              sample: this.machineType.sample(machineId, groupName, absDate)
             });
           }
         }
       }
 
       if (!pushed && queue.length > 0)
-        rs._read(lastSize);
+        result.stream._read(lastSize);
 
-      this.absTime += REAL_TIME_STEP;
-      this.absDate = new Date(this.absTime);
+      absTime += REAL_TIME_STEP;
+      absDate = new Date(absTime);
     }, REAL_TIME_STEP);
 
-    rs._read = (size) => {
+    result.stream._read = (size) => {
       lastSize = size;
       pushed = false;
       for (let i = 0; i < size && i < queue.length; ++i) {
         pushed = true;
-        rs.push(queue.shift());
+        result.stream.push(queue.shift());
       }
     };
 
     setTimeout(() => {
       clearInterval(realTimeInterval);
-      rs.push(null);
+      result.stream.push(null);
     }, this.workloadOpts.duration);
 
-    return rs;
+    return result;
   }
 
 };

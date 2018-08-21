@@ -44,7 +44,7 @@ module.exports = class SmallMachine {
     this.queryMethods = {
       lastMonthProcessedQuantity: this.lastMonthProcessedQuantity.bind(this),
       lastWeekAlarms: this.lastWeekAlarms.bind(this),
-      topWorkingHours: this.topWorkingHours.bind(this),
+      topYearWorkingHours: this.topYearWorkingHours.bind(this),
       lastYearAggrProcessedQuantity: this.lastYearAggrProcessedQuantity.bind(this),
       thisYearMonthlyCountersDifference: this.thisYearMonthlyCountersDifference.bind(this),
       oldSetup: this.oldSetup.bind(this),

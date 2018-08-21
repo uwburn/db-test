@@ -15,33 +15,7 @@ module.exports = class BulkMachine extends BaseWorkload {
     this.machineDataStreams = new MachineDataStreams(workloadOpts, machineType);
   }
 
-  stats() {
-    let percent = Math.round(this.dbInterface.writes / this.machineDataStreams.totalSamples * 100);
-    if (isNaN(percent))
-      percent = 100;
-
-    let avgReadLatency = this.dbInterface.totalReadLatency / this.dbInterface.successfulReads;
-    if (isNaN(avgReadLatency))
-      avgReadLatency = null;
-
-    let avgWriteLatency = this.dbInterface.totalWriteLatency / this.dbInterface.successfulWrites;
-    if (isNaN(avgWriteLatency))
-      avgWriteLatency = null;
-
-    return {
-      time: new Date().getTime(),
-      startTime: this.startTime,
-      endTime: this.endTime,
-      reads: this.dbInterface.reads,
-      readLatency: avgReadLatency,
-      writes: this.dbInterface.writes,
-      writeLatency: avgWriteLatency,
-      errors: this.dbInterface.errors,
-      percent: percent
-    };
-  }
-
-  async _run() {
+  async setupStreams() {
     await new Promise((resolve) => {
       console.log(`Waiting worker delay (${Math.round(this.workerDelay / 1000)} s) to pass... `);
 
@@ -49,16 +23,12 @@ module.exports = class BulkMachine extends BaseWorkload {
         this.startTime = new Date().getTime();
 
         let recordStream = this.dbInterface.recordStream();
-        this.machineDataStreams.bulkWrites().pipe(recordStream);
+        this.addWriteStream(recordStream);
+        let bulkWritesReadStream = this.machineDataStreams.bulkWrites();
+        this.addReadStream(bulkWritesReadStream);
+        bulkWritesReadStream.stream.pipe(recordStream.stream);
 
-        recordStream.once("finish", () => {
-          this.endTime = new Date().getTime();
-
-          this.log();
-          console.log(`Workload completed`);
-
-          resolve();
-        });
+        resolve();
       }, this.workerDelay);
     });
   }
