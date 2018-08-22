@@ -5,8 +5,40 @@ const { Writable } = require('stream');
 const MongoClient = require('mongodb').MongoClient;
 const Binary = require('mongodb').Binary;
 const uuidParse = require('uuid-parse');
+const _ = require('lodash');
+const FlattenJS = require('flattenjs');
 
 const HIGH_WATERMARK = 256;
+
+function subtractDocs(o1, o2) {
+  let d = {
+    _id: o2._id
+  };
+
+  if (o1)
+    delete o1._id;
+  delete o2._id;
+  let f1 = FlattenJS.convert(o1);
+  let f2 = FlattenJS.convert(o2);
+
+  for (let k in f2) {
+    if (isNaN(f2[k]))
+      continue;
+
+    if (isNaN(f1[k])) {
+      d[k] = f2[k];
+      continue;
+    }
+
+    d[k] = f2[k] - f1[k];
+  }
+
+  let res = {};
+  for (let k in d)
+    _.set(res, k, d[k]);
+
+  return res;
+}
 
 module.exports = class MongoMachineInterface {
 
@@ -77,8 +109,7 @@ module.exports = class MongoMachineInterface {
 
   async queryIntervalRange(name, options) {
     let criteria = {
-      deviceType: options.deviceType,
-      device: options.device,
+      device: Binary(uuidParse.parse(options.device, Buffer.allocUnsafe(16)), Binary.SUBTYPE_UUID),
       group: { $in: options.groups },
       startTime: { $lt: options.endTime },
       endTime: { $gt: options.startTime }
@@ -102,14 +133,11 @@ module.exports = class MongoMachineInterface {
     options.select = options.select || {};
 
     let criteria = {
-      "_id.device": options.device,
+      "_id.device": Binary(uuidParse.parse(options.device, Buffer.allocUnsafe(16)), Binary.SUBTYPE_UUID),
       "_id.time": {
         $gt: options.startTime,
         $lt: options.endTime
-      },
-      deviceType: options.deviceType,
-      device: options.device,
-      group: { $in: options.groups },
+      }
     };
 
     let project = {
@@ -133,7 +161,7 @@ module.exports = class MongoMachineInterface {
     return await new Promise((resolve, reject) => {
       let count = 0;
 
-      this.intervalColl.find(criteria).project(project).forEach((doc) => {
+      let cursor = this.timeComplexColl.find(criteria).project(project).forEach((doc) => {
         ++count;
       }, (err) => {
         if (err)
@@ -148,53 +176,35 @@ module.exports = class MongoMachineInterface {
     options.select = options.select || {};
 
     let criteria = {
-      "_id.device": options.device,
+      "_id.device": Binary(uuidParse.parse(options.device, Buffer.allocUnsafe(16)), Binary.SUBTYPE_UUID),
       "_id.time": {
         $gt: options.startTime,
         $lt: options.endTime
-      },
-      deviceType: options.deviceType,
-      device: options.device,
-      group: { $in: options.groups },
-    };
-
-    let project = {
-      "_id.time": 1,
+      }
     };
 
     options.groups.forEach((e) => {
       criteria[e] = { $exists: true };
-      project[e] = 1;
     });
 
+    let output = {
+      count: { $sum: 1 }
+    };
     for (let k in options.select) {
       let group = options.select[k];
-      project[k + ".time"] = 1;
-      delete project[k];
-      for (let path of group) {
-        project[k + ".value." + path] = 1;
-      }
+      for (let path of group)
+        output[k + "_" + path] =  { $avg: "$" + k + ".value." + path};
     }
 
     let stages = [
       {
-        $match: {
-          "_id.device": Binary(uuidParse.parse(options.device, Buffer.allocUnsafe(16)), Binary.SUBTYPE_UUID),
-          "_id.time": {
-            $gt: options.startTime,
-            $lt: options.endTime
-          },
-          counters: { $exists: true }
-        }
+        $match: criteria
       },
       {
         $bucketAuto: {
           groupBy: "$_id.time",
           buckets: options.buckets,
-          output: {
-            processedQuantity: { $avg: "$counters.value.processedQuantity" },
-            count: { $sum: 1 }
-          }
+          output: output
         }
       }
     ];
@@ -213,20 +223,260 @@ module.exports = class MongoMachineInterface {
     });
   }
 
-  queryTimeComplexDifference(name, options) {
+  async queryTimeComplexDifference(name, options) {
+    options.select = options.select || {};
 
+    let promises = [];
+
+    for (let time of options.times) {
+      let criteria = {
+        "_id.device": Binary(uuidParse.parse(options.device, Buffer.allocUnsafe(16)), Binary.SUBTYPE_UUID),
+        "_id.time": {
+          $lt: time
+        }
+      };
+
+      options.groups.forEach((e) => {
+        criteria[e] = {$exists: true};
+      });
+
+      let group = {
+        _id: "$_id.device"
+      };
+      for (let k in options.select) {
+        let _group = options.select[k];
+
+        let hasPath = false;
+        for (let path of _group) {
+          hasPath = true;
+          group[k + "_" + path] = {$last: "$" + k + ".value." + path};
+        }
+
+        if (!hasPath) {
+          group[k] = {$last: "$" + k + ".value"};
+        }
+      }
+
+      let stages = [
+        {
+          $match: criteria
+        },
+        {
+          $sort: {
+            "_id.device": 1,
+            "_id.time": 1
+          }
+        },
+        {
+          $group: group
+        }
+      ];
+
+      promises.push(this.timeComplexColl.aggregate(stages).toArray());
+    }
+
+    let results = await Promise.all(promises);
+
+    let subs = [];
+    for (let i = 0; i < results.length - 1; ++i) {
+      let intervalSubs = [];
+      subs.push(intervalSubs);
+
+      let prev = results[i];
+      let curr = results[i + 1];
+
+      for (let j = 0; j < curr.length; ++j)
+        intervalSubs.push(subtractDocs(prev[j], curr[j]));
+    }
   }
 
-  queryTimeComplexLastBefore(name, options) {
+  async queryTimeComplexLastBefore(name, options) {
+    let criteria = {
+      "_id.device": Binary(uuidParse.parse(options.device, Buffer.allocUnsafe(16)), Binary.SUBTYPE_UUID),
+      "_id.time": {
+        $lt: options.time
+      }
+    };
 
+    options.groups.forEach((e) => {
+      criteria[e] = { $exists: true };
+    });
+
+    let group = {
+      _id: "last"
+    };
+    for (let k in options.select) {
+      let _group = options.select[k];
+
+      let hasPath = false;
+      for (let path of _group) {
+        hasPath = true;
+        group[k + "_" + path] = {$last: "$" + k + ".value." + path};
+      }
+
+      if (!hasPath) {
+        group[k] = {$last: "$" + k + ".value"};
+      }
+    }
+
+    let stages = [
+      {
+        $match: criteria
+      },
+      {
+        $sort: {
+          "_id.time": 1
+        }
+      },
+      {
+        $group: group
+      }
+    ];
+
+    return await new Promise((resolve, reject) => {
+      let count = 0;
+
+      this.timeComplexColl.aggregate(stages).forEach((doc) => {
+        ++count;
+      }, (err) => {
+        if (err)
+          return reject();
+
+        resolve(count);
+      });
+    });
   }
 
-  queryTimeComplexTopDifference(name, options) {
+  async queryTimeComplexTopDifference(name, options) {
+    options.select = options.select || {};
+    let times = [options.startTime, options.endTime];
 
+    let promises = [];
+
+    for (let time of times) {
+      let criteria = {
+        "_id.time": {
+          $lt: time
+        }
+      };
+
+      options.groups.forEach((e) => {
+        criteria[e] = {$exists: true};
+      });
+
+      let group = {
+        _id: "$_id.device"
+      };
+      for (let k in options.select) {
+        let _group = options.select[k];
+
+        let hasPath = false;
+        for (let path of _group) {
+          hasPath = true;
+          group[k + "_" + path] = {$last: "$" + k + ".value." + path};
+        }
+
+        if (!hasPath) {
+          group[k] = {$last: "$" + k + ".value"};
+        }
+      }
+
+      let stages = [
+        {
+          $match: criteria
+        },
+        {
+          $sort: {
+            "_id.device": 1,
+            "_id.time": 1
+          }
+        },
+        {
+          $group: group
+        }
+      ];
+
+      promises.push(this.timeComplexColl.aggregate(stages).toArray());
+    }
+
+    let results = await Promise.all(promises);
+
+    let subs = [];
+    for (let i = 0; i < results.length - 1; ++i) {
+      let intervalSubs = [];
+      subs.push(intervalSubs);
+
+      let prev = results[i];
+      let curr = results[i + 1];
+
+      for (let j = 0; j < curr.length; ++j)
+        intervalSubs.push(subtractDocs(prev[j], curr[j]));
+    }
+
+    let iteratees = [];
+    let orders = [];
+    for (let k in options.sort) {
+      let group = options.sort[k];
+
+      for (let path in group) {
+        iteratees.push(k + "." + path);
+        orders.push(group[path]);
+      }
+    }
+
+    let tops = _.orderBy(subs, iteratees, orders);
+    tops = tops.slice(0, options.limit);
+
+    return tops.length;
   }
 
-  queryIntervalTopCount(name, options) {
+  async queryIntervalTopCount(name, options) {
+    options.select = options.select || {};
 
+    let criteria = {
+      "_id.time": {
+        startTime: { $lt: options.endTime },
+        endTime: { $gt: options.startTime }
+      },
+      group: { $in: options.groups },
+    };
+
+    let group = {
+      _id: "$_id.device",
+      count: { $sum: 1 }
+    };
+
+    let sort = {
+      count: -1
+    };
+
+    let stages = [
+      {
+        $match: criteria
+      },
+      {
+        $group: group
+      },
+      {
+        $sort: sort
+      },
+      {
+        $limit : options.limit
+      }
+    ];
+
+    return await new Promise((resolve, reject) => {
+      let count = 0;
+
+      this.intervalColl.aggregate(stages).forEach((doc) => {
+        ++count;
+      }, (err) => {
+        if (err)
+          return reject();
+
+        resolve(count);
+      });
+    });
   }
 
   recordStream() {
