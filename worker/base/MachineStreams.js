@@ -42,9 +42,6 @@ module.exports = class MachineStreams {
       this.maxQueryStep = Math.max(this.maxQueryStep, this.source.queryIntervals[k]);
       this.queries[k] = Math.floor(timeInterval / this.source.queryIntervals[k]);
     }
-    for (let k in this.machineType.queryIntervals) {
-      this.maxQueryStep = Math.max(this.maxQueryStep, this.machineType.queryIntervals[k]);
-    }
 
     this.totalSamples = 0;
     for (let k in this.samples)

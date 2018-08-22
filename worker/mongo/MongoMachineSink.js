@@ -249,11 +249,11 @@ module.exports = class MongoMachineSink {
         let hasPath = false;
         for (let path of _group) {
           hasPath = true;
-          group[k + "_" + path] = {$last: "$" + k + ".value." + path};
+          group[k + "_" + path] = {$first: "$" + k + ".value." + path};
         }
 
         if (!hasPath) {
-          group[k] = {$last: "$" + k + ".value"};
+          group[k] = {$first: "$" + k + ".value"};
         }
       }
 
@@ -264,7 +264,7 @@ module.exports = class MongoMachineSink {
         {
           $sort: {
             "_id.device": 1,
-            "_id.time": 1
+            "_id.time": -1
           }
         },
         {
@@ -311,11 +311,11 @@ module.exports = class MongoMachineSink {
       let hasPath = false;
       for (let path of _group) {
         hasPath = true;
-        group[k + "_" + path] = {$last: "$" + k + ".value." + path};
+        group[k + "_" + path] = {$first: "$" + k + ".value." + path};
       }
 
       if (!hasPath) {
-        group[k] = {$last: "$" + k + ".value"};
+        group[k] = {$first: "$" + k + ".value"};
       }
     }
 
@@ -325,7 +325,7 @@ module.exports = class MongoMachineSink {
       },
       {
         $sort: {
-          "_id.time": 1
+          "_id.time": -1
         }
       },
       {
@@ -373,11 +373,11 @@ module.exports = class MongoMachineSink {
         let hasPath = false;
         for (let path of _group) {
           hasPath = true;
-          group[k + "_" + path] = {$last: "$" + k + ".value." + path};
+          group[k + "_" + path] = {$first: "$" + k + ".value." + path};
         }
 
         if (!hasPath) {
-          group[k] = {$last: "$" + k + ".value"};
+          group[k] = {$first: "$" + k + ".value"};
         }
       }
 
@@ -388,7 +388,7 @@ module.exports = class MongoMachineSink {
         {
           $sort: {
             "_id.device": 1,
-            "_id.time": 1
+            "_id.time": -1
           }
         },
         {

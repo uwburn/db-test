@@ -129,6 +129,8 @@ async function prepareMachineDataMongo(databaseOpts) {
 
   await timeComplexColl.ensureIndex({ "_id.device": 1 });
   await timeComplexColl.ensureIndex({ "_id.time": 1 });
+  await timeComplexColl.ensureIndex({ "_id.device": 1, "_id.time": 1 });
+  await timeComplexColl.ensureIndex({ "_id.device": 1, "_id.time": -1 });
 
   await intervalColl.ensureIndex({ startTime: 1 });
   await intervalColl.ensureIndex({ endTime: 1 });
