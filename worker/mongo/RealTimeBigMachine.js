@@ -1,14 +1,14 @@
 "use strict";
 
 const BaseRealTimeBigMachine = require(`../base/RealTimeBigMachine`);
-const MongoMachineInterface = require(`./MongoMachineInterface`);
+const MongoMachineSink = require(`./MongoMachineSink`);
 
-module.exports = class RealTimeBigMachine extends BaseRealTimeBigMachine {
+module.exports = class MongoRealTimeBigMachine extends BaseRealTimeBigMachine {
 
   constructor(id, workerId, workloadOpts, databaseOpts, mqttClient) {
     super(id, workerId, workloadOpts, mqttClient);
 
-    this.dbInterface = new MongoMachineInterface(databaseOpts);
+    this.sink = new MongoMachineSink(databaseOpts);
   }
 
 };

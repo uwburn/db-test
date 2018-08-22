@@ -5,55 +5,25 @@ const MachineDataStreams = require(`./MachineStreams`);
 
 module.exports = class RealTimeMachine extends BaseWorkload {
 
-  constructor(id, workerId, workloadOpts, machineType, mqttClient) {
+  constructor(id, workerId, workloadOpts, source, mqttClient) {
     super(id, workerId, mqttClient);
     this.workloadOpts = workloadOpts;
 
-    this.machineDataStreams = new MachineDataStreams(workloadOpts, machineType);
+    this.machineDataStreams = new MachineDataStreams(workloadOpts, source);
   }
 
-  stats() {
-    let percent = Math.round((this.machineDataStreams.absTime - this.workloadOpts.startTime) / this.workloadOpts.duration * 100);
-    if (isNaN(percent))
-      percent = 100;
+  async setupStreams() {
+    let realTimeWritesSink = this.sink.recordStream();
+    this.addWriteStream(realTimeWritesSink);
+    let realTimeWritesSource = this.machineDataStreams.realTimeWrites();
+    this.addReadStream(realTimeWritesSource);
+    realTimeWritesSource.stream.pipe(realTimeWritesSink.stream);
 
-    let avgReadLatency = this.dbInterface.totalReadLatency / this.dbInterface.successfulReads;
-    if (isNaN(avgReadLatency))
-      avgReadLatency = null;
-
-    let avgWriteLatency = this.dbInterface.totalWriteLatency / this.dbInterface.successfulWrites;
-    if (isNaN(avgWriteLatency))
-      avgWriteLatency = null;
-
-    return {
-      time: new Date().getTime(),
-      startTime: this.startTime,
-      endTime: this.endTime,
-      reads: this.dbInterface.reads,
-      readLatency: avgReadLatency,
-      writes: this.dbInterface.writes,
-      writeLatency: avgWriteLatency,
-      errors: this.dbInterface.errors,
-      percent: percent
-    };
-  }
-
-  async _run() {
-    await new Promise((resolve) => {
-      this.startTime = new Date().getTime();
-
-      let recordStream = this.dbInterface.recordStream();
-      this.machineDataStreams.realTimeWrites().pipe(recordStream);
-
-      recordStream.once("finish", () => {
-        this.endTime = new Date().getTime();
-
-        this.log();
-        console.log(`Workload completed`);
-
-        resolve();
-      });
-    });
+    let realTimeQueriesSink = this.sink.queryStream();
+    this.addWriteStream(realTimeQueriesSink);
+    let realTimeQueriesSource = this.machineDataStreams.realTimeReads();
+    this.addReadStream(realTimeQueriesSource);
+    realTimeQueriesSource.stream.pipe(realTimeQueriesSink.stream);
   }
 
 };

@@ -28,21 +28,23 @@ function buildMachineDataSuite(database, databaseOpts, suiteOptions) {
   return {
     machines: machines,
     get length() {
-      return suiteOptions.years;
+      return suiteOptions.years * 3;
     },
     getStepName(stepIndex) {
-      let year = Math.floor(stepIndex / 2);
+      let year = Math.floor(stepIndex / 3);
 
-      let mod = stepIndex % 2;
+      let mod = stepIndex % 3;
       switch (mod) {
         case 0:
-          return `Year ${year + 1} - Bulk insert`;
+          return `Year ${year + 1} - Bulk writes`;
         case 1:
+          return `Year ${year + 1} - Bulk reads`;
+        case 2:
           return `Year ${year + 1} - Real time`;
       }
     },
     getStepForWorker(stepIndex, workerIndex, totalWorkers) {
-      let year = Math.floor(stepIndex / 2);
+      let year = Math.floor(stepIndex / 3);
       startYear.clone().add(year, `year`).valueOf();
 
       let machinesPerWorker = Math.floor(machines.length / totalWorkers);
@@ -52,11 +54,11 @@ function buildMachineDataSuite(database, databaseOpts, suiteOptions) {
       if ((totalWorkers - 1) === workerIndex)
         endIndex = undefined;
 
-      let mod = stepIndex % 2;
+      let mod = stepIndex % 3;
       switch (mod) {
         case 0:
           return {
-            name: `Year ${year + 1} - Bulk insert`,
+            name: `Year ${year + 1} - Bulk writes`,
             database: database,
             databaseOpts: databaseOpts,
             workload: `BulkWrite${machineSize}Machine`,
@@ -69,6 +71,20 @@ function buildMachineDataSuite(database, databaseOpts, suiteOptions) {
             }
           };
         case 1:
+          return {
+            name: `Year ${year + 1} - Bulk reads`,
+            database: database,
+            databaseOpts: databaseOpts,
+            workload: `BulkRead${machineSize}Machine`,
+            workloadOpts: {
+              startTime: startYear.clone().add(year, `year`).valueOf(),
+              endTime: startYear.clone().add(year, `year`).month(11).date(31).hour(23).minute(45).valueOf(),
+              machineUptime: suiteOptions.machineUptime,
+              machines: machines.slice(startIndex, endIndex),
+              machineTypeId: machineTypeId
+            }
+          };
+        case 2:
           return {
             name: `Year ${year + 1} - Real time`,
             database: database,
@@ -111,8 +127,11 @@ async function prepareMachineDataMongo(databaseOpts) {
   let timeComplexColl = db.collection(`timeComplex`);
   let intervalColl = db.collection(`interval`);
 
-  //await timeComplexColl.ensureIndex({ device: 1, deviceType: 1, time: 1 }, { `unique`: true });
-  //await intervalColl.ensureIndex({ device: 1, deviceType: 1, endTime: 1, startTime: 1 });
+  await timeComplexColl.ensureIndex({ "_id.device": 1 });
+  await timeComplexColl.ensureIndex({ "_id.time": 1 });
+
+  await intervalColl.ensureIndex({ startTime: 1 });
+  await intervalColl.ensureIndex({ endTime: 1 });
 
   mongoClient.close();
 }

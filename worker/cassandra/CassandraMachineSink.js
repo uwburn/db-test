@@ -8,7 +8,7 @@ const FlattenJS = require('flattenjs');
 const HIGH_WATERMARK = 256;
 const TIME_COMPLEX_MODE = process.env.CASSANDRA_TIME_COMPLEX_MODE || "BOTH";
 
-module.exports = class CassandraMachineInterface {
+module.exports = class CassandraMachineSink {
 
   constructor(databaseOpts) {
     this.databaseOpts = databaseOpts;

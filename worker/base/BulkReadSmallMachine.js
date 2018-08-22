@@ -1,9 +1,9 @@
 "use strict";
 
-const BulkWriteMachine = require(`./BulkWriteMachine`);
+const BulkReadMachine = require(`./BulkReadMachine`);
 const Source = require(`./SmallMachineSource`);
 
-module.exports = class BulkSmallMachine extends BulkWriteMachine {
+module.exports = class BulkSmallMachine extends BulkReadMachine {
 
     constructor(id, workerId, workloadOpts, mqttClient) {
         super(id, workerId, workloadOpts, new Source(workloadOpts), mqttClient);
