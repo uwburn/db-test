@@ -6,6 +6,14 @@ const _ = require("lodash");
 const HIGH_WATERMARK = 256;
 const REAL_TIME_STEP = 1000;
 
+function gcd(a, b) {
+  if ( ! b) {
+    return a;
+  }
+
+  return gcd(b, a % b);
+};
+
 module.exports = class MachineStreams {
 
   constructor(workloadOpts, source) {
@@ -18,24 +26,31 @@ module.exports = class MachineStreams {
     else if (this.workloadOpts.duration)
       timeInterval = this.workloadOpts.duration;
 
-    this.bulkWritesTimeStep = Number.MAX_SAFE_INTEGER;
+    this.bulkWritesTimeStep = this.source.sampleIntervals[0];
+    this.bulkReadsTimeStep = this.source.queryIntervals[0];
     this.maxSampleStep = 1000;
     this.maxQueryStep = 1000;
     this.samples = {};
+    this.queries = {};
     for (let k in this.source.sampleIntervals) {
-      this.bulkWritesTimeStep = Math.min(this.bulkWritesTimeStep, this.source.sampleIntervals[k]);
+      this.bulkWritesTimeStep = gcd(this.bulkWritesTimeStep, this.source.sampleIntervals[k]);
       this.maxSampleStep = Math.max(this.maxSampleStep, this.source.sampleIntervals[k]);
       this.samples[k] = Math.floor(timeInterval / this.source.sampleIntervals[k] * this.workloadOpts.machineUptime);
     }
     for (let k in this.source.queryIntervals) {
+      this.bulkReadsTimeStep = gcd(this.bulkReadsTimeStep, this.source.queryIntervals[k]);
       this.maxQueryStep = Math.max(this.maxQueryStep, this.source.queryIntervals[k]);
+      this.queries[k] = Math.floor(timeInterval / this.source.queryIntervals[k]);
     }
 
     this.totalSamples = 0;
-    for (let k in this.samples) {
+    for (let k in this.samples)
       this.totalSamples += this.samples[k];
-    }
     this.totalSamples *= this.workloadOpts.machines.length;
+
+    this.totalQueries = 0;
+    for (let k in this.queries)
+      this.totalQueries += this.queries[k];
 
     let activeMachines = Math.round(this.workloadOpts.machines.length * this.workloadOpts.machineUptime);
     let i = 0;
@@ -69,6 +84,71 @@ module.exports = class MachineStreams {
 
     this.absTime = this.workloadOpts.startTime;
     this.absDate = new Date(this.absTime);
+  }
+
+  bulkReads() {
+    let queries = _.cloneDeep(this.queries);
+
+    let queriesCount = 0;
+
+    let percent = () => {
+      let percent = Math.round(queriesCount / this.totalQueries * 100);
+      if (isNaN(percent))
+        percent = 100;
+
+      return percent;
+    };
+
+    let result = {
+      stream: Readable({
+        objectMode: true,
+        highWaterMark: HIGH_WATERMARK
+      }),
+      percent: percent
+    };
+
+    let done = false;
+    let absTime = this.workloadOpts.startTime;
+    let absDate = new Date(this.workloadOpts.startTime);
+    let relTime = 0;
+    let i = 0;
+
+    let queryNames = Object.keys(queries);
+
+    result.stream._read = (size) => {
+      let readQueries = 0;
+      while (!done) {
+        done = true;
+        for (; i < queryNames.length; ++i) {
+          done = false;
+
+          let queryName = queryNames[i];
+
+          if (absTime  % this.source.queryIntervals[queryName] === 0) {
+            result.stream.push(this.source.query(queryName, absDate));
+
+            if (--queries[queryName] === 0) {
+              delete queries[queryName];
+              queryNames = Object.keys(queries);
+            }
+
+            ++queriesCount;
+
+            if (++readQueries >= size)
+              return;
+          }
+        }
+
+        i = 0;
+        absTime += this.bulkReadsTimeStep;
+        absDate = new Date(absTime);
+        relTime += this.bulkReadsTimeStep;
+      }
+
+      result.stream.push(null);
+    };
+
+    return result;
   }
 
   bulkWrites() {

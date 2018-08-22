@@ -1,9 +1,9 @@
 "use strict";
 
-const BaseBulkWriteSmallMachine = require(`../base/BulkWriteSmallMachine`);
+const BaseBulkReadSmallMachine = require(`../base/BulkReadSmallMachine`);
 const MongoMachineSink = require(`./MongoMachineSink`);
 
-module.exports = class MongoBulkWriteSmallMachine extends BaseBulkWriteSmallMachine {
+module.exports = class MongoBulkReadSmallMachine extends BaseBulkReadSmallMachine {
 
   constructor(id, workerId, workloadOpts, databaseOpts, mqttClient) {
     super(id, workerId, workloadOpts, mqttClient);
