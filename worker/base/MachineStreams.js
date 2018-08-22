@@ -108,6 +108,11 @@ module.exports = class MachineStreams {
           let id = this.machineIds[i];
           let machine = machines[id];
 
+          if (machine.writeDelay > relTime) {
+            done = false;
+            continue;
+          }
+
           for (; j < machine.groupNames.length; ++j) {
             let groupName = machine.groupNames[j];
 
