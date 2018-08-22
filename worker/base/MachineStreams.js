@@ -8,9 +8,9 @@ const REAL_TIME_STEP = 1000;
 
 module.exports = class MachineStreams {
 
-  constructor(workloadOpts, machineType) {
+  constructor(workloadOpts, source) {
     this.workloadOpts = workloadOpts;
-    this.machineType = machineType;
+    this.source = source;
 
     let timeInterval;
     if (this.workloadOpts.endTime)
@@ -22,13 +22,13 @@ module.exports = class MachineStreams {
     this.maxSampleStep = 1000;
     this.maxQueryStep = 1000;
     this.samples = {};
-    for (let k in this.machineType.sampleIntervals) {
-      this.bulkWritesTimeStep = Math.min(this.bulkWritesTimeStep, this.machineType.sampleIntervals[k]);
-      this.maxSampleStep = Math.max(this.maxSampleStep, this.machineType.sampleIntervals[k]);
-      this.samples[k] = Math.floor(timeInterval / this.machineType.sampleIntervals[k] * this.workloadOpts.machineUptime);
+    for (let k in this.source.sampleIntervals) {
+      this.bulkWritesTimeStep = Math.min(this.bulkWritesTimeStep, this.source.sampleIntervals[k]);
+      this.maxSampleStep = Math.max(this.maxSampleStep, this.source.sampleIntervals[k]);
+      this.samples[k] = Math.floor(timeInterval / this.source.sampleIntervals[k] * this.workloadOpts.machineUptime);
     }
-    for (let k in this.machineType.queryIntervals) {
-      this.maxQueryStep = Math.max(this.maxQueryStep, this.machineType.queryIntervals[k]);
+    for (let k in this.source.queryIntervals) {
+      this.maxQueryStep = Math.max(this.maxQueryStep, this.source.queryIntervals[k]);
     }
 
     this.totalSamples = 0;
@@ -48,7 +48,7 @@ module.exports = class MachineStreams {
       writePhase = Math.round(writePhase / REAL_TIME_STEP) * REAL_TIME_STEP;
 
       let groups = {};
-      for (let k in this.machineType.sampleIntervals)
+      for (let k in this.source.sampleIntervals)
         groups[k] = 0;
 
       this.machines[machineId] = {
@@ -117,11 +117,11 @@ module.exports = class MachineStreams {
             let groupName = machine.groupNames[j];
 
             done = false;
-            if ((relTime + machine.writeDelay) % this.machineType.sampleIntervals[groupName] === 0) {
+            if ((relTime + machine.writeDelay) % this.source.sampleIntervals[groupName] === 0) {
               result.stream.push({
                 id: id,
                 groupName: groupName,
-                sample: this.machineType.sample(id, groupName, absDate)
+                sample: this.source.sample(id, groupName, absDate)
               });
 
               ++machine.groups[groupName];
@@ -178,9 +178,9 @@ module.exports = class MachineStreams {
     let queue = [];
 
     let realTimeInterval = setInterval(() => {
-      for (let query in this.machineType.queryIntervals) {
-        if ((absTime + this.readPhase) % this.machineType.queryIntervals[query] === 0)
-          queue.push(this.machineType.query(query, absDate));
+      for (let query in this.source.queryIntervals) {
+        if ((absTime + this.readPhase) % this.source.queryIntervals[query] === 0)
+          queue.push(this.source.query(query, absDate));
       }
 
       if (!pushed && queue.length > 0)
@@ -234,12 +234,12 @@ module.exports = class MachineStreams {
     let realTimeInterval = setInterval(() => {
       for (let machineId in this.machines) {
         let writePhase = this.machines[machineId].writePhase;
-        for (let groupName in this.machineType.sampleIntervals) {
-          if ((absTime + writePhase) % this.machineType.sampleIntervals[groupName] === 0) {
+        for (let groupName in this.source.sampleIntervals) {
+          if ((absTime + writePhase) % this.source.sampleIntervals[groupName] === 0) {
             queue.push({
               id: machineId,
               groupName: groupName,
-              sample: this.machineType.sample(machineId, groupName, absDate)
+              sample: this.source.sample(machineId, groupName, absDate)
             });
           }
         }

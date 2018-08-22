@@ -7,12 +7,12 @@ const MAX_WORKER_DELAY = 10000;
 
 module.exports = class BulkMachine extends BaseWorkload {
 
-  constructor(id, workerId, workloadOpts, machineType, mqttClient) {
+  constructor(id, workerId, workloadOpts, source, mqttClient) {
     super(id, workerId, mqttClient);
 
     this.workerDelay = Math.round(Math.random() * MAX_WORKER_DELAY);
 
-    this.machineDataStreams = new MachineDataStreams(workloadOpts, machineType);
+    this.machineDataStreams = new MachineDataStreams(workloadOpts, source);
   }
 
   async setupStreams() {
@@ -22,11 +22,11 @@ module.exports = class BulkMachine extends BaseWorkload {
       setTimeout(() => {
         this.startTime = new Date().getTime();
 
-        let recordStream = this.dbInterface.recordStream();
-        this.addWriteStream(recordStream);
-        let bulkWritesReadStream = this.machineDataStreams.bulkWrites();
-        this.addReadStream(bulkWritesReadStream);
-        bulkWritesReadStream.stream.pipe(recordStream.stream);
+        let bulkWritesSink = this.dbInterface.recordStream();
+        this.addWriteStream(bulkWritesSink);
+        let bulkWritesSource = this.machineDataStreams.bulkWrites();
+        this.addReadStream(bulkWritesSource);
+        bulkWritesSource.stream.pipe(bulkWritesSink.stream);
 
         resolve();
       }, this.workerDelay);
