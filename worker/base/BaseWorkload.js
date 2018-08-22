@@ -136,7 +136,7 @@ module.exports = class BaseWorkload {
   }
 
   async init() {
-    await this.dbInterface.init();
+    await this.sink.init();
   }
 
   async setupStreams() {
@@ -144,7 +144,7 @@ module.exports = class BaseWorkload {
   }
 
   async cleanup() {
-    await this.dbInterface.cleanup();
+    await this.sink.cleanup();
   }
 
 };

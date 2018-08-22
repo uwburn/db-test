@@ -40,7 +40,7 @@ function subtractDocs(o1, o2) {
   return res;
 }
 
-module.exports = class MongoMachineInterface {
+module.exports = class MongoMachineSink {
 
   constructor(databaseOpts) {
     this.databaseOpts = databaseOpts;

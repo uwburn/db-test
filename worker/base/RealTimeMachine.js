@@ -13,13 +13,13 @@ module.exports = class RealTimeMachine extends BaseWorkload {
   }
 
   async setupStreams() {
-    let realTimeWritesSink = this.dbInterface.recordStream();
+    let realTimeWritesSink = this.sink.recordStream();
     this.addWriteStream(realTimeWritesSink);
     let realTimeWritesSource = this.machineDataStreams.realTimeWrites();
     this.addReadStream(realTimeWritesSource);
     realTimeWritesSource.stream.pipe(realTimeWritesSink.stream);
 
-    let realTimeQueriesSink = this.dbInterface.queryStream();
+    let realTimeQueriesSink = this.sink.queryStream();
     this.addWriteStream(realTimeQueriesSink);
     let realTimeQueriesSource = this.machineDataStreams.realTimeReads();
     this.addReadStream(realTimeQueriesSource);
