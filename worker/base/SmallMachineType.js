@@ -1,6 +1,7 @@
 "use strict";
 
 const uuidv4 = require('uuid/v4');
+const moment = require('moment');
 
 module.exports = class SmallMachine {
 
@@ -32,19 +33,17 @@ module.exports = class SmallMachine {
     };
 
     this.queryIntervals = {
-      lastMonthProcessedQuantity: 0,
-      lastWeekAlarms: 0,
-      topWorkingHours: 0,
-      lastYearAggrProcessedQuantity: 0,
-      monthlyCountersDifference: 0,
-      oldSetup: 0,
-      topTenMachinesLastWeekWorkingTime: 0
+      lastMonthProcessedQuantity: Math.floor(28800000 / this.workloadOpts.machines.length),
+      lastTwoMonthsAlarms: Math.floor(28800000 / this.workloadOpts.machines.length),
+      lastYearAggrProcessedQuantity: Math.floor(864000000 / this.workloadOpts.machines.length),
+      thisYearMonthlyCountersDifference: Math.floor(604800000 / this.workloadOpts.machines.length),
+      oldSetup: Math.floor(864000000 / this.workloadOpts.machines.length),
+      topTenMachinesLastWeekWorkingTime: 201600000
     };
 
     this.queryMethods = {
       lastMonthProcessedQuantity: this.lastMonthProcessedQuantity.bind(this),
-      lastWeekAlarms: this.lastWeekAlarms.bind(this),
-      topYearWorkingHours: this.topYearWorkingHours.bind(this),
+      lastTwoMonthsAlarms: this.lastTwoMonthsAlarms.bind(this),
       lastYearAggrProcessedQuantity: this.lastYearAggrProcessedQuantity.bind(this),
       thisYearMonthlyCountersDifference: this.thisYearMonthlyCountersDifference.bind(this),
       oldSetup: this.oldSetup.bind(this),
@@ -230,7 +229,7 @@ module.exports = class SmallMachine {
     let machineIndex = Math.floor(this.workloadOpts.machines.length * this.workloadOpts.machineUptime * Math.random());
 
     return {
-      name: "LAST_MONTH_MACHINE_ENERGY",
+      name: "LAST_MONTH_PROCESSED_QUANTITY",
       type: "TIME_COMPLEX_RANGE",
       options: {
         groups: ["counters"],
@@ -246,32 +245,17 @@ module.exports = class SmallMachine {
     };
   }
 
-  lastWeekAlarms(absDate) {
+  lastTwoMonthsAlarms(absDate) {
     let machineIndex = Math.floor(this.workloadOpts.machines.length * this.workloadOpts.machineUptime * Math.random());
 
     return {
-      name: "LAST_WEEK_ALARMS",
+      name: "LAST_MONTH_ALARMS",
       type: "INTERVAL_RANGE",
       options: {
         groups: ["alarm"],
         device: this.workloadOpts.machines[machineIndex],
-        startTime: new Date(absDate.getTime() - 604800000),
+        startTime: new Date(absDate.getTime() - 5184000000),
         endTime: absDate
-      }
-    };
-  }
-
-  topYearWorkingHours(absDate) {
-    let machineIndex = Math.floor(this.workloadOpts.machines.length * this.workloadOpts.machineUptime * Math.random());
-
-    let times = [moment(absDate).startOf('year').toDate(), absDate];
-
-    return {
-      name: "THIS_YEAR_MONTHLY_COUNTERS_DIFFERENCE",
-      type: "TIME_COMPLEX_DIFFERENCE_PER_DEVICE",
-      options: {
-        groups: ["counters"],
-        times: times
       }
     };
   }
@@ -283,14 +267,14 @@ module.exports = class SmallMachine {
       name: "LAST_HOUR_TEMPERATURES",
       type: "TIME_COMPLEX_RANGE_BUCKET_AVG",
       options: {
-        groups: ["temperatureProbe1", "temperatureProbe2"],
+        groups: ["counters"],
         select: {
           "counters": [
             "processedQuantity"
           ]
         },
         device: this.workloadOpts.machines[machineIndex],
-        startTime: new Date(absDate.getTime() - 86400000),
+        startTime: new Date(absDate.getTime() - 31536000000),
         endTime: absDate,
         buckets: 1024
       }
@@ -314,6 +298,9 @@ module.exports = class SmallMachine {
       type: "TIME_COMPLEX_DIFFERENCE",
       options: {
         groups: ["counters"],
+        select: {
+          "counters": [ ]
+        },
         device: this.workloadOpts.machines[machineIndex],
         times: times
       }
@@ -330,6 +317,9 @@ module.exports = class SmallMachine {
       type: "TIME_COMPLEX_LAST_BEFORE",
       options: {
         groups: ["counters"],
+        select: {
+          "counters": [ ]
+        },
         device: this.workloadOpts.machines[machineIndex],
         time: new Date(yearTime + (nowTime - yearTime) * Math.random())
       }
@@ -338,11 +328,18 @@ module.exports = class SmallMachine {
 
   topTenMachinesLastWeekWorkingTime(absDate) {
     return {
-      name: "TOP_TEN_MACHINES_LAST_DAY_WORKING_TIME",
+      name: "TOP_TEN_MACHINES_LAST_WEEK_WORKING_TIME",
       type: "TIME_COMPLEX_TOP_DIFFERENCE",
       options: {
         groups: ["counters"],
-        sort: {"totalWorkedTime": -1},
+        select: {
+          "counters": [ ]
+        },
+        sort: {
+          "counters": {
+            "workingTime": "desc"
+          }
+        },
         limit: 10,
         startTime: new Date(absDate.getTime() - 604800000),
         endTime: absDate
