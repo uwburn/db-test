@@ -3,7 +3,7 @@
 const uuidv4 = require('uuid/v4');
 const moment = require('moment');
 
-module.exports = class SmallMachine {
+module.exports = class SmallMachineSource {
 
   constructor(workloadOpts) {
     this.workloadOpts = workloadOpts;
