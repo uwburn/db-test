@@ -31,26 +31,113 @@ module.exports = class CassandraMachineSink {
     await this.cassandraClient.shutdown();
   }
 
-  recordStream() {
-    let ws = Writable({
-      objectMode: true,
-      highWaterMark: HIGH_WATERMARK
-    });
+  queryStream() {
+    let result = {
+      stream: Writable({
+        objectMode: true,
+        highWaterMark: HIGH_WATERMARK
+      }),
+      reads: 0,
+      successfulReads: 0,
+      totalReadLatency: 0,
+      writes: 0,
+      successfulWrites: 0,
+      totalWriteLatency: 0,
+      errors: 0
+    };
 
-    ws._write = (chunk, enc, callback) => {
+    result.stream._write = (chunk, enc, callback) => {
       let t0 = Date.now();
-      this.record(chunk.id, chunk.groupName, chunk.sample).then(() => {
-        ++this.successfulWrites;
-        this.totalWriteLatency += Date.now() - t0;
+      this.query(chunk.name, chunk.type, chunk.options).then(() => {
+        ++result.successfulReads;
+        result.totalReadLatency += Date.now() - t0;
       }).catch((err) => {
         console.error(err);
-        ++this.errors;
+        ++result.errors;
       }).then(() => {
-        ++this.writes;
+        ++result.reads;
       }).then(callback);
     };
 
-    return ws;
+    return result;
+  }
+
+  async query(name, type, options) {
+    switch (type) {
+      case "INTERVAL_RANGE":
+        return await this.queryIntervalRange(name, options);
+      case "TIME_COMPLEX_RANGE":
+        return await  this.queryTimeComplexRange(name, options);
+      case "TIME_COMPLEX_RANGE_BUCKET_AVG":
+        return await this.queryTimeComplexRangeBucketAvg(name, options);
+      case "TIME_COMPLEX_DIFFERENCE":
+        return await this.queryTimeComplexDifference(name, options);
+      case "TIME_COMPLEX_LAST_BEFORE":
+        return await this.queryTimeComplexLastBefore(name, options);
+      case "TIME_COMPLEX_TOP_DIFFERENCE":
+        return await this.queryTimeComplexTopDifference(name, options);
+      case "INTERVAL_TOP_COUNT":
+        return await this.queryIntervalTopCount(name, options);
+    }
+  }
+
+  async queryIntervalRange(name, options) {
+
+  }
+
+  async queryTimeComplexRange(name, options) {
+
+  }
+
+  async queryTimeComplexRangeBucketAvg(name, options) {
+
+  }
+
+  async queryTimeComplexDifference(name, options) {
+
+  }
+
+  async queryTimeComplexLastBefore(name, options) {
+
+  }
+
+  async queryTimeComplexTopDifference(name, options) {
+
+  }
+
+  async queryIntervalTopCount(name, options) {
+
+  }
+
+  recordStream() {
+    let result = {
+      stream: Writable({
+        objectMode: true,
+        highWaterMark: HIGH_WATERMARK
+      }),
+      reads: 0,
+      successfulReads: 0,
+      totalReadLatency: 0,
+      writes: 0,
+      successfulWrites: 0,
+      totalWriteLatency: 0,
+      errors: 0
+    };
+
+    result.stream._write = (chunk, enc, callback) => {
+      let t0 = Date.now();
+      this.record(chunk.id, chunk.groupName, chunk.sample).then(() => {
+        ++result.successfulWrites;
+        result.totalWriteLatency += Date.now() - t0;
+      }).catch((err) => {
+        console.error(err);
+        ++result.errors;
+      }).then(() => {
+        ++result.writes;
+      }).then(callback);
+    };
+
+    return result;
   }
 
   async record(id, groupName, sample) {
