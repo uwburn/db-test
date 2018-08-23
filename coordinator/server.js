@@ -147,7 +147,7 @@ function logStep() {
     avgWriteLatency: 0,
     totalErrors: 0,
     workers: 0
-  }
+  };
 
   for (let workerId in steps[stepIndex].workers) {
     ++stats.workers;
