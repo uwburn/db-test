@@ -321,6 +321,7 @@ module.exports = class BigMachineSource {
       type: "INTERVAL_RANGE",
       options: {
         groups: ["alarm"],
+        deviceType: this.workloadOpts.machineTypeId,
         device: this.workloadOpts.machines[machineIndex],
         startTime: new Date(absDate.getTime() - 86400000),
         endTime: absDate
@@ -342,6 +343,7 @@ module.exports = class BigMachineSource {
             "reactiveEnergyProduced"
           ]
         },
+        deviceType: this.workloadOpts.machineTypeId,
         device: this.workloadOpts.machines[machineIndex],
         startTime: new Date(absDate.getTime() - 2073600000),
         endTime: absDate
@@ -357,6 +359,7 @@ module.exports = class BigMachineSource {
       type: "TIME_COMPLEX_RANGE",
       options: {
         groups: ["temperatureProbe1", "temperatureProbe2"],
+        deviceType: this.workloadOpts.machineTypeId,
         device: this.workloadOpts.machines[machineIndex],
         startTime: new Date(absDate.getTime() - 3600000),
         endTime: absDate
@@ -372,6 +375,7 @@ module.exports = class BigMachineSource {
       type: "TIME_COMPLEX_RANGE_BUCKET_AVG",
       options: {
         groups: ["temperatureProbe1", "temperatureProbe2"],
+        deviceType: this.workloadOpts.machineTypeId,
         device: this.workloadOpts.machines[machineIndex],
         startTime: new Date(absDate.getTime() - 86400000),
         endTime: absDate,
@@ -397,6 +401,7 @@ module.exports = class BigMachineSource {
       type: "TIME_COMPLEX_DIFFERENCE",
       options: {
         groups: ["counters"],
+        deviceType: this.workloadOpts.machineTypeId,
         device: this.workloadOpts.machines[machineIndex],
         times: times
       }
@@ -413,6 +418,7 @@ module.exports = class BigMachineSource {
       type: "TIME_COMPLEX_LAST_BEFORE",
       options: {
         groups: ["counters"],
+        deviceType: this.workloadOpts.machineTypeId,
         device: this.workloadOpts.machines[machineIndex],
         time: new Date(yearTime + (nowTime - yearTime) * Math.random())
       }
@@ -424,6 +430,7 @@ module.exports = class BigMachineSource {
       name: "TOP_TEN_MACHINES_LAST_DAY_WORKING_TIME",
       type: "TIME_COMPLEX_TOP_DIFFERENCE",
       options: {
+        deviceType: this.workloadOpts.machineTypeId,
         groups: ["counters"],
         sort: {"totalWorkedTime": -1},
         limit: 10,
@@ -438,6 +445,7 @@ module.exports = class BigMachineSource {
       name: "TOP_TEN_MACHINES_LAST_DAY_ALARMS",
       type: "INTERVAL_TOP_COUNT",
       options: {
+        deviceType: this.workloadOpts.machineTypeId,
         groups: ["alarm"],
         limit: 10,
         startTime: new Date(absDate.getTime() - 86400000),
