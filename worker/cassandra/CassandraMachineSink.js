@@ -407,10 +407,9 @@ module.exports = class CassandraMachineSink {
 
   async queryTimeComplexTopDifferenceSingleGroup(name, options) {
     let group = options.groups[0];
-    let paths = options.select[group];
     let sorts = options.sort[group];
 
-    let boundaries = await this.cassandraClient.execute("SELECT device, MIN(timestamp) AS min_time, MAX(timestamp) AS max_time FROM time_complex WHERE device_type = ? AND group = ? AND timestamp >= ? AND timestamp <= ? GROUP BY device LIMIT 100000 ALLOW FILTERING", [
+    let boundaries = await this.cassandraClient.execute("SELECT device, MIN(timestamp) AS min_time, MAX(timestamp) AS max_time FROM time_complex WHERE device_type = ? AND group = ? AND timestamp >= ? AND timestamp <= ? GROUP BY device LIMIT 1000000 ALLOW FILTERING", [
       options.deviceType,
       group,
       options.startTime,
@@ -476,7 +475,30 @@ module.exports = class CassandraMachineSink {
   }
 
   async queryIntervalTopCount(name, options) {
+    options.select = options.select || {};
 
+    if (options.groups.length === 1)
+      return await this.queryIntervalTopCountSingleGroup(name, options);
+    else
+      return await this.queryIntervalTopCountMultipleGroups(name, options);
+  }
+
+  async queryIntervalTopCountSingleGroup(name, options) {
+    let group = options.groups[0];
+
+    let counts = await this.cassandraClient.execute("SELECT device, COUNT(*) AS interval_count FROM interval WHERE device_type = ? AND group = ? GROUP BY device;", [
+      options.deviceType,
+      group
+    ], {
+      prepare: true
+    });
+
+    let tops = _.orderBy(counts.rows, ["interval_count"], ["DESC"]);
+    tops = tops.slice(0, options.limit);
+  }
+
+  async queryIntervalTopCountMultipleGroups(name, options) {
+    throw new Error("Currently not supported, as no query requires it");
   }
 
   recordStream() {
