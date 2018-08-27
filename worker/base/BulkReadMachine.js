@@ -3,7 +3,7 @@
 const BaseWorkload = require(`./BaseWorkload`);
 const MachineDataStreams = require(`./MachineStreams`);
 
-const MAX_WORKER_DELAY = 10000;
+const MAX_WORKER_DELAY = 5000;
 
 module.exports = class BulkMachine extends BaseWorkload {
 

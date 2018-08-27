@@ -232,6 +232,7 @@ module.exports = class SmallMachineSource {
       name: "LAST_MONTH_PROCESSED_QUANTITY",
       type: "TIME_COMPLEX_RANGE",
       options: {
+        deviceType: this.workloadOpts.machineTypeId,
         groups: ["counters"],
         select: {
           "counters": [
@@ -252,6 +253,7 @@ module.exports = class SmallMachineSource {
       name: "LAST_MONTH_ALARMS",
       type: "INTERVAL_RANGE",
       options: {
+        deviceType: this.workloadOpts.machineTypeId,
         groups: ["alarm"],
         device: this.workloadOpts.machines[machineIndex],
         startTime: new Date(absDate.getTime() - 5184000000),
@@ -267,6 +269,7 @@ module.exports = class SmallMachineSource {
       name: "LAST_HOUR_TEMPERATURES",
       type: "TIME_COMPLEX_RANGE_BUCKET_AVG",
       options: {
+        deviceType: this.workloadOpts.machineTypeId,
         groups: ["counters"],
         select: {
           "counters": [
@@ -297,6 +300,7 @@ module.exports = class SmallMachineSource {
       name: "THIS_YEAR_MONTHLY_COUNTERS_DIFFERENCE",
       type: "TIME_COMPLEX_DIFFERENCE",
       options: {
+        deviceType: this.workloadOpts.machineTypeId,
         groups: ["counters"],
         select: {
           "counters": [ ]
@@ -316,6 +320,7 @@ module.exports = class SmallMachineSource {
       name: "LAST_MONTH_MACHINE_ENERGY",
       type: "TIME_COMPLEX_LAST_BEFORE",
       options: {
+        deviceType: this.workloadOpts.machineTypeId,
         groups: ["counters"],
         select: {
           "counters": [ ]
@@ -331,6 +336,7 @@ module.exports = class SmallMachineSource {
       name: "TOP_TEN_MACHINES_LAST_WEEK_WORKING_TIME",
       type: "TIME_COMPLEX_TOP_DIFFERENCE",
       options: {
+        deviceType: this.workloadOpts.machineTypeId,
         groups: ["counters"],
         select: {
           "counters": [ ]

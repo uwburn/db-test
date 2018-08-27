@@ -228,11 +228,15 @@ module.exports = class MongoMachineSink {
 
     let promises = [];
 
-    for (let time of options.times) {
+    for (let i = 0; i < options.times.length -1; ++i) {
+      let startTime = options.times[i];
+      let endTime = options.times[i + 1];
+
       let criteria = {
         "_id.device": Binary(uuidParse.parse(options.device, Buffer.allocUnsafe(16)), Binary.SUBTYPE_UUID),
         "_id.time": {
-          $lt: time
+          $gt: startTime,
+          $lt: endTime
         }
       };
 
@@ -246,14 +250,17 @@ module.exports = class MongoMachineSink {
       for (let k in options.select) {
         let _group = options.select[k];
 
+
         let hasPath = false;
         for (let path of _group) {
           hasPath = true;
-          group[k + "_" + path] = {$first: "$" + k + ".value." + path};
+          group[k + "_" + path + "_first"] = {$first: "$" + k + ".value." + path};
+          group[k + "_" + path + "_last"] = {$last: "$" + k + ".value." + path};
         }
 
         if (!hasPath) {
-          group[k] = {$first: "$" + k + ".value"};
+          group[k + "_first"] = {$first: "$" + k + ".value"};
+          group[k + "_last"] = {$last: "$" + k + ".value"};
         }
       }
 
@@ -277,17 +284,25 @@ module.exports = class MongoMachineSink {
 
     let results = await Promise.all(promises);
 
-    let subs = [];
-    for (let i = 0; i < results.length - 1; ++i) {
-      let intervalSubs = [];
-      subs.push(intervalSubs);
+    let subs = results.map((result) => {
+      result = result[0];
 
-      let prev = results[i];
-      let curr = results[i + 1];
+      let o1 = {};
+      let o2 = {};
+      let sub = {};
+      for (let k in result) {
+        if (k.endsWith("_first"))
+          o1[k.substring(0, k.length - 6)] = result[k];
+        else if (k.endsWith("_last"))
+          o2[k.substring(0, k.length - 5)] = result[k];
+        else
+          sub[k] = result[k];
+      }
 
-      for (let j = 0; j < curr.length; ++j)
-        intervalSubs.push(subtractDocs(prev[j], curr[j]));
-    }
+      return _.assign(sub, subtractDocs(o1, o2));
+    });
+
+    return subs.length;
   }
 
   async queryTimeComplexLastBefore(name, options) {
@@ -349,69 +364,74 @@ module.exports = class MongoMachineSink {
 
   async queryTimeComplexTopDifference(name, options) {
     options.select = options.select || {};
-    let times = [options.startTime, options.endTime];
 
-    let promises = [];
+    let criteria = {
+      "_id.time": {
+        $gt: options.startTime,
+        $lt: options.endTime
+      }
+    };
 
-    for (let time of times) {
-      let criteria = {
-        "_id.time": {
-          $lt: time
-        }
-      };
+    options.groups.forEach((e) => {
+      criteria[e] = {$exists: true};
+    });
 
-      options.groups.forEach((e) => {
-        criteria[e] = {$exists: true};
-      });
+    let group = {
+      _id: "$_id.device"
+    };
+    for (let k in options.select) {
+      let _group = options.select[k];
 
-      let group = {
-        _id: "$_id.device"
-      };
-      for (let k in options.select) {
-        let _group = options.select[k];
-
-        let hasPath = false;
-        for (let path of _group) {
-          hasPath = true;
-          group[k + "_" + path] = {$first: "$" + k + ".value." + path};
-        }
-
-        if (!hasPath) {
-          group[k] = {$first: "$" + k + ".value"};
-        }
+      let hasPath = false;
+      for (let path of _group) {
+        hasPath = true;
+        group[k + "_" + path + "_first"] = {$first: "$" + k + ".value." + path};
+        group[k + "_" + path + "_last"] = {$last: "$" + k + ".value." + path};
       }
 
-      let stages = [
-        {
-          $match: criteria
-        },
-        {
-          $sort: {
-            "_id.device": 1,
-            "_id.time": -1
-          }
-        },
-        {
-          $group: group
-        }
-      ];
-
-      promises.push(this.timeComplexColl.aggregate(stages).toArray());
+      if (!hasPath) {
+        group[k + "_first"] = {$first: "$" + k + ".value"};
+        group[k + "_last"] = {$last: "$" + k + ".value"};
+      }
     }
 
-    let results = await Promise.all(promises);
+    let stages = [
+      {
+        $match: criteria
+      },
+      {
+        $sort: {
+          "_id.time": 1
+        }
+      },
+      {
+        $group: group
+      }
+    ];
 
     let subs = [];
-    for (let i = 0; i < results.length - 1; ++i) {
-      let intervalSubs = [];
-      subs.push(intervalSubs);
+    await new Promise((resolve, reject) => {
+      this.timeComplexColl.aggregate(stages).forEach((doc) => {
+        let o1 = {};
+        let o2 = {};
+        let sub = {};
+        for (let k in doc) {
+          if (k.endsWith("_first"))
+            o1[k.substring(0, k.length - 6)] = doc[k];
+          else if (k.endsWith("_last"))
+            o2[k.substring(0, k.length - 5)] = doc[k];
+          else
+            sub[k] = doc[k];
+        }
 
-      let prev = results[i];
-      let curr = results[i + 1];
+        subs.push(_.assign(sub, subtractDocs(o1, o2)));
+      }, (err) => {
+        if (err)
+          return reject();
 
-      for (let j = 0; j < curr.length; ++j)
-        intervalSubs.push(subtractDocs(prev[j], curr[j]));
-    }
+        resolve();
+      });
+    });
 
     let iteratees = [];
     let orders = [];

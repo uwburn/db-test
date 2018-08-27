@@ -147,7 +147,7 @@ function logStep() {
     avgWriteLatency: 0,
     totalErrors: 0,
     workers: 0
-  }
+  };
 
   for (let workerId in steps[stepIndex].workers) {
     ++stats.workers;
@@ -172,7 +172,7 @@ function logStep() {
   let readLatency = Math.round(stats.avgReadLatency * d) / d;
   let writeLatency = Math.round(stats.avgWriteLatency * d) / d;
 
-  console.log(`Total time: ${Math.round(stats.totalTime / 1000)} s, OPS R/W: ${Math.round(stats.wps)}/${Math.round(stats.rps)}, avg. latency R/W: ${readLatency}/${writeLatency}  errors: ${stats.totalErrors}`);
+  console.log(`Total time: ${Math.round(stats.totalTime / 1000)} s, OPS R/W: ${Math.round(stats.rps)}/${Math.round(stats.wps)}, avg. latency R/W: ${readLatency}/${writeLatency}  errors: ${stats.totalErrors}`);
 }
 
 function logSuite() {
