@@ -124,10 +124,10 @@ module.exports = class CassandraMachineSink {
 
     let count = 0;
     return await new Promise((resolve, reject) => {
-      this.cassandraClient.stream("SELECT * FROM interval WHERE device_type = ? AND device = ? AND group = ? AND (start_time, end_time) >= (?, ?) AND (start_time, end_time) <= (?, ?)", [
+      this.cassandraClient.stream("SELECT * FROM interval WHERE device_type = ? AND group = ? AND device = ? AND (start_time, end_time) >= (?, ?) AND (start_time, end_time) <= (?, ?)", [
         options.deviceType,
-        options.device,
         group,
+        options.device,
         options.startTime,
         options.startTime,
         options.endTime,
@@ -136,6 +136,7 @@ module.exports = class CassandraMachineSink {
         prepare: true
       }).on('data', function (row) {
         ++count;
+        row.value = JSON.parse(row.value);
       }).on('end', function () {
         resolve(count);
       }).on('error', function (err) {
@@ -163,10 +164,10 @@ module.exports = class CassandraMachineSink {
 
     let count = 0;
     return await new Promise((resolve, reject) => {
-      this.cassandraClient.stream("SELECT * FROM time_complex WHERE device_type = ? AND device = ? AND group = ? AND timestamp >= ? AND timestamp <= ?", [
+      this.cassandraClient.stream("SELECT * FROM time_complex WHERE device_type = ? AND group = ? AND device = ? AND timestamp >= ? AND timestamp <= ?", [
         options.deviceType,
-        options.device,
         group,
+        options.device,
         options.startTime,
         options.endTime,
       ], {
@@ -174,6 +175,7 @@ module.exports = class CassandraMachineSink {
       }).on('data', function (row) {
         ++count;
 
+        row.value = JSON.parse(row.value);
         row.value = _.pick(row.value, paths);
       }).on('end', function () {
         resolve(count);
@@ -218,10 +220,10 @@ module.exports = class CassandraMachineSink {
 
     let count = 0;
     await new Promise((resolve, reject) => {
-      this.cassandraClient.stream("SELECT * FROM time_complex WHERE device_type = ? AND device = ? AND group = ? AND timestamp >= ? AND timestamp <= ?", [
+      this.cassandraClient.stream("SELECT * FROM time_complex WHERE device_type = ? AND group = ? AND device = ? AND timestamp >= ? AND timestamp <= ?", [
         options.deviceType,
-        options.device,
         group,
+        options.device,
         options.startTime,
         options.endTime,
       ], {
@@ -229,12 +231,13 @@ module.exports = class CassandraMachineSink {
       }).on('data', function (row) {
         ++count;
 
-
         let bucketIndex = Math.floor((row.timestamp - options.startTime.getTime()) / bucketStep) - 1;
         let bucket = buckets[bucketIndex];
 
         if (!bucket)
           return;
+
+        row.value = JSON.parse(row.value);
 
         bucket.minTime = Math.min(bucket.minTime, row.time);
         bucket.maxTime = Math.max(bucket.maxTime, row.time);
@@ -290,20 +293,20 @@ module.exports = class CassandraMachineSink {
       let startTime = options.times[i];
       let endTime = options.times[i + 1];
 
-      promises.push(this.cassandraClient.stream("SELECT * FROM time_complex WHERE device_type = ? AND device = ? AND group = ? AND timestamp >= ? AND timestamp <= ? ORDER BY timestamp ASC LIMIT 1", [
+      promises.push(this.cassandraClient.execute("SELECT * FROM time_complex WHERE device_type = ? AND group = ? AND device = ? AND timestamp >= ? AND timestamp <= ? ORDER BY timestamp ASC LIMIT 1", [
         options.deviceType,
-        options.device,
         group,
+        options.device,
         startTime,
         endTime,
       ], {
         prepare: true
       }));
 
-      promises.push(this.cassandraClient.stream("SELECT * FROM time_complex WHERE device_type = ? AND device = ? AND group = ? AND timestamp >= ? AND timestamp <= ? ORDER BY timestamp DESC LIMIT 1", [
+      promises.push(this.cassandraClient.execute("SELECT * FROM time_complex WHERE device_type = ? AND group = ? AND device = ? AND timestamp >= ? AND timestamp <= ? ORDER BY timestamp DESC LIMIT 1", [
         options.deviceType,
-        options.device,
         group,
+        options.device,
         startTime,
         endTime,
       ], {
@@ -315,18 +318,37 @@ module.exports = class CassandraMachineSink {
 
     let subs = [];
     for (let i = 0; i < results.length -1; ++i) {
-      let first = results[i];
-      let last = results[i + 1];
+      let first = results[i].rows[0];
+      let last = results[i + 1].rows[0];
+
+      let firstValue;
+      let lastValue;
+      if (first) {
+        firstValue = JSON.parse(first.value);
+      }
+      else {
+        first = {};
+        firstValue = {};
+      }
+
+      if (last) {
+        lastValue = JSON.parse(last.value);
+      }
+      else {
+        last = {};
+        lastValue = {};
+      }
 
       let sub = {
-        deviceType: first.deviceType,
+        deviceType: first.device_type,
         device: first.device,
         group: first.group,
         startTime: first.timestamp,
-        endTime: last.timestamp
+        endTime: last.timestamp,
+        value: subtractValues(firstValue, lastValue)
       };
 
-      subs.push(_.assign(sub, subtractValues(first, last)));
+      subs.push(sub);
     }
 
     return subs.length;
@@ -351,10 +373,10 @@ module.exports = class CassandraMachineSink {
 
     let count = 0;
     return await new Promise((resolve, reject) => {
-      this.cassandraClient.stream("SELECT * FROM time_complex WHERE device_type = ? AND device = ? AND group = ? AND timestamp <= ? ORDER BY timestamp DESC LIMIT 1", [
+      this.cassandraClient.stream("SELECT * FROM time_complex WHERE device_type = ? AND group = ? AND device = ? AND timestamp <= ? ORDER BY timestamp DESC LIMIT 1", [
         options.deviceType,
-        options.device,
         group,
+        options.device,
         options.time,
       ], {
         prepare: true
@@ -375,7 +397,82 @@ module.exports = class CassandraMachineSink {
   }
 
   async queryTimeComplexTopDifference(name, options) {
+    options.select = options.select || {};
 
+    if (options.groups.length === 1)
+      return await this.queryTimeComplexTopDifferenceSingleGroup(name, options);
+    else
+      return await this.queryTimeComplexTopDifferenceMultipleGroups(name, options);
+  }
+
+  async queryTimeComplexTopDifferenceSingleGroup(name, options) {
+    let group = options.groups[0];
+    let paths = options.select[group];
+    let sorts = options.sort[group];
+
+    let boundaries = await this.cassandraClient.execute("SELECT device, MIN(timestamp) AS min_time, MAX(timestamp) AS max_time FROM time_complex WHERE device_type = ? AND group = ? AND timestamp >= ? AND timestamp <= ? GROUP BY device LIMIT 100000 ALLOW FILTERING", [
+      options.deviceType,
+      group,
+      options.startTime,
+      options.endTime,
+    ], {
+      prepare: true
+    });
+
+    let promises = [];
+    for (let boundary of boundaries.rows) {
+      promises.push(this.cassandraClient.execute("SELECT * FROM time_complex WHERE device_type = ? AND group = ? AND device = ? AND timestamp = ?", [
+        options.deviceType,
+        group,
+        boundary.device,
+        boundary.min_time,
+      ], {
+        prepare: true
+      }), this.cassandraClient.execute("SELECT * FROM time_complex WHERE device_type = ? AND group = ? AND device = ? AND timestamp = ?", [
+        options.deviceType,
+        group,
+        boundary.device,
+        boundary.max_time,
+      ], {
+        prepare: true
+      }));
+    }
+
+    let results = await Promise.all(promises);
+
+    let subs = [];
+    for (let i = 0; i < results.length; i += 2) {
+      let first = results[i].rows[0];
+      let last = results[i + 1].rows[0];
+
+      first.value = JSON.parse(first.value);
+      last.value = JSON.parse(last.value);
+
+      let sub = {
+        deviceType: first.device_type,
+        device: first.device,
+        group: first.group,
+        value: subtractValues(first.value, last.value)
+      };
+
+      subs.push(sub);
+    }
+
+    let iteratees = [];
+    let orders = [];
+    for (let path in sorts) {
+      iteratees.push("value." + path);
+      orders.push(group[path]);
+    }
+
+    let tops = _.orderBy(subs, iteratees, orders);
+    tops = tops.slice(0, options.limit);
+
+    return tops.length;
+  }
+
+  async queryTimeComplexTopDifferenceMultipleGroups(name, options) {
+    throw new Error("Currently not supported, as no query requires it");
   }
 
   async queryIntervalTopCount(name, options) {
@@ -426,10 +523,10 @@ module.exports = class CassandraMachineSink {
     let promises = [];
 
     if (TIME_COMPLEX_MODE === "BOTH" || TIME_COMPLEX_MODE === "WHOLE") {
-      promises.push(this.cassandraClient.execute("INSERT INTO time_complex (device_type, device, group, timestamp, original_timestamp, value) VALUES (?, ?, ?, ?, ?, ?)", [
+      promises.push(this.cassandraClient.execute("INSERT INTO time_complex (device_type, group, device, timestamp, original_timestamp, value) VALUES (?, ?, ?, ?, ?, ?)", [
         sample.deviceType,
-        id,
         groupName,
+        id,
         sample.time,
         sample[groupName].time,
         JSON.stringify(sample[groupName].value)
@@ -445,10 +542,10 @@ module.exports = class CassandraMachineSink {
         flattened[""] = sample[groupName].value;
 
       for (let path in flattened) {
-        promises.push(this.cassandraClient.execute("INSERT INTO time_flat_complex (device_type, device, group, path, timestamp, original_timestamp, value) VALUES (?, ?, ?, ?, ?, ?, ?)", [
+        promises.push(this.cassandraClient.execute("INSERT INTO time_flat_complex (device_type, group, device, path, timestamp, original_timestamp, value) VALUES (?, ?, ?, ?, ?, ?, ?)", [
           sample.deviceType,
-          id,
           groupName,
+          id,
           path,
           sample.time,
           sample[groupName].time,
