@@ -15,6 +15,7 @@ module.exports = function (database, databaseOpts, suite, suiteOptions) {
 };
 
 function buildMachineDataSuite(database, databaseOpts, suiteOptions) {
+  let id = uuidv4();
   let startYear = moment(suiteOptions.startYear, `YYYY`);
   suiteOptions.machines = parseInt(suiteOptions.machines);
   suiteOptions.machineUptime = parseFloat(suiteOptions.machineUptime);
@@ -26,6 +27,9 @@ function buildMachineDataSuite(database, databaseOpts, suiteOptions) {
     machines.push(uuidv4());
 
   return {
+    id: id,
+    description: machineSize + " machines",
+    database: database,
     machines: machines,
     get length() {
       return suiteOptions.years * 3;
@@ -59,6 +63,7 @@ function buildMachineDataSuite(database, databaseOpts, suiteOptions) {
         case 0:
           return {
             name: `Year ${year + 1} - Bulk writes`,
+            type: `Bulk writes`,
             database: database,
             databaseOpts: databaseOpts,
             workload: `BulkWrite${machineSize}Machine`,
@@ -73,6 +78,7 @@ function buildMachineDataSuite(database, databaseOpts, suiteOptions) {
         case 1:
           return {
             name: `Year ${year + 1} - Bulk reads`,
+            type: `Bulk reads`,
             database: database,
             databaseOpts: databaseOpts,
             workload: `BulkRead${machineSize}Machine`,
@@ -87,6 +93,7 @@ function buildMachineDataSuite(database, databaseOpts, suiteOptions) {
         case 2:
           return {
             name: `Year ${year + 1} - Real time`,
+            type: `Real time`,
             database: database,
             databaseOpts: databaseOpts,
             workload: `RealTime${machineSize}Machine`,

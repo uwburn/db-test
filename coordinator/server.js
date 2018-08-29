@@ -4,6 +4,8 @@ const uuidv4 = require(`uuid/v4`);
 const mqtt = require(`mqtt`);
 const Qlobber = require(`qlobber`).Qlobber;
 const envConfig = require(`env-config`);
+const fs = require("fs");
+const _ = require("lodash");
 
 const DECIMAL_DIGITS = 2;
 
@@ -25,7 +27,12 @@ const config = envConfig({});
 const suite = require(`./buildSuite`)(config.database, config.databaseOpts, config.suite, config.suiteOpts);
 let status = `DISCOVERING_WORKERS`;
 let stepIndex = 0;
-let steps = [];
+let stats = {
+  description: suite.description,
+  database: suite.database,
+  machines: suite.machines.length,
+  steps: []
+};
 
 let mqttClient;
 suite.prepareDatabase().then(function () {
@@ -121,15 +128,15 @@ function checkStep(workerId, workId, message) {
     shutdown();
   }
 
-  steps[stepIndex].workers[workerId] = message;
+  stats.steps[stepIndex].workers[workerId] = message;
 
-  for (workerId in steps[stepIndex].workers) {
-    let worker = steps[stepIndex].workers[workerId];
+  for (workerId in stats.steps[stepIndex].workers) {
+    let worker = stats.steps[stepIndex].workers[workerId];
     if (worker.status !== "COMPLETED")
       return;
   }
 
-  steps[stepIndex].endTime = new Date().getTime();
+  stats.steps[stepIndex].endTime = new Date().getTime();
 
   logStep();
 
@@ -139,7 +146,7 @@ function checkStep(workerId, workId, message) {
 function logStep() {
   console.log("Step completed");
 
-  let stats = {
+  let stepStats = {
     totalTime: 0,
     totalReads: 0,
     avgReadLatency: 0,
@@ -149,51 +156,51 @@ function logStep() {
     workers: 0
   };
 
-  for (let workerId in steps[stepIndex].workers) {
-    ++stats.workers;
-    let worker = steps[stepIndex].workers[workerId];
-    stats.totalTime += (worker.stats.endTime - worker.stats.startTime);
-    stats.totalReads += worker.stats.reads;
-    stats.avgReadLatency += worker.stats.readLatency;
-    stats.totalWrites += worker.stats.writes;
-    stats.avgWriteLatency += worker.stats.writeLatency;
-    stats.totalErrors += worker.stats.errors;
+  for (let workerId in stats.steps[stepIndex].workers) {
+    ++stepStats.workers;
+    let worker = stats.steps[stepIndex].workers[workerId];
+    stepStats.totalTime += (worker.stats.endTime - worker.stats.startTime);
+    stepStats.totalReads += worker.stats.reads;
+    stepStats.avgReadLatency += worker.stats.readLatency;
+    stepStats.totalWrites += worker.stats.writes;
+    stepStats.avgWriteLatency += worker.stats.writeLatency;
+    stepStats.totalErrors += worker.stats.errors;
   }
 
-  stats.wps = stats.totalWrites * 1000 / stats.totalTime * stats.workers;
-  stats.rps = stats.totalReads * 1000 / stats.totalTime * stats.workers;
-  stats.avgReadLatency /= stats.workers;
-  stats.avgWriteLatency /= stats.workers;
+  stepStats.wps = stepStats.totalWrites * 1000 / stepStats.totalTime * stepStats.workers;
+  stepStats.rps = stepStats.totalReads * 1000 / stepStats.totalTime * stepStats.workers;
+  stepStats.avgReadLatency /= stepStats.workers;
+  stepStats.avgWriteLatency /= stepStats.workers;
 
-  steps[stepIndex].stats = stats;
+  stats.steps[stepIndex] = stepStats;
 
   let d = Math.pow(10, DECIMAL_DIGITS);
 
-  let readLatency = Math.round(stats.avgReadLatency * d) / d;
-  let writeLatency = Math.round(stats.avgWriteLatency * d) / d;
+  let readLatency = Math.round(stepStats.avgReadLatency * d) / d;
+  let writeLatency = Math.round(stepStats.avgWriteLatency * d) / d;
 
-  console.log(`Total time: ${Math.round(stats.totalTime / 1000)} s, OPS R/W: ${Math.round(stats.rps)}/${Math.round(stats.wps)}, avg. latency R/W: ${readLatency}/${writeLatency}  errors: ${stats.totalErrors}`);
+  console.log(`Total time: ${Math.round(stepStats.totalTime / 1000)} s, OPS R/W: ${Math.round(stepStats.rps)}/${Math.round(stepStats.wps)}, avg. latency R/W: ${readLatency}/${writeLatency}  errors: ${stepStats.totalErrors}`);
 }
 
 function logSuite() {
   console.log(`Suite completed`);
 
-  let stats = {
+  _.assign(stats, {
     totalTime: 0,
     totalWrites: 0,
     totalReads: 0,
     totalErrors: 0,
     wps: 0,
     rps: 0
-  };
+  });
 
-  for (let step of steps) {
-    stats.totalTime += step.stats.totalTime;
-    stats.totalWrites += step.stats.totalWrites;
-    stats.totalReads += step.stats.totalReads;
-    stats.totalErrors += step.stats.totalErrors;
-    stats.wps += step.stats.wps * step.stats.totalTime;
-    stats.rps += step.stats.rps * step.stats.totalTime;
+  for (let step of stats.steps) {
+    stats.totalTime += step.totalTime;
+    stats.totalWrites += step.totalWrites;
+    stats.totalReads += step.totalReads;
+    stats.totalErrors += step.totalErrors;
+    stats.wps += step.wps * step.totalTime;
+    stats.rps += step.rps * step.totalTime;
   }
 
   stats.wps = stats.wps / stats.totalTime;
@@ -216,7 +223,7 @@ function nextStep() {
 function startStep() {
   status = `RUNNING_STEP`;
 
-  steps[stepIndex] = {
+  stats.steps[stepIndex] = {
     startTime: new Date().getTime(),
     workers: {}
   };
@@ -229,7 +236,7 @@ function startStep() {
   for (let workerId in workers) {
     let stepForWorker = suite.getStepForWorker(stepIndex, workerIndex, workersCount);
 
-    steps[stepIndex].workers[workerId] = {
+    stats.steps[stepIndex].workers[workerId] = {
       status: "PENDING"
     };
 
@@ -240,6 +247,8 @@ function startStep() {
 }
 
 function shutdown() {
+  writeStats();
+
   console.log(`Shutting down workers`);
 
   mqttClient.publish(`shutdown`, JSON.stringify({}), function () {
@@ -247,6 +256,20 @@ function shutdown() {
       process.exit(0);
     });
   });
+}
+
+function writeStats() {
+  console.log(`Recording stats`);
+
+  const statsDir = "/var/log/db-test/"
+
+  try {
+    fs.mkdirSync(statsDir)
+  } catch (err) {
+    if (err.code !== 'EEXIST') throw err
+  }
+
+  fs.writeFileSync(statsDir + suite.id + '.json', JSON.stringify(stats, null, 2));
 }
 
 setInterval(() => {
