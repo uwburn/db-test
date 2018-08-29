@@ -12,6 +12,8 @@ services:
       MQTT_ADDRESS: mqtt://mqtt:1883
     depends_on:
       - mqtt
+    volumes:
+      - ./stats/:/var/log/db-test/
   worker:
     build:
       context: worker
