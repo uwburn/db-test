@@ -1,5 +1,5 @@
 {
-  "database": "cassandra",
+  "database": "cassandraA",
   "databaseOpts": {
     "contactPoints": [
       "cassandra"

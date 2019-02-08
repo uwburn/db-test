@@ -8,7 +8,7 @@ const _ = require("lodash");
 
 const DECIMAL_DIGITS = 2;
 
-const DISCOVER_WORKERS_TIMEOUT = 3000;
+const DISCOVER_WORKERS_TIMEOUT = 15000;
 const CHECK_WORKERS_INTERVAL = 1000;
 const workers = {};
 let workersCount = 0;
