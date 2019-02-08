@@ -10,7 +10,7 @@ module.exports = function (database, databaseOpts, suite, suiteOptions) {
     case `MachineData`:
       return buildMachineDataSuite(database, databaseOpts, suiteOptions);
     default:
-      throw new Error(`Unknown suite`);
+      throw new Error(`Unknown suite ${suite}`);
   }
 };
 

@@ -1,0 +1,16 @@
+{
+  "database": "cassandra",
+  "databaseOpts": {
+    "contactPoints": [
+      "cassandra"
+    ]
+  },
+  "suite": "MachineData",
+  "suiteOpts": {
+    "machineSize": "Small",
+    "machines": 720,
+    "startYear": 2010,
+    "years": 10,
+    "machineUptime": 0.9
+  }
+}

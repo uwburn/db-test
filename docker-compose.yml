@@ -13,6 +13,7 @@ services:
     depends_on:
       - mqtt
     volumes:
+      - ./config/:/etc/coordinator/
       - ./stats/:/var/log/db-test/
   worker:
     build:

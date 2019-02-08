@@ -3,7 +3,6 @@
 const uuidv4 = require(`uuid/v4`);
 const mqtt = require(`mqtt`);
 const Qlobber = require(`qlobber`).Qlobber;
-const envConfig = require(`env-config`);
 const fs = require("fs");
 const _ = require("lodash");
 
@@ -23,7 +22,8 @@ matcher.add(`worker/+/status`, workerStatus);
 matcher.add(`worker/+/work/+/status`, workStatus);
 matcher.add(`worker/+/work/+/log`, workLog);
 
-const config = envConfig({});
+const config = require(`/etc/coordinator/${process.env.CONFIG}`);
+
 const suite = require(`./buildSuite`)(config.database, config.databaseOpts, config.suite, config.suiteOpts);
 let status = `DISCOVERING_WORKERS`;
 let stepIndex = 0;

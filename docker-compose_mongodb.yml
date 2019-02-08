@@ -6,14 +6,11 @@ services:
     command: mongod --bind_ip_all
     ports:
       - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
   coordinator:
     environment:
-      DATABASE: "mongo"
-      DATABASE-OPTS_URL: "mongodb://mongodb:27017"
-      DATABASE-OPTS_OPTIONS_USE-NEW-URL-PARSER: "true"
-      SUITE: "MachineData"
-      SUITE-OPTS_MACHINE-SIZE: "Small"
-      SUITE-OPTS_MACHINES: 720
-      SUITE-OPTS_START-YEAR: 2010
-      SUITE-OPTS_YEARS: 10
-      SUITE-OPTS_MACHINE-UPTIME: 0.9
+      CONFIG: "mongodb_machine_small.json"
+
+volumes:
+  mongodb_data:

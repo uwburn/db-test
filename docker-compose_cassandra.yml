@@ -5,16 +5,14 @@ services:
     image: cassandra
     ports:
       - "9042:9042"
+    volumes:
+      - cassandra_data:/var/lib/cassandra
   coordinator:
     environment:
-      DATABASE: "cassandra"
-      DATABASE-OPTS_CONTACT-POINTS_0: "cassandra"
-      SUITE: "MachineData"
-      SUITE-OPTS_MACHINE-SIZE: "Small"
-      SUITE-OPTS_MACHINES: 720
-      SUITE-OPTS_START-YEAR: 2010
-      SUITE-OPTS_YEARS: 10
-      SUITE-OPTS_MACHINE-UPTIME: 0.9
+      CONFIG: "cassandra_machine_small.json"
   worker:
     environment:
       CASSANDRA_TIME_COMPLEX_MODE: "WHOLE"
+
+volumes:
+  cassandra_data:
