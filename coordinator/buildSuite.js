@@ -109,17 +109,21 @@ function buildMachineDataSuite(database, databaseOpts, suiteOptions) {
     },
     async prepareDatabase() {
       switch (database) {
-        case `mongo`:
-          return await prepareMachineDataMongo(databaseOpts);
-        case `cassandra`:
-          return await prepareMachineDataCassandra(databaseOpts);
+        case `mongoA`:
+          return await prepareMachineDataMongoA(databaseOpts);
+        case `mongoB`:
+          return await prepareMachineDataMongoA(databaseOpts);
+        case `cassandraA`:
+          return await prepareMachineDataCassandraA(databaseOpts);
+        case `cassandraB`:
+          return await prepareMachineDataCassandraA(databaseOpts);
       }
     }
   };
 
 }
 
-async function prepareMachineDataMongo(databaseOpts) {
+async function prepareMachineDataMongoA(databaseOpts) {
   console.log(`Waiting for MongoDB`);
   let mongoClient;
   while (true) {
@@ -145,7 +149,33 @@ async function prepareMachineDataMongo(databaseOpts) {
   mongoClient.close();
 }
 
-async function prepareMachineDataCassandra(databaseOpts) {
+async function prepareMachineDataMongoB(databaseOpts) {
+  console.log(`Waiting for MongoDB`);
+  let mongoClient;
+  while (true) {
+    try {
+      mongoClient = await MongoClient.connect(databaseOpts.url, databaseOpts.options);
+      break;
+    } catch (err) { }
+  }
+
+  console.log(`Preparing db, collections and indexes`);
+  let db = mongoClient.db(`db-test`);
+  let timeComplexColl = db.collection(`timeComplex`);
+  let intervalColl = db.collection(`interval`);
+
+  await timeComplexColl.ensureIndex({ "_id.device": 1 });
+  await timeComplexColl.ensureIndex({ "_id.time": 1 });
+  await timeComplexColl.ensureIndex({ "_id.device": 1, "_id.time": 1 });
+  await timeComplexColl.ensureIndex({ "_id.device": 1, "_id.time": -1 });
+
+  await intervalColl.ensureIndex({ startTime: 1 });
+  await intervalColl.ensureIndex({ endTime: 1 });
+
+  mongoClient.close();
+}
+
+async function prepareMachineDataCassandraA(databaseOpts) {
   let cassandraClient = new cassandra.Client(databaseOpts);
 
   console.log(`Waiting for Cassandra`);
@@ -160,7 +190,26 @@ async function prepareMachineDataCassandra(databaseOpts) {
   await cassandraClient.execute(`CREATE KEYSPACE IF NOT EXISTS db_test WITH replication = {'class' : 'SimpleStrategy', 'replication_factor' : 1};`, [], {});
   await cassandraClient.execute(`USE db_test;`, [], {});
   await cassandraClient.execute(`CREATE TABLE IF NOT EXISTS time_complex (device_type text, group text, device text, timestamp timestamp, original_timestamp timestamp, value text, PRIMARY KEY (( device_type, group, device ), timestamp));`, [], {});
-  await cassandraClient.execute(`CREATE TABLE IF NOT EXISTS time_flat_complex (device_type text, group text, device text, path text, timestamp timestamp, original_timestamp timestamp, value text, PRIMARY KEY (( device_type, group, device ), path, timestamp));`, [], {});
+  await cassandraClient.execute(`CREATE TABLE IF NOT EXISTS interval (device_type text, group text, device text, start_time timestamp, end_time timestamp, value text, PRIMARY KEY (device_type, group, device, start_time, end_time));`, [], {});
+
+  await cassandraClient.shutdown();
+}
+
+async function prepareMachineDataCassandraB(databaseOpts) {
+  let cassandraClient = new cassandra.Client(databaseOpts);
+
+  console.log(`Waiting for Cassandra`);
+  while (true) {
+    try {
+      await cassandraClient.execute(`SELECT * FROM system_schema.keyspaces`, [], {});
+      break;
+    } catch (err) { }
+  }
+
+  console.log(`Preparing keyspace and tables`);
+  await cassandraClient.execute(`CREATE KEYSPACE IF NOT EXISTS db_test WITH replication = {'class' : 'SimpleStrategy', 'replication_factor' : 1};`, [], {});
+  await cassandraClient.execute(`USE db_test;`, [], {});
+  await cassandraClient.execute(`CREATE TABLE IF NOT EXISTS time_complex (device_type text, group text, device text, path text, timestamp timestamp, original_timestamp timestamp, value text, PRIMARY KEY (( device_type, group, device ), path, timestamp));`, [], {});
   await cassandraClient.execute(`CREATE TABLE IF NOT EXISTS interval (device_type text, group text, device text, start_time timestamp, end_time timestamp, value text, PRIMARY KEY (device_type, group, device, start_time, end_time));`, [], {});
 
   await cassandraClient.shutdown();
