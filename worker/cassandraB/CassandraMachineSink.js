@@ -541,16 +541,28 @@ module.exports = class CassandraMachineSink {
   }
 
   async recordTimeComplex(id, groupName, sample) {
-    await this.cassandraClient.execute("INSERT INTO time_complex (device_type, group, device, timestamp, original_timestamp, value) VALUES (?, ?, ?, ?, ?, ?)", [
-      sample.deviceType,
-      groupName,
-      id,
-      sample.time,
-      sample[groupName].time,
-      JSON.stringify(sample[groupName].value)
-    ], {
-      prepare: true
-    });
+    let promises = [];
+
+    let flattened = FlattenJS.convert(sample[groupName].value);
+
+    if (Object.keys(flattened).length === 0)
+      flattened[""] = sample[groupName].value;
+
+    for (let path in flattened) {
+      promises.push(this.cassandraClient.execute("INSERT INTO time_complex (device_type, group, device, path, timestamp, original_timestamp, value) VALUES (?, ?, ?, ?, ?, ?, ?)", [
+        sample.deviceType,
+        groupName,
+        id,
+        path,
+        sample.time,
+        sample[groupName].time,
+        JSON.stringify(flattened[path])
+      ], {
+        prepare: true
+      }));
+    }
+
+    await Promise.all(promises);
   }
 
   async recordInterval(id, groupName, sample) {

@@ -10,9 +10,6 @@ services:
   coordinator:
     environment:
       CONFIG: "cassandra_machine_small.json"
-  worker:
-    environment:
-      CASSANDRA_TIME_COMPLEX_MODE: "WHOLE"
 
 volumes:
   cassandra_data:
