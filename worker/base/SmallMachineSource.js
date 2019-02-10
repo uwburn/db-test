@@ -242,7 +242,8 @@ module.exports = class SmallMachineSource {
         device: this.workloadOpts.machines[machineIndex],
         startTime: new Date(absDate.getTime() - 2592000000),
         endTime: absDate
-      }
+      },
+      interval: this.sampleIntervals.counters
     };
   }
 
@@ -258,7 +259,8 @@ module.exports = class SmallMachineSource {
         device: this.workloadOpts.machines[machineIndex],
         startTime: new Date(absDate.getTime() - 5184000000),
         endTime: absDate
-      }
+      },
+      interval: this.sampleIntervals.alarm
     };
   }
 
@@ -280,7 +282,8 @@ module.exports = class SmallMachineSource {
         startTime: new Date(absDate.getTime() - 31536000000),
         endTime: absDate,
         buckets: 1024
-      }
+      },
+      interval: this.sampleIntervals.counters
     };
   }
 
@@ -307,7 +310,8 @@ module.exports = class SmallMachineSource {
         },
         device: this.workloadOpts.machines[machineIndex],
         times: times
-      }
+      },
+      interval: this.sampleIntervals.counters
     };
   }
 
@@ -327,7 +331,8 @@ module.exports = class SmallMachineSource {
         },
         device: this.workloadOpts.machines[machineIndex],
         time: new Date(yearTime + (nowTime - yearTime) * Math.random())
-      }
+      },
+      interval: this.sampleIntervals.counters
     };
   }
 
@@ -349,7 +354,8 @@ module.exports = class SmallMachineSource {
         limit: 10,
         startTime: new Date(absDate.getTime() - 604800000),
         endTime: absDate
-      }
+      },
+      interval: this.sampleIntervals.counters
     };
   }
 

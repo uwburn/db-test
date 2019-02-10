@@ -309,7 +309,8 @@ module.exports = class BigMachineSource {
         device: this.workloadOpts.machines[machineIndex],
         startTime: new Date(absDate.getTime() - 604800000),
         endTime: absDate
-      }
+      },
+      interval: this.sampleIntervals.status
     };
   }
 
@@ -325,7 +326,8 @@ module.exports = class BigMachineSource {
         device: this.workloadOpts.machines[machineIndex],
         startTime: new Date(absDate.getTime() - 86400000),
         endTime: absDate
-      }
+      },
+      interval: this.sampleIntervals.alarm
     };
   }
 
@@ -347,7 +349,8 @@ module.exports = class BigMachineSource {
         device: this.workloadOpts.machines[machineIndex],
         startTime: new Date(absDate.getTime() - 2073600000),
         endTime: absDate
-      }
+      },
+      interval: this.sampleIntervals.counters
     };
   }
 
@@ -358,12 +361,13 @@ module.exports = class BigMachineSource {
       name: "LAST_HOUR_TEMPERATURES",
       type: "TIME_COMPLEX_RANGE",
       options: {
-        groups: ["temperatureProbe1", "temperatureProbe2"],
+        groups: ["temperatureProbe1"],
         deviceType: this.workloadOpts.machineTypeId,
         device: this.workloadOpts.machines[machineIndex],
         startTime: new Date(absDate.getTime() - 3600000),
         endTime: absDate
-      }
+      },
+      interval: this.sampleIntervals.temperatureProbe1
     };
   }
 
@@ -374,13 +378,14 @@ module.exports = class BigMachineSource {
       name: "LAST_HOUR_TEMPERATURES",
       type: "TIME_COMPLEX_RANGE_BUCKET_AVG",
       options: {
-        groups: ["temperatureProbe1", "temperatureProbe2"],
+        groups: ["temperatureProbe2"],
         deviceType: this.workloadOpts.machineTypeId,
         device: this.workloadOpts.machines[machineIndex],
         startTime: new Date(absDate.getTime() - 86400000),
         endTime: absDate,
         buckets: 1024
-      }
+      },
+      interval: this.sampleIntervals.temperatureProbe2
     };
   }
 
@@ -404,7 +409,8 @@ module.exports = class BigMachineSource {
         deviceType: this.workloadOpts.machineTypeId,
         device: this.workloadOpts.machines[machineIndex],
         times: times
-      }
+      },
+      interval: this.sampleIntervals.counters
     };
   }
 
@@ -421,7 +427,8 @@ module.exports = class BigMachineSource {
         deviceType: this.workloadOpts.machineTypeId,
         device: this.workloadOpts.machines[machineIndex],
         time: new Date(yearTime + (nowTime - yearTime) * Math.random())
-      }
+      },
+      interval: this.sampleIntervals.counters
     };
   }
 
@@ -436,7 +443,8 @@ module.exports = class BigMachineSource {
         limit: 10,
         startTime: new Date(absDate.getTime() - 86400000),
         endTime: absDate
-      }
+      },
+      interval: this.sampleIntervals.counters
     };
   }
 
@@ -450,7 +458,8 @@ module.exports = class BigMachineSource {
         limit: 10,
         startTime: new Date(absDate.getTime() - 86400000),
         endTime: absDate
-      }
+      },
+      interval: this.sampleIntervals.alarm
     };
   }
 

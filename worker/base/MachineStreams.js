@@ -197,11 +197,13 @@ module.exports = class MachineStreams {
             let groupName = machine.groupNames[j];
 
             done = false;
-            if ((relTime + machine.writeDelay) % this.source.sampleIntervals[groupName] === 0) {
+            let interval = this.source.sampleIntervals[groupName];
+            if ((relTime + machine.writeDelay) % interval === 0) {
               result.stream.push({
                 id: id,
                 groupName: groupName,
-                sample: this.source.sample(id, groupName, absDate)
+                sample: this.source.sample(id, groupName, absDate),
+                interval: interval
               });
 
               ++machine.groups[groupName];
@@ -315,11 +317,13 @@ module.exports = class MachineStreams {
       for (let machineId in this.machines) {
         let writePhase = this.machines[machineId].writePhase;
         for (let groupName in this.source.sampleIntervals) {
-          if ((absTime + writePhase) % this.source.sampleIntervals[groupName] === 0) {
+          let interval = this.source.sampleIntervals[groupName];
+          if ((absTime + writePhase) % interval === 0) {
             queue.push({
               id: machineId,
               groupName: groupName,
-              sample: this.source.sample(machineId, groupName, absDate)
+              sample: this.source.sample(machineId, groupName, absDate),
+              interval: interval
             });
           }
         }
