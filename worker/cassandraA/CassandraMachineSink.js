@@ -11,6 +11,8 @@ const HIGH_WATERMARK = 256;
 const maxTime = 8640000000000000;
 const maxDate = new Date(maxTime);
 
+let sinkStatsInterval;
+
 function subtractValues(o1, o2) {
   let d = { };
 
@@ -48,14 +50,50 @@ module.exports = class CassandraMachineSink {
     this.successfulWrites = 0;
     this.totalWriteLatency = 0;
     this.errors = 0;
+
+    this.latencyByType = {
+      INTERVAL_RANGE: 0,
+      TIME_COMPLEX_RANGE: 0,
+      TIME_COMPLEX_RANGE_BUCKET_AVG: 0,
+      TIME_COMPLEX_DIFFERENCE: 0,
+      TIME_COMPLEX_LAST_BEFORE: 0,
+      TIME_COMPLEX_TOP_DIFFERENCE: 0,
+      INTERVAL_TOP_COUNT: 0
+    };
+    
+    this.countByType = {
+      INTERVAL_RANGE: 0,
+      TIME_COMPLEX_RANGE: 0,
+      TIME_COMPLEX_RANGE_BUCKET_AVG: 0,
+      TIME_COMPLEX_DIFFERENCE: 0,
+      TIME_COMPLEX_LAST_BEFORE: 0,
+      TIME_COMPLEX_TOP_DIFFERENCE: 0,
+      INTERVAL_TOP_COUNT: 0
+    };
   }
 
   async init() {
     this.cassandraClient = new cassandra.Client(this.databaseOpts);
     await this.cassandraClient.execute("USE db_test;", [], {});
+
+    sinkStatsInterval = setInterval(() => {
+      for (let k in this.latencyByType) {
+        if (!this.countByType[k])
+          continue;
+          
+        let latency = this.latencyByType[k]/this.countByType[k];
+
+        let d = Math.pow(10, 2);
+        latency = Math.round(latency * d) / d;
+
+        console.log(`${k} avg. latency: ${latency}, tot. latency: ${this.latencyByType[k]}, count: ${this.countByType[k]}`);
+      }
+    }, 60000);
   }
 
   async cleanup() {
+    clearInterval(sinkStatsInterval);
+
     await this.cassandraClient.shutdown();
   }
 
@@ -79,6 +117,9 @@ module.exports = class CassandraMachineSink {
       this.query(chunk.name, chunk.type, chunk.options).then(() => {
         ++result.successfulReads;
         result.totalReadLatency += Date.now() - t0;
+
+        ++this.countByType[chunk.type];
+        this.latencyByType[chunk.type] += Date.now() - t0;
       }).catch((err) => {
         console.error(err);
         ++result.errors;
