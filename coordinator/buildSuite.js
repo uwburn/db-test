@@ -112,11 +112,11 @@ function buildMachineDataSuite(database, databaseOpts, suiteOptions) {
         case `mongoA`:
           return await prepareMachineDataMongoA(databaseOpts);
         case `mongoB`:
-          return await prepareMachineDataMongoA(databaseOpts);
+          return await prepareMachineDataMongoB(databaseOpts);
         case `cassandraA`:
           return await prepareMachineDataCassandraA(databaseOpts);
         case `cassandraB`:
-          return await prepareMachineDataCassandraA(databaseOpts);
+          return await prepareMachineDataCassandraB(databaseOpts);
       }
     }
   };
@@ -138,13 +138,16 @@ async function prepareMachineDataMongoA(databaseOpts) {
   let timeComplexColl = db.collection(`timeComplex`);
   let intervalColl = db.collection(`interval`);
 
-  await timeComplexColl.ensureIndex({ "_id.device": 1 });
-  await timeComplexColl.ensureIndex({ "_id.time": 1 });
-  await timeComplexColl.ensureIndex({ "_id.device": 1, "_id.time": 1 });
-  await timeComplexColl.ensureIndex({ "_id.device": 1, "_id.time": -1 });
+  await timeComplexColl.createIndex({ "_id.device": 1 });
+  await timeComplexColl.createIndex({ "_id.time": 1 });
+  await timeComplexColl.createIndex({ "_id.device": 1, "_id.time": 1 });
+  await timeComplexColl.createIndex({ "_id.device": 1, "_id.time": -1 });
 
-  await intervalColl.ensureIndex({ startTime: 1 });
-  await intervalColl.ensureIndex({ endTime: 1 });
+  await intervalColl.createIndex({ device: 1 });
+  await intervalColl.createIndex({ startTime: 1 });
+  await intervalColl.createIndex({ endTime: 1 });
+  await intervalColl.createIndex({ startTime: 1, endTime: -1 });
+  await intervalColl.createIndex({ device: 1, startTime: 1, endTime: -1 });
 
   mongoClient.close();
 }
@@ -158,19 +161,6 @@ async function prepareMachineDataMongoB(databaseOpts) {
       break;
     } catch (err) { }
   }
-
-  console.log(`Preparing db, collections and indexes`);
-  let db = mongoClient.db(`db-test`);
-  let timeComplexColl = db.collection(`timeComplex`);
-  let intervalColl = db.collection(`interval`);
-
-  await timeComplexColl.ensureIndex({ "_id.device": 1 });
-  await timeComplexColl.ensureIndex({ "_id.time": 1 });
-  await timeComplexColl.ensureIndex({ "_id.device": 1, "_id.time": 1 });
-  await timeComplexColl.ensureIndex({ "_id.device": 1, "_id.time": -1 });
-
-  await intervalColl.ensureIndex({ startTime: 1 });
-  await intervalColl.ensureIndex({ endTime: 1 });
 
   mongoClient.close();
 }

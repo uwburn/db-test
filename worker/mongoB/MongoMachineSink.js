@@ -9,7 +9,8 @@ const _ = require('lodash');
 const FlattenJS = require('flattenjs');
 
 const HIGH_WATERMARK = 256;
-const bucketTime = 86400000;
+
+let sinkStatsInterval;
 
 function subtractDocs(o1, o2) {
   let d = {
@@ -41,10 +42,58 @@ function subtractDocs(o1, o2) {
   return res;
 }
 
+function chooseBucketTime(interval) {
+  if (interval <= 1000) // Second
+    return 300000; // Five minutes - 300
+  if (interval <= 5000)
+    return 600000; // Ten minutes - 120
+  else if (interval <= 60000) // Minute
+    return 3600000; // Hour - 60
+  else if (interval <= 120000) // Two minutes
+    return 7200000; // Two hours - 60
+  else if (interval <= 300000) // Five minutes
+    return 10800000; // Three hours - 36
+  else if (interval <= 600000) // Ten minutes
+    return 21600000; // Six hours - 36
+  else if (interval <= 1800000) // Thirty minutes
+    return 43200000; // Twelve hours - 24
+  else if (interval <= 3600000) // Hour
+    return 86400000; // Day - 24
+  else if (interval <= 86400000) // Day
+    return 604800000; // Week - 7
+  else if (interval <= 604800000) // Week
+    return 2592000000; // Month - 4
+  else
+    return 31536000000; // Year
+}
+
 module.exports = class MongoMachineSink {
 
   constructor(databaseOpts) {
     this.databaseOpts = databaseOpts;
+
+    this.timeComplexCollections = { };
+    this.intervalCollections = { };
+
+    this.latencyByType = {
+      INTERVAL_RANGE: 0,
+      TIME_COMPLEX_RANGE: 0,
+      TIME_COMPLEX_RANGE_BUCKET_AVG: 0,
+      TIME_COMPLEX_DIFFERENCE: 0,
+      TIME_COMPLEX_LAST_BEFORE: 0,
+      TIME_COMPLEX_TOP_DIFFERENCE: 0,
+      INTERVAL_TOP_COUNT: 0
+    };
+
+    this.countByType = {
+      INTERVAL_RANGE: 0,
+      TIME_COMPLEX_RANGE: 0,
+      TIME_COMPLEX_RANGE_BUCKET_AVG: 0,
+      TIME_COMPLEX_DIFFERENCE: 0,
+      TIME_COMPLEX_LAST_BEFORE: 0,
+      TIME_COMPLEX_TOP_DIFFERENCE: 0,
+      INTERVAL_TOP_COUNT: 0
+    };
   }
 
   async init() {
@@ -52,9 +101,25 @@ module.exports = class MongoMachineSink {
     this.db = this.mongoClient.db(`db-test`);
     this.timeComplexColl = this.db.collection(`timeComplex`);
     this.intervalColl = this.db.collection(`interval`);
+
+    sinkStatsInterval = setInterval(() => {
+      for (let k in this.latencyByType) {
+        if (!this.countByType[k])
+          continue;
+
+        let latency = this.latencyByType[k]/this.countByType[k];
+
+        let d = Math.pow(10, 2);
+        latency = Math.round(latency * d) / d;
+
+        console.log(`${k} avg. latency: ${latency}, tot. latency: ${this.latencyByType[k]}, count: ${this.countByType[k]}`);
+      }
+    }, 60000);
   }
 
   async cleanup() {
+    clearInterval(sinkStatsInterval);
+
     this.mongoClient.close();
   }
 
@@ -75,9 +140,12 @@ module.exports = class MongoMachineSink {
 
     result.stream._write = (chunk, enc, callback) => {
       let t0 = Date.now();
-      this.query(chunk.name, chunk.type, chunk.options).then(() => {
+      this.query(chunk.name, chunk.type, chunk.options, chunk.interval).then(() => {
         ++result.successfulReads;
         result.totalReadLatency += Date.now() - t0;
+
+        ++this.countByType[chunk.type];
+        this.latencyByType[chunk.type] += Date.now() - t0;
       }).catch((err) => {
         console.error(err);
         ++result.errors;
@@ -89,29 +157,40 @@ module.exports = class MongoMachineSink {
     return result;
   }
 
-  async query(name, type, options) {
+  async query(name, type, options, interval) {
     switch (type) {
       case "INTERVAL_RANGE":
         return await this.queryIntervalRange(name, options);
       case "TIME_COMPLEX_RANGE":
-        return await  this.queryTimeComplexRange(name, options);
+        return await  this.queryTimeComplexRange(name, options, interval);
       case "TIME_COMPLEX_RANGE_BUCKET_AVG":
-        return await this.queryTimeComplexRangeBucketAvg(name, options);
+        return await this.queryTimeComplexRangeBucketAvg(name, options, interval);
       case "TIME_COMPLEX_DIFFERENCE":
-        return await this.queryTimeComplexDifference(name, options);
+        return await this.queryTimeComplexDifference(name, options, interval);
       case "TIME_COMPLEX_LAST_BEFORE":
-        return await this.queryTimeComplexLastBefore(name, options);
+        return await this.queryTimeComplexLastBefore(name, options, interval);
       case "TIME_COMPLEX_TOP_DIFFERENCE":
-        return await this.queryTimeComplexTopDifference(name, options);
+        return await this.queryTimeComplexTopDifference(name, options, interval);
       case "INTERVAL_TOP_COUNT":
         return await this.queryIntervalTopCount(name, options);
     }
   }
 
   async queryIntervalRange(name, options) {
+    options.select = options.select || {};
+
+    if (options.groups.length === 1)
+      return await this.queryIntervalRangeSingleGroup(name, options);
+    else
+      return await this.queryIntervalRangeMultipleGroups(name, options);
+  }
+
+  async queryIntervalRangeSingleGroup(name, options) {
+    let group = options.groups[0];
+    let coll = this.db.collection(`${group}_interval`);
+
     let criteria = {
       device: Binary(uuidParse.parse(options.device, Buffer.allocUnsafe(16)), Binary.SUBTYPE_UUID),
-      group: { $in: options.groups },
       startTime: { $lt: options.endTime },
       endTime: { $gt: options.startTime }
     };
@@ -119,7 +198,7 @@ module.exports = class MongoMachineSink {
     return await new Promise((resolve, reject) => {
       let count = 0;
 
-      this.intervalColl.find(criteria).forEach((doc) => {
+      coll.find(criteria).forEach((doc) => {
         ++count;
       }, (err) => {
         if (err)
@@ -130,40 +209,74 @@ module.exports = class MongoMachineSink {
     });
   }
 
-  async queryTimeComplexRange(name, options) {
+  async queryIntervalRangeMultipleGroups(name, options) {
+    throw new Error("Currently not supported, as no query requires it");
+  }
+
+  async queryTimeComplexRange(name, options, interval) {
     options.select = options.select || {};
 
-    let criteria = {
-      "_id.device": Binary(uuidParse.parse(options.device, Buffer.allocUnsafe(16)), Binary.SUBTYPE_UUID),
-      "_id.time": {
-        $gt: options.startTime,
-        $lt: options.endTime
+    if (options.groups.length === 1)
+      return await this.queryTimeComplexRangeSingleGroup(name, options, interval);
+    else
+      return await this.queryTimeComplexRangeMultiGroups(name, options, interval);
+  }
+
+  async queryTimeComplexRangeSingleGroup(name, options, interval) {
+    let group = options.groups[0];
+    let coll = this.db.collection(`${group}_time_complex`);
+
+    let oStartTime = options.startTime.getTime();
+    let oEndTime = options.endTime.getTime();
+
+    let bucketTime = chooseBucketTime(interval);
+    let startTime = oStartTime - (oStartTime % bucketTime);
+    let endTime = oEndTime - (oEndTime % bucketTime);
+    if (endTime < oEndTime)
+      endTime += bucketTime;
+
+    let stages = [
+      {
+        $match: {
+          "_id.device": Binary(uuidParse.parse(options.device, Buffer.allocUnsafe(16)), Binary.SUBTYPE_UUID),
+          "_id.time": {
+            $gt: new Date(startTime),
+            $lt: new Date(endTime)
+          }
+        }
+      },
+      {
+        $project: {
+          _id: 1,
+          records: { $objectToArray: "$records" }
+        }
+      },
+      {
+        $unwind: "$records"
+      },
+      {
+        $project: {
+          time: {
+            $add: [ "$_id.time", { $toInt: "$records.k" } ]
+          },
+          record: "$records.v"
+        }
+      },
+      {
+        $match: {
+          time: {
+            $gt: options.startTime,
+            $lt: options.endTime
+          }
+        }
       }
-    };
-
-    let project = {
-      "_id.time": 1,
-    };
-
-    options.groups.forEach((e) => {
-      criteria[e] = { $exists: true };
-      project[e] = 1;
-    });
-
-    for (let k in options.select) {
-      let group = options.select[k];
-      project[k + ".time"] = 1;
-      delete project[k];
-      for (let path of group) {
-        project[k + ".value." + path] = 1;
-      }
-    }
+    ];
 
     return await new Promise((resolve, reject) => {
       let count = 0;
 
-      let cursor = this.timeComplexColl.find(criteria).project(project).forEach((doc) => {
-        ++count;
+      let cursor = coll.aggregate(stages).forEach((doc) => {
+        count++
       }, (err) => {
         if (err)
           return reject();
@@ -173,33 +286,74 @@ module.exports = class MongoMachineSink {
     });
   }
 
-  async queryTimeComplexRangeBucketAvg(name, options) {
+  async queryTimeComplexRangeMultiGroups(name, options, interval) {
+    throw new Error("Currently not supported, as no query requires it");
+  }
+
+  async queryTimeComplexRangeBucketAvg(name, options, interval) {
     options.select = options.select || {};
 
-    let criteria = {
-      "_id.device": Binary(uuidParse.parse(options.device, Buffer.allocUnsafe(16)), Binary.SUBTYPE_UUID),
-      "_id.time": {
-        $gt: options.startTime,
-        $lt: options.endTime
-      }
-    };
+    if (options.groups.length === 1)
+      return await this.queryTimeComplexRangeBucketAvgSingleGroup(name, options, interval);
+    else
+      return await this.queryTimeComplexRangeBucketAvgMultiGroups(name, options, interval);
+  }
 
-    options.groups.forEach((e) => {
-      criteria[e] = { $exists: true };
-    });
+  async queryTimeComplexRangeBucketAvgSingleGroup(name, options, interval) {
+    let group = options.groups[0];
+    let coll = this.db.collection(`${group}_time_complex`);
+
+    let oStartTime = options.startTime.getTime();
+    let oEndTime = options.endTime.getTime();
+
+    let bucketTime = chooseBucketTime(interval);
+    let startTime = oStartTime - (oStartTime % bucketTime);
+    let endTime = oEndTime - (oEndTime % bucketTime);
+    if (endTime < oEndTime)
+      endTime += bucketTime;
 
     let output = {
       count: { $sum: 1 }
     };
-    for (let k in options.select) {
-      let group = options.select[k];
-      for (let path of group)
-        output[k + "_" + path] =  { $avg: "$" + k + ".value." + path};
-    }
+
+    let select = options.select[group];
+    for (let path of select)
+      output[path] =  { $avg: `$record.${path}` };
 
     let stages = [
       {
-        $match: criteria
+        $match: {
+          "_id.device": Binary(uuidParse.parse(options.device, Buffer.allocUnsafe(16)), Binary.SUBTYPE_UUID),
+          "_id.time": {
+            $gt: new Date(startTime),
+            $lt: new Date(endTime)
+          }
+        }
+      },
+      {
+        $project: {
+          _id: 1,
+          records: { $objectToArray: "$records" }
+        }
+      },
+      {
+        $unwind: "$records"
+      },
+      {
+        $project: {
+          time: {
+            $add: [ "$_id.time", { $toInt: "$records.k" } ]
+          },
+          record: "$records.v"
+        }
+      },
+      {
+        $match: {
+          time: {
+            $gt: options.startTime,
+            $lt: options.endTime
+          }
+        }
       },
       {
         $bucketAuto: {
@@ -213,7 +367,7 @@ module.exports = class MongoMachineSink {
     return await new Promise((resolve, reject) => {
       let count = 0;
 
-      this.timeComplexColl.aggregate(stages).forEach((doc) => {
+      coll.aggregate(stages).forEach((doc) => {
         ++count;
       }, (err) => {
         if (err)
@@ -224,63 +378,90 @@ module.exports = class MongoMachineSink {
     });
   }
 
-  async queryTimeComplexDifference(name, options) {
+  async queryTimeComplexRangeBucketAvgMultiGroups(name, options, interval) {
+    throw new Error("Currently not supported, as no query requires it");
+  }
+
+  async queryTimeComplexDifference(name, options, interval) {
     options.select = options.select || {};
 
+    if (options.groups.length === 1)
+      return await this.queryTimeComplexDifferenceSingleGroup(name, options, interval);
+    else
+      return await this.queryTimeComplexDifferenceMultiGroups(name, options, interval);
+  }
+
+  async queryTimeComplexDifferenceSingleGroup(name, options, interval) {
+    let group = options.groups[0];
+    let coll = this.db.collection(`${group}_time_complex`);
+
+    let bucketTime = chooseBucketTime(interval);
     let promises = [];
-
     for (let i = 0; i < options.times.length -1; ++i) {
-      let startTime = options.times[i];
-      let endTime = options.times[i + 1];
+      let oStartTime = options.times[i].getTime();
+      let oEndTime = options.times[i + 1].getTime();
 
-      let criteria = {
-        "_id.device": Binary(uuidParse.parse(options.device, Buffer.allocUnsafe(16)), Binary.SUBTYPE_UUID),
-        "_id.time": {
-          $gt: startTime,
-          $lt: endTime
-        }
-      };
+      let startTime = oStartTime - (oStartTime % bucketTime);
+      let endTime = oEndTime - (oEndTime % bucketTime);
+      if (endTime < oEndTime)
+        endTime += bucketTime;
 
-      options.groups.forEach((e) => {
-        criteria[e] = {$exists: true};
-      });
-
-      let group = {
+      let _group = {
         _id: "$_id.device"
       };
-      for (let k in options.select) {
-        let _group = options.select[k];
-
-
-        let hasPath = false;
-        for (let path of _group) {
-          hasPath = true;
-          group[k + "_" + path + "_first"] = {$first: "$" + k + ".value." + path};
-          group[k + "_" + path + "_last"] = {$last: "$" + k + ".value." + path};
-        }
-
-        if (!hasPath) {
-          group[k + "_first"] = {$first: "$" + k + ".value"};
-          group[k + "_last"] = {$last: "$" + k + ".value"};
-        }
+      let select = options.select[group];
+      let hasPath = false;
+      for (let path of select) {
+        hasPath = true;
+        _group[path + "_first"] = {$first: "$record." + path};
+        _group[path + "_last"] = {$last: "$record." + path};
+      }
+      if (!hasPath) {
+        _group["_first"] = {$first: "$record"};
+        _group["_last"] = {$last: "$record"};
       }
 
       let stages = [
         {
-          $match: criteria
-        },
-        {
-          $sort: {
-            "_id.device": 1,
-            "_id.time": -1
+          $match: {
+            "_id.device": Binary(uuidParse.parse(options.device, Buffer.allocUnsafe(16)), Binary.SUBTYPE_UUID),
+            "_id.time": {
+              $gt: new Date(startTime),
+              $lt: new Date(endTime)
+            }
           }
         },
         {
-          $group: group
+          $project: {
+            _id: 1,
+            records: { $objectToArray: "$records" }
+          }
+        },
+        {
+          $unwind: "$records"
+        },
+        {
+          $project: {
+            time: {
+              $add: [ "$_id.time", { $toInt: "$records.k" } ]
+            },
+            record: "$records.v"
+          }
+        },
+        {
+          $match: {
+            time: {
+              $gt: options.times[i],
+              $lt: options.times[i+1]
+            }
+          }
+        },
+        {
+          $group: _group
         }
       ];
 
-      promises.push(this.timeComplexColl.aggregate(stages).toArray());
+      promises.push(coll.aggregate(stages).toArray());
     }
 
     let results = await Promise.all(promises);
@@ -306,38 +487,38 @@ module.exports = class MongoMachineSink {
     return subs.length;
   }
 
-  async queryTimeComplexLastBefore(name, options) {
-    let criteria = {
-      "_id.device": Binary(uuidParse.parse(options.device, Buffer.allocUnsafe(16)), Binary.SUBTYPE_UUID),
-      "_id.time": {
-        $lt: options.time
-      }
-    };
+  async queryTimeComplexDifferenceMultiGroups(name, options, interval) {
+    throw new Error("Currently not supported, as no query requires it");
+  }
 
-    options.groups.forEach((e) => {
-      criteria[e] = { $exists: true };
-    });
+  async queryTimeComplexLastBefore(name, options, interval) {
+    options.select = options.select || {};
 
-    let group = {
-      _id: "last"
-    };
-    for (let k in options.select) {
-      let _group = options.select[k];
+    if (options.groups.length === 1)
+      return await this.queryTimeComplexLastBeforeSingleGroup(name, options, interval);
+    else
+      return await this.queryTimeComplexLastBeforeMultiGroups(name, options, interval);
+  }
 
-      let hasPath = false;
-      for (let path of _group) {
-        hasPath = true;
-        group[k + "_" + path] = {$first: "$" + k + ".value." + path};
-      }
+  async queryTimeComplexLastBeforeSingleGroup(name, options, interval) {
+    let group = options.groups[0];
+    let coll = this.db.collection(`${group}_time_complex`);
 
-      if (!hasPath) {
-        group[k] = {$first: "$" + k + ".value"};
-      }
-    }
+    let oTime = options.time.getTime();
+
+    let bucketTime = chooseBucketTime(interval);
+    let time = oTime - (oTime % bucketTime);
+    if (time < oTime)
+      time += bucketTime;
 
     let stages = [
       {
-        $match: criteria
+        $match: {
+          "_id.device": Binary(uuidParse.parse(options.device, Buffer.allocUnsafe(16)), Binary.SUBTYPE_UUID),
+          "_id.time": {
+            $lt: new Date(time)
+          }
+        }
       },
       {
         $sort: {
@@ -345,15 +526,47 @@ module.exports = class MongoMachineSink {
         }
       },
       {
-        $group: group
+        $limit: 1
+      },
+      {
+        $project: {
+          _id: 1,
+          records: { $objectToArray: "$records" }
+        }
+      },
+      {
+        $unwind: "$records"
+      },
+      {
+        $project: {
+          time: {
+            $add: [ "$_id.time", { $toInt: "$records.k" } ]
+          },
+          record: "$records.v"
+        }
+      },
+      {
+        $match: {
+          time: {
+            $lt: options.oTime
+          }
+        }
+      },
+      {
+        $sort: {
+          time: -1
+        }
+      },
+      {
+        $limit: 1
       }
     ];
 
     return await new Promise((resolve, reject) => {
       let count = 0;
 
-      this.timeComplexColl.aggregate(stages).forEach((doc) => {
-        ++count;
+      let cursor = coll.aggregate(stages).forEach((doc) => {
+        count++
       }, (err) => {
         if (err)
           return reject();
@@ -363,56 +576,89 @@ module.exports = class MongoMachineSink {
     });
   }
 
-  async queryTimeComplexTopDifference(name, options) {
+  async queryTimeComplexLastBeforeMultiGroups(name, options, interval) {
+    throw new Error("Currently not supported, as no query requires it");
+  }
+
+  async queryTimeComplexTopDifference(name, options, interval) {
     options.select = options.select || {};
 
-    let criteria = {
-      "_id.time": {
-        $gt: options.startTime,
-        $lt: options.endTime
-      }
-    };
+    if (options.groups.length === 1)
+      return await this.queryTimeComplexTopDifferenceSingleGroup(name, options, interval);
+    else
+      return await this.queryTimeComplexTopDifferenceMultiGroups(name, options, interval);
+  }
 
-    options.groups.forEach((e) => {
-      criteria[e] = {$exists: true};
-    });
+  async queryTimeComplexTopDifferenceSingleGroup(name, options, interval) {
+    let group = options.groups[0];
+    let coll = this.db.collection(`${group}_time_complex`);
 
-    let group = {
+    let oStartTime = options.startTime.getTime();
+    let oEndTime = options.endTime.getTime();
+
+    let bucketTime = chooseBucketTime(interval);
+    let startTime = oStartTime - (oStartTime % bucketTime);
+    let endTime = oEndTime - (oEndTime % bucketTime);
+    if (endTime < oEndTime)
+      endTime += bucketTime;
+
+    let _group = {
       _id: "$_id.device"
     };
-    for (let k in options.select) {
-      let _group = options.select[k];
-
-      let hasPath = false;
-      for (let path of _group) {
-        hasPath = true;
-        group[k + "_" + path + "_first"] = {$first: "$" + k + ".value." + path};
-        group[k + "_" + path + "_last"] = {$last: "$" + k + ".value." + path};
-      }
-
-      if (!hasPath) {
-        group[k + "_first"] = {$first: "$" + k + ".value"};
-        group[k + "_last"] = {$last: "$" + k + ".value"};
-      }
+    let select = options.select[group];
+    let hasPath = false;
+    for (let path of select) {
+      hasPath = true;
+      _group[path + "_first"] = {$first: "$record." + path};
+      _group[path + "_last"] = {$last: "$record." + path};
+    }
+    if (!hasPath) {
+      _group["_first"] = {$first: "$record"};
+      _group["_last"] = {$last: "$record"};
     }
 
     let stages = [
       {
-        $match: criteria
-      },
-      {
-        $sort: {
-          "_id.time": 1
+        $match: {
+          "_id.time": {
+            $gt: new Date(startTime),
+            $lt: new Date(endTime)
+          }
         }
       },
       {
-        $group: group
+        $project: {
+          _id: 1,
+          records: { $objectToArray: "$records" }
+        }
+      },
+      {
+        $unwind: "$records"
+      },
+      {
+        $project: {
+          time: {
+            $add: [ "$_id.time", { $toInt: "$records.k" } ]
+          },
+          record: "$records.v"
+        }
+      },
+      {
+        $match: {
+          time: {
+            $gt: options.startTime,
+            $lt: options.endTime
+          }
+        }
+      },
+      {
+        $group: _group
       }
     ];
 
     let subs = [];
     await new Promise((resolve, reject) => {
-      this.timeComplexColl.aggregate(stages).forEach((doc) => {
+      coll.aggregate(stages).forEach((doc) => {
         let o1 = {};
         let o2 = {};
         let sub = {};
@@ -451,35 +697,44 @@ module.exports = class MongoMachineSink {
     return tops.length;
   }
 
+  async queryTimeComplexTopDifferenceMultiGroups(name, options, interval) {
+    throw new Error("Currently not supported, as no query requires it");
+  }
+
   async queryIntervalTopCount(name, options) {
     options.select = options.select || {};
 
-    let criteria = {
-      "_id.time": {
-        startTime: { $lt: options.endTime },
-        endTime: { $gt: options.startTime }
-      },
-      group: { $in: options.groups },
-    };
+    if (options.groups.length === 1)
+      return await this.queryIntervalTopCountSingleGroup(name, options);
+    else
+      return await this.queryIntervalTopCountMultiGroups(name, options);
+  }
 
-    let group = {
-      _id: "$_id.device",
-      count: { $sum: 1 }
-    };
+  async queryIntervalTopCountSingleGroup(name, options) {
+    let group = options.groups[0];
+    let coll = this.db.collection(`${group}_interval`);
 
-    let sort = {
-      count: -1
-    };
+    options.select = options.select || {};
 
     let stages = [
       {
-        $match: criteria
+        $match: {
+          "_id.time": {
+            startTime: { $lt: options.endTime },
+            endTime: { $gt: options.startTime }
+          }
+        }
       },
       {
-        $group: group
+        $group: {
+          _id: "$_id.device",
+          count: { $sum: 1 }
+        }
       },
       {
-        $sort: sort
+        $sort: {
+          count: -1
+        }
       },
       {
         $limit : options.limit
@@ -489,7 +744,7 @@ module.exports = class MongoMachineSink {
     return await new Promise((resolve, reject) => {
       let count = 0;
 
-      this.intervalColl.aggregate(stages).forEach((doc) => {
+      coll.aggregate(stages).forEach((doc) => {
         ++count;
       }, (err) => {
         if (err)
@@ -498,6 +753,10 @@ module.exports = class MongoMachineSink {
         resolve(count);
       });
     });
+  }
+
+  async queryIntervalTopCountMultiGroups(name, options) {
+    throw new Error("Currently not supported, as no query requires it");
   }
 
   recordStream() {
@@ -517,7 +776,7 @@ module.exports = class MongoMachineSink {
 
     result.stream._write = (chunk, enc, callback) => {
       let t0 = Date.now();
-      this.record(chunk.id, chunk.groupName, chunk.sample).then(() => {
+      this.record(chunk.id, chunk.groupName, chunk.sample, chunk.interval).then(() => {
         ++result.successfulWrites;
         result.totalWriteLatency += Date.now() - t0;
       }).catch((err) => {
@@ -531,43 +790,72 @@ module.exports = class MongoMachineSink {
     return result;
   }
 
-  async record(id, groupName, sample) {
+  async record(id, groupName, sample, interval) {
     switch(sample.type) {
       case "TIME_COMPLEX":
-        return await this.recordTimeComplex(id, groupName, sample.value);
+        return await this.recordTimeComplex(id, groupName, sample.value, interval);
       case "INTERVAL":
         return await this.recordInterval(id, groupName, sample.value);
     }
   }
 
-  async recordTimeComplex(id, groupName, sample) {
+  async recordTimeComplex(id, groupName, sample, interval) {
+    let collection = this.timeComplexCollections[groupName];
+    if (!collection) {
+      collection = this.db.collection(`${groupName}_time_complex`);
+      try {
+        await collection.createIndex({ "_id.device": 1 });
+        await collection.createIndex({ "_id.time": 1 });
+        await collection.createIndex({ "_id.device": 1, "_id.time": 1 });
+        await collection.createIndex({ "_id.device": 1, "_id.time": -1 });
+      }
+      catch(err) { }
+      this.timeComplexCollections[groupName] = collection;
+    }
+
+    let bucketTime = chooseBucketTime(interval);
     let bucket = sample.time - (sample.time % bucketTime);
     let offsetTime = sample.time - bucket;
 
     let criteria = {
       _id: {
         device: Binary(uuidParse.parse(sample.device, Buffer.allocUnsafe(16)), Binary.SUBTYPE_UUID),
-        time: bucket
+        time: new Date(bucket)
       }
     };
 
     let update = {
       $setOnInsert: {
         deviceType: Binary(uuidParse.parse(sample.deviceType, Buffer.allocUnsafe(16)), Binary.SUBTYPE_UUID),
+        bucketTime: bucketTime
       },
       $set: {}
     };
 
-    update.$set[`records.${offsetTime}.${groupName}`] = sample[groupName].value;
+    update.$set[`records.${offsetTime}`] = sample[groupName].value;
 
     let options = {
       upsert: true
     };
 
-    await this.timeComplexColl.updateOne(criteria, update, options);
+    await collection.updateOne(criteria, update, options);
   }
 
   async recordInterval(id, groupName, sample) {
+    let collection = this.intervalCollections[groupName];
+    if (!collection) {
+      collection = this.db.collection(`${groupName}_interval`);
+      try {
+        await collection.createIndex({ device: 1 });
+        await collection.createIndex({ startTime: 1 });
+        await collection.createIndex({ endTime: 1 });
+        await collection.createIndex({ startTime: 1, endTime: -1 });
+        await collection.createIndex({ device: 1, startTime: 1, endTime: -1 });
+      }
+      catch(err) { }
+      this.intervalCollections[groupName] = collection;
+    }
+
     let criteria = {
       _id: Binary(uuidParse.parse(sample.id, Buffer.allocUnsafe(16)), Binary.SUBTYPE_UUID),
     };
@@ -576,9 +864,8 @@ module.exports = class MongoMachineSink {
       $setOnInsert: {
         deviceType: Binary(uuidParse.parse(sample.deviceType, Buffer.allocUnsafe(16)), Binary.SUBTYPE_UUID),
         device: Binary(uuidParse.parse(sample.device, Buffer.allocUnsafe(16)), Binary.SUBTYPE_UUID),
-        group: groupName,
         startTime: sample.startTime,
-        endTime: sample.endTime,
+        endTime: sample.endTime
       },
       $set: {
         value: sample.value
@@ -589,7 +876,7 @@ module.exports = class MongoMachineSink {
       upsert: true
     };
 
-    await this.intervalColl.updateOne(criteria, update, options);
+    await collection.updateOne(criteria, update, options);
   }
 
 };

@@ -41,7 +41,7 @@ module.exports = class BigMachineSource {
       lastMonthMachineEnergy: 0,
       lastHourTemperatures: 0,
       lastDayAggrTemperatures: 0,
-      monthlyCountersDifference: 0,
+      thisYearMonthlyCountersDifference: 0,
       oldSetup: 0,
       topTenMachinesLastDayWorkingTime: 0,
       topTenMachinesLastDayAlarms: 0
@@ -53,7 +53,7 @@ module.exports = class BigMachineSource {
       lastMonthMachineEnergy: this.lastMonthMachineEnergy.bind(this),
       lastHourTemperatures: this.lastHourTemperatures.bind(this),
       lastDayAggrTemperatures: this.lastDayAggrTemperatures.bind(this),
-      monthlyCountersDifference: this.monthlyCountersDifference.bind(this),
+      thisYearMonthlyCountersDifference: this.thisYearMonthlyCountersDifference.bind(this),
       oldSetup: this.oldSetup.bind(this),
       topTenMachinesLastDayWorkingTime: this.topTenMachinesLastDayWorkingTime.bind(this),
       topTenMachinesLastDayAlarms: this.topTenMachinesLastDayAlarms.bind(this)
