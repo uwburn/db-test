@@ -317,8 +317,10 @@ module.exports = class MongoMachineSink {
     };
 
     let select = options.select[group];
-    for (let path of select)
+    for (let k in select) {
+      let path = select[k];
       output[path] =  { $avg: `$record.${path}` };
+    }
 
     let stages = [
       {
@@ -411,7 +413,8 @@ module.exports = class MongoMachineSink {
       };
       let select = options.select[group];
       let hasPath = false;
-      for (let path of select) {
+      for (let k in select) {
+        let path = select[k];
         hasPath = true;
         _group[path + "_first"] = {$first: "$record." + path};
         _group[path + "_last"] = {$last: "$record." + path};
@@ -607,7 +610,8 @@ module.exports = class MongoMachineSink {
     };
     let select = options.select[group];
     let hasPath = false;
-    for (let path of select) {
+    for (let k in select) {
+      let path = select[k];
       hasPath = true;
       _group[path + "_first"] = {$first: "$record." + path};
       _group[path + "_last"] = {$last: "$record." + path};

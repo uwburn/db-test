@@ -254,8 +254,10 @@ module.exports = class CassandraMachineSink {
         maxTime: Number.MIN_SAFE_INTEGER
       };
 
-      for (let path of paths)
+      for (let k in paths) {
+        let path = paths[k];
         buckets[i][group + "_" + path] = 0;
+      }
     }
 
     let count = 0;
@@ -282,8 +284,10 @@ module.exports = class CassandraMachineSink {
         bucket.minTime = Math.min(bucket.minTime, row.time);
         bucket.maxTime = Math.max(bucket.maxTime, row.time);
         ++bucket.count;
-        for (let path of paths)
+        for (let k in paths) {
+          let path = paths[k];
           bucket[group + "_" + path + "_avg"] += _.get(row.value, path);
+        }
       }).on('end', function () {
         resolve(count);
       }).on('error', function (err) {
