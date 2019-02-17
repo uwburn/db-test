@@ -1,4 +1,4 @@
-version: '3'
+version: '3.3'
 
 services:
   cassandra:
@@ -7,9 +7,9 @@ services:
       - "9042:9042"
     volumes:
       - cassandra_data:/var/lib/cassandra
-  coordinator:
-    environment:
-      CONFIG: "cassandra_machine_small.json"
 
+secrets:
+  coordinator_config.json:
+    file: ./config/cassandra_machine_big.json
 volumes:
   cassandra_data:

@@ -1,4 +1,4 @@
-version: '3'
+version: '3.3'
 
 services:
   mqtt:
@@ -12,8 +12,9 @@ services:
       MQTT_ADDRESS: mqtt://mqtt:1883
     depends_on:
       - mqtt
+    secrets:
+      - coordinator_config.json
     volumes:
-      - ./config/:/etc/coordinator/
       - ./stats/:/var/log/db-test/
   worker:
     build:

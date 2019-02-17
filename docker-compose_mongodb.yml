@@ -1,4 +1,4 @@
-version: '3'
+version: '3.3'
 
 services:
   mongodb:
@@ -8,9 +8,9 @@ services:
       - "27017:27017"
     volumes:
       - mongodb_data:/data/db
-  coordinator:
-    environment:
-      CONFIG: "mongodb_machine_small.json"
 
+secrets:
+  coordinator_config.json:
+    file: ./config/mongodb_machine_big.json
 volumes:
   mongodb_data:

@@ -22,7 +22,7 @@ matcher.add(`worker/+/status`, workerStatus);
 matcher.add(`worker/+/work/+/status`, workStatus);
 matcher.add(`worker/+/work/+/log`, workLog);
 
-const config = require(`/etc/coordinator/${process.env.CONFIG}`);
+const config = require(`/run/secrets/coordinator_config.json`);
 
 const suite = require(`./buildSuite`)(config.database, config.databaseOpts, config.suite, config.suiteOpts);
 let status = `DISCOVERING_WORKERS`;

@@ -8,10 +8,10 @@
   },
   "suite": "MachineData",
   "suiteOpts": {
-    "machineSize": "Small",
-    "machines": 10240,
+    "machineSize": "Big",
+    "machines": 8,
     "startYear": 2010,
-    "years": 3,
-    "machineUptime": 0.9
+    "years": 1,
+    "machineUptime": 0.01
   }
 }
