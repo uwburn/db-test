@@ -7,7 +7,7 @@ const HIGH_WATERMARK = 256;
 const REAL_TIME_STEP = 1000;
 
 function gcd(a, b) {
-  if ( ! b) {
+  if (!b) {
     return a;
   }
 
