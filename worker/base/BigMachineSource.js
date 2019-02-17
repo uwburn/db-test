@@ -36,15 +36,15 @@ module.exports = class BigMachineSource {
     };
 
     this.queryIntervals = {
-      lastWeekStatus: 0,
-      lastDayAlarms: 0,
-      lastMonthMachineEnergy: 0,
-      lastHourTemperatures: 0,
-      lastDayAggrTemperatures: 0,
-      thisYearMonthlyCountersDifference: 0,
-      oldSetup: 0,
-      topTenMachinesLastDayWorkingTime: 0,
-      topTenMachinesLastDayAlarms: 0
+      lastWeekStatus: Math.floor(28800000 / this.workloadOpts.machines.length),
+      lastDayAlarms: Math.floor(28800000 / this.workloadOpts.machines.length),
+      lastMonthMachineEnergy: Math.floor(28800000 / this.workloadOpts.machines.length),
+      lastHourTemperatures: Math.floor(28800000 / this.workloadOpts.machines.length),
+      lastDayAggrTemperatures: Math.floor(28800000 / this.workloadOpts.machines.length),
+      thisYearMonthlyCountersDifference: Math.floor(28800000 / this.workloadOpts.machines.length),
+      oldSetup: Math.floor(604800000 / this.workloadOpts.machines.length),
+      topTenMachinesLastDayWorkingTime: 86400000,
+      topTenMachinesLastDayAlarms: 86400000
     };
 
     this.queryMethods = {
