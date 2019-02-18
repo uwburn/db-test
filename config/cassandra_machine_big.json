@@ -3,7 +3,8 @@
   "databaseOpts": {
     "contactPoints": [
       "cassandra"
-    ]
+    ],
+    "replicationFactor": 3
   },
   "suite": "MachineData",
   "suiteOpts": {

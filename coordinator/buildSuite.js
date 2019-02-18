@@ -176,8 +176,10 @@ async function prepareMachineDataCassandraA(databaseOpts) {
     } catch (err) { }
   }
 
+  let replicationFactor = databaseOpts.replicationFactor || 1;
+
   console.log(`Preparing keyspace and tables`);
-  await cassandraClient.execute(`CREATE KEYSPACE IF NOT EXISTS db_test WITH replication = {'class' : 'SimpleStrategy', 'replication_factor' : 1};`, [], {});
+  await cassandraClient.execute(`CREATE KEYSPACE IF NOT EXISTS db_test WITH replication = {'class' : 'SimpleStrategy', 'replication_factor' : ${replicationFactor}};`, [], {});
   await cassandraClient.execute(`USE db_test;`, [], {});
   await cassandraClient.execute(`CREATE TABLE IF NOT EXISTS time_complex (device_type text, group text, device text, timestamp timestamp, original_timestamp timestamp, value text, PRIMARY KEY (( device_type, group, device ), timestamp));`, [], {});
   await cassandraClient.execute(`CREATE TABLE IF NOT EXISTS interval (device_type text, group text, device text, start_time timestamp, end_time timestamp, value text, PRIMARY KEY (device_type, group, device, start_time, end_time));`, [], {});
