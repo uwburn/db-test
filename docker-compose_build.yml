@@ -1,0 +1,11 @@
+version: '3.3'
+
+services:
+  coordinator:
+    build:
+      context: coordinator
+    image: localhost:5000/db-test_coordinator
+  worker:
+    build:
+      context: worker
+    image: localhost:5000/db-test_worker

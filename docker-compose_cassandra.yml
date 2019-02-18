@@ -3,6 +3,10 @@ version: '3.3'
 services:
   cassandra:
     image: cassandra
+    deploy:
+      placement:
+        constraints:
+          - node.labels.cassandra == true
     ports:
       - "9042:9042"
     volumes:
@@ -10,6 +14,6 @@ services:
 
 secrets:
   coordinator_config.json:
-    file: ./config/cassandra_machine_big.json
+    file: ./config/cassandra_machine_small.json
 volumes:
   cassandra_data:
