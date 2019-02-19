@@ -2,8 +2,9 @@
   "database": "cassandraA",
   "databaseOpts": {
     "contactPoints": [
-      "cassandra-seed",
-      "cassandra-node"
+      "10.0.9.3",
+      "10.0.9.6",
+      "10.0.9.8"
     ],
     "replicationFactor": 3
   },
