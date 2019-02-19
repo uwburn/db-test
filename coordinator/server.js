@@ -253,7 +253,10 @@ function shutdown() {
 
   mqttClient.publish(`shutdown`, JSON.stringify({}), function () {
     mqttClient.end(false, function () {
-      process.exit(0);
+      if (process.env.NO_EXIT)
+        setInterval(function() {}, 60000);
+      else
+        process.exit(0);
     });
   });
 }

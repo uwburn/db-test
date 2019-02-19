@@ -9,6 +9,7 @@ services:
           - node.labels.coordinator == true
     environment:
       MQTT_ADDRESS: mqtt://mqtt:1883
+      NO_EXIT: true
     depends_on:
       - mqtt
     secrets:
