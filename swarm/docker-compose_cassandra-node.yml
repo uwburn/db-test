@@ -6,13 +6,14 @@ services:
     deploy:
       placement:
         constraints:
-          - node.labels.cassandra == true
+          - node.labels.db == true
     environment:
-      CASSANDRA_SEEDS=cassandra-seed-node
+      CASSANDRA_LISTEN_ADDRESS: tasks.cassandra-node
+      CASSANDRA_SEEDS: "tasks.cassandra-seed"
     volumes:
       - cassandra_node_data:/var/lib/cassandra
     networks: 
-      - cassandra
+      cassandra:
     
 volumes:
   cassandra_node_data:

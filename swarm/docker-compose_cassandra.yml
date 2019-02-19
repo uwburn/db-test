@@ -13,7 +13,7 @@ services:
 
 secrets:
   coordinator_config.json:
-    file: ../config/cassandra_machine_small.json
+    file: ./config/cassandra_machine_small.json
 
 networks: 
   cassandra:

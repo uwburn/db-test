@@ -2,19 +2,20 @@ version: '3.3'
 
 services:
   cassandra-seed:
-    container_name: cassandra-seed-node
     image: cassandra
     deploy:
       placement:
         constraints:
-          - node.labels.cassandra == true
+          - node.labels.db == true
+    environment:
+      CASSANDRA_LISTEN_ADDRESS: tasks.cassandra-seed
     ports:
       - "9042:9042"
     volumes:
       - cassandra_seed_data:/var/lib/cassandra
     networks: 
-      - cassandra
-    
+      cassandra:
+     
 volumes:
   cassandra_seed_data:
 

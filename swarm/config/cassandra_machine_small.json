@@ -1,0 +1,18 @@
+{
+  "database": "cassandraA",
+  "databaseOpts": {
+    "contactPoints": [
+      "cassandra-seed",
+      "cassandra-node"
+    ],
+    "replicationFactor": 3
+  },
+  "suite": "MachineData",
+  "suiteOpts": {
+    "machineSize": "Small",
+    "machines": 10240,
+    "startYear": 2010,
+    "years": 3,
+    "machineUptime": 0.9
+  }
+}

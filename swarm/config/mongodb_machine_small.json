@@ -1,10 +1,10 @@
 {
-  "database": "cassandraA",
+  "database": "mongoB",
   "databaseOpts": {
-    "contactPoints": [
-      "cassandra"
-    ],
-    "replicationFactor": 3
+    "url": "mongodb://mongodb:27017",
+    "options": {
+      "useNewUrlParser": true
+    }
   },
   "suite": "MachineData",
   "suiteOpts": {
