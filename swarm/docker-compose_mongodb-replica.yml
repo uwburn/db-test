@@ -1,0 +1,53 @@
+version: '3.3'
+
+services:
+  mongodb1:
+    image: mongo
+    command: mongod --bind_ip_all --slowms 10000 --replSet "rs0"
+    deploy:
+      placement:
+        constraints:
+          - node.labels.db_primary == true
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb1_data:/data/db
+    networks:
+      mongodb:
+  mongodb2:
+    image: mongo
+    command: mongod --bind_ip_all --slowms 10000 --replSet "rs0"
+    deploy:
+      placement:
+        constraints:
+          - node.labels.db_secondary == true
+    ports:
+      - "27018:27017"
+    volumes:
+      - mongodb2_data:/data/db
+    networks:
+      mongodb:
+  mongodb3:
+    image: mongo
+    command: mongod --bind_ip_all --slowms 10000 --replSet "rs0"
+    deploy:
+      placement:
+        constraints:
+          - node.labels.db_secondary == true
+    ports:
+      - "27019:27017"
+    volumes:
+      - mongodb3_data:/data/db
+    networks:
+      mongodb:
+
+volumes:
+  mongodb1_data:
+  mongodb2_data:
+  mongodb3_data:
+
+networks:
+  mongodb:
+    driver: overlay
+    attachable: true
+

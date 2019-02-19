@@ -1,16 +1,21 @@
 version: '3.3'
 
 services:
-  mongodb:
-    image: mongo
-    command: mongod --bind_ip_all --slowms 10000
-    ports:
-      - "27017:27017"
-    volumes:
-      - mongodb_data:/data/db
+  coordinator:
+    networks: 
+      mongodb:
+  worker:
+    image: localhost:5000/db-test_worker
+    deploy:
+      replicas: 8
+    networks:
+      mongodb:
 
 secrets:
   coordinator_config.json:
-    file: ../config/mongodb_machine_big.json
-volumes:
-  mongodb_data:
+    file: ./config/mongodb_machine_small.json
+
+networks: 
+  mongodb:
+    driver: overlay
+    attachable: true
