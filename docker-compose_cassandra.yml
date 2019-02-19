@@ -1,19 +1,21 @@
 version: '3.3'
 
 services:
-  cassandra:
-    image: cassandra
+  coordinator:
+    networks: 
+      cassandra:
+  worker:
+    image: localhost:5000/db-test_worker
     deploy:
-      placement:
-        constraints:
-          - node.labels.cassandra == true
-    ports:
-      - "9042:9042"
-    volumes:
-      - cassandra_data:/var/lib/cassandra
+      replicas: 8
+    networks:
+      cassandra:
 
 secrets:
   coordinator_config.json:
     file: ./config/cassandra_machine_small.json
-volumes:
-  cassandra_data:
+
+networks: 
+  cassandra:
+    driver: overlay
+    attachable: true

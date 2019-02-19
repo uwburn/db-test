@@ -1,0 +1,20 @@
+version: '3.3'
+
+services:
+  worker:
+    image: localhost:5000/db-test_worker
+    deploy:
+      placement:
+        constraints:
+          - node.labels.worker == true
+    environment:
+      MQTT_ADDRESS: mqtt://mqtt:1883
+    depends_on:
+      - mqtt
+    networks:
+      mqtt:
+
+networks:
+  mqtt:
+    driver: overlay
+    attachable: true
