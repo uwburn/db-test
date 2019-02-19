@@ -5,6 +5,7 @@ const _ = require("lodash");
 
 const HIGH_WATERMARK = 256;
 const REAL_TIME_STEP = 1000;
+const MAX_BULK_READS = 100000;
 
 function gcd(a, b) {
   if (!b) {
@@ -51,6 +52,24 @@ module.exports = class MachineStreams {
     this.totalQueries = 0;
     for (let k in this.queries)
       this.totalQueries += this.queries[k];
+
+    if (this.totalQueries > MAX_BULK_READS) {
+      for (let k in this.queries)
+        this.queries[k] = Math.round(this.queries[k] / this.totalQueries * MAX_BULK_READS);
+
+      this.totalQueries = 0;
+      for (let j in this.queries)
+        this.totalQueries += this.queries[j];
+
+      let diff = MAX_BULK_READS - this.totalQueries;
+      let queryKeys = Object.keys(this.queries);
+      for (let i = 0; i < diff; ++i) {
+        let h = queryKeys[i % queryKeys.length];
+        this.queries[h]++;
+      }
+
+      this.totalQueries = MAX_BULK_READS;
+    }
 
     let activeMachines = Math.round(this.workloadOpts.machines.length * this.workloadOpts.machineUptime);
     let i = 0;
