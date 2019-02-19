@@ -11,6 +11,6 @@ services:
 
 secrets:
   coordinator_config.json:
-    file: ./config/mongodb_machine_big.json
+    file: ../config/mongodb_machine_big.json
 volumes:
   mongodb_data:

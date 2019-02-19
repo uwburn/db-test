@@ -1,0 +1,25 @@
+version: '3.3'
+
+services:
+  mqtt:
+    image: eclipse-mosquitto
+    ports:
+      - "1883:1883"
+  coordinator:
+    build:
+      context: ../coordinator
+    environment:
+      MQTT_ADDRESS: mqtt://mqtt:1883
+    depends_on:
+      - mqtt
+    secrets:
+      - coordinator_config.json
+    volumes:
+      - ../stats/:/var/log/db-test/
+  worker:
+    build:
+      context: ../worker
+    environment:
+      MQTT_ADDRESS: mqtt://mqtt:1883
+    depends_on:
+      - mqtt

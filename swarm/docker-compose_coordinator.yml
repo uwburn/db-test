@@ -14,7 +14,7 @@ services:
     secrets:
       - coordinator_config.json
     volumes:
-      - ./stats/:/var/log/db-test/
+      - ../stats/:/var/log/db-test/
     networks: 
       mqtt:
 
