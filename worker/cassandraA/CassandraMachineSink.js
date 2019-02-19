@@ -164,14 +164,12 @@ module.exports = class CassandraMachineSink {
 
     let count = 0;
     return await new Promise((resolve, reject) => {
-      this.cassandraClient.stream("SELECT * FROM interval WHERE device_type = ? AND group = ? AND device = ? AND (start_time, end_time) >= (?, ?) AND (start_time, end_time) <= (?, ?)", [
+      this.cassandraClient.stream("SELECT * FROM interval WHERE device_type = ? AND group = ? AND device = ? AND start_time <= ? AND end_time >= ? ALLOW FILTERING", [
         options.deviceType,
         group,
         options.device,
-        options.startTime,
-        options.startTime,
         options.endTime,
-        maxDate,
+        options.startTime
       ], {
         prepare: true
       }).on('data', function (row) {

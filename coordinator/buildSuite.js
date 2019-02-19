@@ -202,7 +202,7 @@ async function prepareMachineDataCassandraB(databaseOpts) {
   await cassandraClient.execute(`CREATE KEYSPACE IF NOT EXISTS db_test WITH replication = {'class' : 'SimpleStrategy', 'replication_factor' : 1};`, [], {});
   await cassandraClient.execute(`USE db_test;`, [], {});
   await cassandraClient.execute(`CREATE TABLE IF NOT EXISTS time_complex (device_type text, group text, device text, path text, timestamp timestamp, original_timestamp timestamp, value text, PRIMARY KEY (( device_type, group, device ), path, timestamp));`, [], {});
-  await cassandraClient.execute(`CREATE TABLE IF NOT EXISTS interval (device_type text, group text, device text, start_time timestamp, end_time timestamp, value text, PRIMARY KEY (device_type, group, device, start_time, end_time));`, [], {});
+  await cassandraClient.execute(`CREATE TABLE IF NOT EXISTS interval (device_type text, group text, device text, start_time timestamp, uuid uuid, value text, end_time timestamp, PRIMARY KEY (device_type, group, device, start_time, uuid));`, [], {});
 
   await cassandraClient.shutdown();
 }
