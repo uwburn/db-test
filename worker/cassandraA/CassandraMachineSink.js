@@ -73,6 +73,13 @@ module.exports = class CassandraMachineSink {
   }
 
   async init() {
+    this.databaseOpts.profiles = [
+      new cassandra.ExecutionProfile('default', {
+        consistency: 1,
+        readTimeout: 10000
+      })
+    ];
+
     this.cassandraClient = new cassandra.Client(this.databaseOpts);
     await this.cassandraClient.execute("USE db_test;", [], {});
 
