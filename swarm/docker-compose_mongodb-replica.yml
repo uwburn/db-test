@@ -7,7 +7,7 @@ services:
     deploy:
       placement:
         constraints:
-          - node.labels.db_primary == true
+          - node.labels.db1 == true
     ports:
       - "27017:27017"
     volumes:
@@ -20,7 +20,7 @@ services:
     deploy:
       placement:
         constraints:
-          - node.labels.db_secondary == true
+          - node.labels.db2 == true
     ports:
       - "27018:27017"
     volumes:
@@ -33,7 +33,7 @@ services:
     deploy:
       placement:
         constraints:
-          - node.labels.db_secondary == true
+          - node.labels.db3 == true
     ports:
       - "27019:27017"
     volumes:

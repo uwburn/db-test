@@ -4,12 +4,13 @@ services:
   coordinator:
     image: localhost:5000/db-test_coordinator
     deploy:
+      restart_policy:
+        condition: none
       placement:
         constraints:
           - node.labels.coordinator == true
     environment:
       MQTT_ADDRESS: mqtt://mqtt:1883
-      NO_EXIT: true
     depends_on:
       - mqtt
     secrets:
