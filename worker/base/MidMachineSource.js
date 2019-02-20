@@ -36,23 +36,25 @@ module.exports = class MidMachineSource {
     };
 
     this.queryIntervals = {
-      lastWeekState: Math.floor(28800000 / this.workloadOpts.machines.length),
+      lastWeekStates: Math.floor(28800000 / this.workloadOpts.machines.length),
       lastDayAlarms: Math.floor(28800000 / this.workloadOpts.machines.length),
       lastMonthMachineEnergy: Math.floor(28800000 / this.workloadOpts.machines.length),
       thisYearMonthlyCountersDifference: Math.floor(28800000 / this.workloadOpts.machines.length),
       oldSetup: Math.floor(604800000 / this.workloadOpts.machines.length),
       topTenMachinesLastDayWorkingTime: 86400000,
-      topTenMachinesLastDayAlarms: 86400000
+      topTenMachinesLastDayAlarms: 86400000,
+      lastDayAggrStatus: Math.floor(28800000 / this.workloadOpts.machines.length)
     };
 
     this.queryMethods = {
-      lastWeekState: this.lastWeekState.bind(this),
+      lastWeekStates: this.lastWeekStates.bind(this),
       lastDayAlarms: this.lastDayAlarms.bind(this),
       lastMonthMachineEnergy: this.lastMonthMachineEnergy.bind(this),
       thisYearMonthlyCountersDifference: this.thisYearMonthlyCountersDifference.bind(this),
       oldSetup: this.oldSetup.bind(this),
       topTenMachinesLastDayWorkingTime: this.topTenMachinesLastDayWorkingTime.bind(this),
-      topTenMachinesLastDayAlarms: this.topTenMachinesLastDayAlarms.bind(this)
+      topTenMachinesLastDayAlarms: this.topTenMachinesLastDayAlarms.bind(this),
+      lastDayAggrStatus: this.lastDayAggrStatus.bind(this)
     };
   }
 
@@ -580,11 +582,11 @@ module.exports = class MidMachineSource {
     return this.queryMethods[query](absDate);
   }
 
-  lastWeekState(absDate) {
+  lastWeekStates(absDate) {
     let machineIndex = Math.floor(this.workloadOpts.machines.length * this.workloadOpts.machineUptime * Math.random());
 
     return {
-      name: "LAST_WEEK_STATUS",
+      name: "LAST_WEEK_STATES",
       type: "INTERVAL_RANGE",
       options: {
         groups: ["state"],
@@ -593,7 +595,7 @@ module.exports = class MidMachineSource {
         startTime: new Date(absDate.getTime() - 604800000),
         endTime: absDate
       },
-      interval: this.sampleIntervals.status
+      interval: this.sampleIntervals.state
     };
   }
 
@@ -637,41 +639,6 @@ module.exports = class MidMachineSource {
     };
   }
 
-  lastHourTemperatures(absDate) {
-    let machineIndex = Math.floor(this.workloadOpts.machines.length * this.workloadOpts.machineUptime * Math.random());
-
-    return {
-      name: "LAST_HOUR_TEMPERATURES",
-      type: "TIME_COMPLEX_RANGE",
-      options: {
-        groups: ["temperatureProbe1"],
-        deviceType: this.workloadOpts.machineTypeId,
-        device: this.workloadOpts.machines[machineIndex],
-        startTime: new Date(absDate.getTime() - 3600000),
-        endTime: absDate
-      },
-      interval: this.sampleIntervals.temperatureProbe1
-    };
-  }
-
-  lastDayAggrTemperatures(absDate) {
-    let machineIndex = Math.floor(this.workloadOpts.machines.length * this.workloadOpts.machineUptime * Math.random());
-
-    return {
-      name: "LAST_HOUR_TEMPERATURES",
-      type: "TIME_COMPLEX_RANGE_BUCKET_AVG",
-      options: {
-        groups: ["temperatureProbe2"],
-        deviceType: this.workloadOpts.machineTypeId,
-        device: this.workloadOpts.machines[machineIndex],
-        startTime: new Date(absDate.getTime() - 86400000),
-        endTime: absDate,
-        buckets: 1024
-      },
-      interval: this.sampleIntervals.temperatureProbe2
-    };
-  }
-
   thisYearMonthlyCountersDifference(absDate) {
     let machineIndex = Math.floor(this.workloadOpts.machines.length * this.workloadOpts.machineUptime * Math.random());
 
@@ -703,15 +670,15 @@ module.exports = class MidMachineSource {
     let nowTime = absDate.getTime();
 
     return {
-      name: "LAST_MONTH_MACHINE_ENERGY",
+      name: "OLD_SETUP",
       type: "TIME_COMPLEX_LAST_BEFORE",
       options: {
-        groups: ["counters"],
+        groups: ["setup"],
         deviceType: this.workloadOpts.machineTypeId,
         device: this.workloadOpts.machines[machineIndex],
         time: new Date(yearTime + (nowTime - yearTime) * Math.random())
       },
-      interval: this.sampleIntervals.counters
+      interval: this.sampleIntervals.setup
     };
   }
 
@@ -743,6 +710,27 @@ module.exports = class MidMachineSource {
         endTime: absDate
       },
       interval: this.sampleIntervals.alarm
+    };
+  }
+
+  lastDayAggrStatus(absDate) {
+    let machineIndex = Math.floor(this.workloadOpts.machines.length * this.workloadOpts.machineUptime * Math.random());
+
+    return {
+      name: "LAST_DAY_STATUS_AGGR",
+      type: "TIME_COMPLEX_RANGE_BUCKET_AVG",
+      options: {
+        groups: ["status"],
+        select: {
+          extrusion: ["current"]
+        },
+        deviceType: this.workloadOpts.machineTypeId,
+        device: this.workloadOpts.machines[machineIndex],
+        startTime: new Date(absDate.getTime() - 86400000),
+        endTime: absDate,
+        buckets: 1024
+      },
+      interval: this.sampleIntervals.status
     };
   }
 
