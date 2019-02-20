@@ -143,7 +143,7 @@ module.exports = class SmallMachineSource {
     let machineIndex = Math.floor(this.workloadOpts.machines.length * this.workloadOpts.machineUptime * Math.random());
 
     return {
-      name: "LAST_MONTH_ALARMS",
+      name: "LAST_TWO_MONTHS_ALARMS",
       type: "INTERVAL_RANGE",
       options: {
         deviceType: this.workloadOpts.machineTypeId,
@@ -160,7 +160,7 @@ module.exports = class SmallMachineSource {
     let machineIndex = Math.floor(this.workloadOpts.machines.length * this.workloadOpts.machineUptime * Math.random());
 
     return {
-      name: "LAST_HOUR_TEMPERATURES",
+      name: "LAST_YEAR_PROCESSED_QUANTITY",
       type: "TIME_COMPLEX_RANGE_BUCKET_AVG",
       options: {
         deviceType: this.workloadOpts.machineTypeId,
