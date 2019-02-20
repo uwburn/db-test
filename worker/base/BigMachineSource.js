@@ -23,7 +23,7 @@ module.exports = class BigMachineSource {
       state: 3600000,
       status: 10000,
       counters: 60000,
-      setup: 300000,
+      setup: 28800000,
       cooling: 1000,
       extrusion: 1000,
       motion: 1000,
@@ -336,28 +336,28 @@ module.exports = class BigMachineSource {
           oilPressure: Math.random() * 10000,
           probes: [
             {
-              temperature: Math.round() * 75
+              temperature: Math.random() * 75
             },
             {
-              temperature: Math.round() * 75
+              temperature: Math.random() * 75
             },
             {
-              temperature: Math.round() * 75
+              temperature: Math.random() * 75
             },
             {
-              temperature: Math.round() * 75
+              temperature: Math.random() * 75
             },
             {
-              temperature: Math.round() * 75
+              temperature: Math.random() * 75
             },
             {
-              temperature: Math.round() * 75
+              temperature: Math.random() * 75
             },
             {
-              temperature: Math.round() * 75
+              temperature: Math.random() * 75
             },
             {
-              temperature: Math.round() * 75
+              temperature: Math.random() * 75
             }
           ]
         }
