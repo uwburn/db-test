@@ -1,0 +1,17 @@
+{
+  "database": "mongoB",
+  "databaseOpts": {
+    "url": "mongodb://mongodb:27017",
+    "options": {
+      "useNewUrlParser": true
+    }
+  },
+  "suite": "MachineData",
+  "suiteOpts": {
+    "machineSize": "Mid",
+    "machines": 128,
+    "startYear": 2010,
+    "years": 3,
+    "machineUptime": 0.6
+  }
+}
