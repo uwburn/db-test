@@ -9,52 +9,68 @@ module.exports = class BigMachineSource {
     this.workloadOpts = workloadOpts;
 
     this.sampleTypes = {
-      status: "INTERVAL",
+      state: "INTERVAL",
+      status: "TIME_COMPLEX",
       counters: "TIME_COMPLEX",
-      setup: "TIME_COMPLEX",
-      temperatureProbe1: "TIME_COMPLEX",
-      temperatureProbe2: "TIME_COMPLEX",
+      setup: "INTERVAL",
+      cooling: "TIME_COMPLEX",
+      extrusion: "TIME_COMPLEX",
+      motion: "TIME_COMPLEX",
       alarm: "INTERVAL"
     };
 
     this.sampleIntervals = {
-      status: 3600000,
-      counters: 120000,
+      state: 3600000,
+      status: 10000,
+      counters: 60000,
       setup: 300000,
-      temperatureProbe1: 1000,
-      temperatureProbe2: 1000,
+      cooling: 1000,
+      extrusion: 1000,
+      motion: 1000,
       alarm: 1800000
     };
 
     this.sampleMethods = {
+      state: this.stateSample.bind(this),
       status: this.statusSample.bind(this),
       counters: this.countersSample.bind(this),
       setup: this.setupSample.bind(this),
-      temperatureProbe1: this.temperatureProbe1Sample.bind(this),
-      temperatureProbe2: this.temperatureProbe2Sample.bind(this),
+      cooling: this.coolingSample.bind(this),
+      extrusion: this.extrusionSample.bind(this),
+      motion: this.motionSample.bind(this),
       alarm: this.alarmSample.bind(this)
     };
 
     this.queryIntervals = {
-      lastWeekStatus: Math.floor(28800000 / this.workloadOpts.machines.length),
+      lastWeekStates: Math.floor(28800000 / this.workloadOpts.machines.length),
+      lastWeekSetups: Math.floor(28800000 / this.workloadOpts.machines.length),
       lastDayAlarms: Math.floor(28800000 / this.workloadOpts.machines.length),
       lastMonthMachineEnergy: Math.floor(28800000 / this.workloadOpts.machines.length),
-      lastHourTemperatures: Math.floor(28800000 / this.workloadOpts.machines.length),
-      lastDayAggrTemperatures: Math.floor(28800000 / this.workloadOpts.machines.length),
+      lastHourExtrusion: Math.floor(28800000 / this.workloadOpts.machines.length),
+      lastDayAggrExtrusion: Math.floor(28800000 / this.workloadOpts.machines.length),
+      lastHourCooling: Math.floor(28800000 / this.workloadOpts.machines.length),
+      lastDayAggrCooling: Math.floor(28800000 / this.workloadOpts.machines.length),
+      lastHourMotion: Math.floor(28800000 / this.workloadOpts.machines.length),
+      lastDayAggrMotion: Math.floor(28800000 / this.workloadOpts.machines.length),
       thisYearMonthlyCountersDifference: Math.floor(28800000 / this.workloadOpts.machines.length),
-      oldSetup: Math.floor(604800000 / this.workloadOpts.machines.length),
+      oldStatus: Math.floor(604800000 / this.workloadOpts.machines.length),
       topTenMachinesLastDayWorkingTime: 86400000,
       topTenMachinesLastDayAlarms: 86400000
     };
 
     this.queryMethods = {
-      lastWeekStatus: this.lastWeekStatus.bind(this),
+      lastWeekStates: this.lastWeekStates.bind(this),
+      lastWeekSetups: this.lastWeekSetups.bind(this),
       lastDayAlarms: this.lastDayAlarms.bind(this),
       lastMonthMachineEnergy: this.lastMonthMachineEnergy.bind(this),
-      lastHourTemperatures: this.lastHourTemperatures.bind(this),
-      lastDayAggrTemperatures: this.lastDayAggrTemperatures.bind(this),
+      lastHourExtrusion: this.lastHourExtrusion.bind(this),
+      lastDayAggrExtrusion: this.lastDayAggrExtrusion.bind(this),
+      lastHourCooling: this.lastHourCooling.bind(this),
+      lastDayAggrCooling: this.lastDayAggrCooling.bind(this),
+      lastHourMotion: this.lastHourMotion.bind(this),
+      lastDayAggrMotion: this.lastDayAggrMotion.bind(this),
       thisYearMonthlyCountersDifference: this.thisYearMonthlyCountersDifference.bind(this),
-      oldSetup: this.oldSetup.bind(this),
+      oldStatus: this.oldStatus.bind(this),
       topTenMachinesLastDayWorkingTime: this.topTenMachinesLastDayWorkingTime.bind(this),
       topTenMachinesLastDayAlarms: this.topTenMachinesLastDayAlarms.bind(this)
     };
@@ -67,7 +83,7 @@ module.exports = class BigMachineSource {
     }
   }
 
-  statusSample(id, absDate) {
+  stateSample(id, absDate) {
     return {
       id: uuidv4(),
       deviceType: this.workloadOpts.machineTypeId,
@@ -76,6 +92,23 @@ module.exports = class BigMachineSource {
       endTime: new Date(absDate.getTime() + Math.round(Math.random() * 300 + 60) * 1000),
       value: Math.random() > 0.5 ? "WORKING" : "IDLE"
     };
+  }
+
+  statusSample(id, absDate) {
+    return {
+      deviceType: this.workloadOpts.machineTypeId,
+      device: id,
+      time: absDate,
+      status: {
+        time: absDate,
+        value: {
+          plcCommunication: Math.random() > 0.5,
+          maintenanceMode: Math.random() > 0.5,
+          missingPart: Math.random() > 0.5,
+          externalAlarm: Math.random() > 0.5
+        }
+      }
+    }
   }
 
   countersSample(id, absDate) {
@@ -88,100 +121,66 @@ module.exports = class BigMachineSource {
         value: {
           activeEnergyConsumed: Math.round(Math.random() * 1000000),
           reactiveEnergyProduced: Math.round(Math.random() * 1000000),
-          totalLengthProcessed: Math.random() * 1000000,
-          partialLengthProcessed: Math.random() * 1000000,
+          totalUpstreamWaitingTime: Math.round(Math.random() * 1000000),
+          partialUpstreamWaitingTime: Math.round(Math.random() * 1000000),
           totalWorkedTime: Math.round(Math.random() * 1000000),
           partialWorkedTime: Math.round(Math.random() * 1000000),
-          totalPartsProcessed: Math.round(Math.random() * 1000000),
-          partialPartProcessed: Math.round(Math.random() * 1000000),
-          clutches: [
+          totalDownstreamWaitingTime: Math.round(Math.random() * 1000000),
+          partialDownstreamWaitingTime: Math.round(Math.random() * 1000000),
+          totalCompliantParts: Math.round(Math.random() * 1000000),
+          partialCompliantParts: Math.round(Math.random() * 1000000),
+          totalRejectedParts: Math.round(Math.random() * 1000000),
+          partialRejectedParts: Math.round(Math.random() * 1000000),
+          totalWastedParts: Math.round(Math.random() * 1000000),
+          partialWastedParts: Math.round(Math.random() * 1000000),
+          punches: [
             {
-              cycles: Math.round(Math.random() * 10000)
+              hits: Math.round(Math.random() * 10000)
             },
             {
-              cycles: Math.round(Math.random() * 10000)
-            }
-          ],
-          oilPumps: [
-            {
-              cycles: Math.round(Math.random() * 10000),
-              workingTime: Math.round(Math.random() * 1000000),
+              hits: Math.round(Math.random() * 10000)
             },
             {
-              cycles: Math.round(Math.random() * 10000),
-              workingTime: Math.round(Math.random() * 1000000),
+              hits: Math.round(Math.random() * 10000)
             },
             {
-              cycles: Math.round(Math.random() * 10000),
-              workingTime: Math.round(Math.random() * 1000000),
+              hits: Math.round(Math.random() * 10000)
             },
             {
-              cycles: Math.round(Math.random() * 10000),
-              workingTime: Math.round(Math.random() * 1000000),
-            }
-          ],
-          belts: [
-            {
-              failures: Math.round(Math.random() * 100),
-              workingTime: Math.round(Math.random() * 1000000),
+              hits: Math.round(Math.random() * 10000)
             },
             {
-              failures: Math.round(Math.random() * 100),
-              workingTime: Math.round(Math.random() * 1000000),
+              hits: Math.round(Math.random() * 10000)
             },
             {
-              failures: Math.round(Math.random() * 100),
-              workingTime: Math.round(Math.random() * 1000000),
+              hits: Math.round(Math.random() * 10000)
             },
             {
-              failures: Math.round(Math.random() * 100),
-              workingTime: Math.round(Math.random() * 1000000),
+              hits: Math.round(Math.random() * 10000)
             },
             {
-              failures: Math.round(Math.random() * 100),
-              workingTime: Math.round(Math.random() * 1000000),
+              hits: Math.round(Math.random() * 10000)
             },
             {
-              failures: Math.round(Math.random() * 100),
-              workingTime: Math.round(Math.random() * 1000000),
-            }
-          ],
-          lamps: [
-            {
-              cycles: Math.round(Math.random() * 10000),
-              failures: Math.round(Math.random() * 100),
-              workingTime: Math.round(Math.random() * 1000000),
+              hits: Math.round(Math.random() * 10000)
             },
             {
-              cycles: Math.round(Math.random() * 10000),
-              failures: Math.round(Math.random() * 100),
-              workingTime: Math.round(Math.random() * 1000000),
-            }
-          ],
-          drives: [
-            {
-              cycles: Math.round(Math.random() * 10000),
+              hits: Math.round(Math.random() * 10000)
             },
             {
-              cycles: Math.round(Math.random() * 10000),
+              hits: Math.round(Math.random() * 10000)
             },
             {
-              cycles: Math.round(Math.random() * 10000),
+              hits: Math.round(Math.random() * 10000)
             },
             {
-              cycles: Math.round(Math.random() * 10000),
+              hits: Math.round(Math.random() * 10000)
             },
             {
-              cycles: Math.round(Math.random() * 10000),
+              hits: Math.round(Math.random() * 10000)
             },
             {
-              cycles: Math.round(Math.random() * 10000),
-            },
-            {
-              cycles: Math.round(Math.random() * 10000),
-            },
-            {
-              cycles: Math.round(Math.random() * 10000),
+              hits: Math.round(Math.random() * 10000)
             }
           ]
         }
@@ -191,66 +190,174 @@ module.exports = class BigMachineSource {
 
   setupSample(id, absDate) {
     return {
+      id: uuidv4(),
+      deviceType: this.workloadOpts.machineTypeId,
+      device: id,
+      startTime: absDate,
+      endTime: new Date(absDate.getTime() + Math.round(Math.random() * 300 + 60) * 1000),
+      value: {
+        partType: Math.round(Math.random() * 5).toString(),
+        partCode: Math.round(Math.random() * 10000).toString(),
+        batchCode: Math.round(Math.random() * 10000).toString(),
+        cooling: {
+          oilPressure: Math.random() * 10000,
+          fans: [
+            {
+              speed: Math.round(Math.random() * 100)
+            },
+            {
+              speed: Math.round(Math.random() * 100)
+            },
+            {
+              speed: Math.round(Math.random() * 100)
+            },
+            {
+              speed: Math.round(Math.random() * 100)
+            }
+          ]
+        },
+        motion: {
+          rpm: Math.random() * 100,
+          phase: Math.random() * 100,
+        },
+        extrusion: {
+          preheatTemperature: Math.round(Math.random() * 80),
+          melts: [
+            {
+              temperature: Math.round(Math.random() * 150)
+            },
+            {
+              temperature: Math.round(Math.random() * 150)
+            },
+            {
+              temperature: Math.round(Math.random() * 150)
+            },
+            {
+              temperature: Math.round(Math.random() * 150)
+            }
+          ],
+          screwRpm: Math.round(Math.random() * 45),
+          nozzleReheat: Math.round(Math.random() * 150),
+        },
+        punches: [
+          {
+            excluded: Math.random() > 0.5,
+            advance: Math.random() * 1000,
+            reheatTemperature: Math.round(Math.random() * 120)
+          },
+          {
+            excluded: Math.random() > 0.5,
+            advance: Math.random() * 1000,
+            reheatTemperature: Math.round(Math.random() * 120)
+          },
+          {
+            excluded: Math.random() > 0.5,
+            advance: Math.random() * 1000,
+            reheatTemperature: Math.round(Math.random() * 120)
+          },
+          {
+            excluded: Math.random() > 0.5,
+            advance: Math.random() * 1000,
+            reheatTemperature: Math.round(Math.random() * 120)
+          },
+          {
+            excluded: Math.random() > 0.5,
+            advance: Math.random() * 1000,
+            reheatTemperature: Math.round(Math.random() * 120)
+          },
+          {
+            excluded: Math.random() > 0.5,
+            advance: Math.random() * 1000,
+            reheatTemperature: Math.round(Math.random() * 120)
+          },
+          {
+            excluded: Math.random() > 0.5,
+            advance: Math.random() * 1000,
+            reheatTemperature: Math.round(Math.random() * 120)
+          },
+          {
+            excluded: Math.random() > 0.5,
+            advance: Math.random() * 1000,
+            reheatTemperature: Math.round(Math.random() * 120)
+          },
+          {
+            excluded: Math.random() > 0.5,
+            advance: Math.random() * 1000,
+            reheatTemperature: Math.round(Math.random() * 120)
+          },
+          {
+            excluded: Math.random() > 0.5,
+            advance: Math.random() * 1000,
+            reheatTemperature: Math.round(Math.random() * 120)
+          },
+          {
+            excluded: Math.random() > 0.5,
+            advance: Math.random() * 1000,
+            reheatTemperature: Math.round(Math.random() * 120)
+          },
+          {
+            excluded: Math.random() > 0.5,
+            advance: Math.random() * 1000,
+            reheatTemperature: Math.round(Math.random() * 120)
+          },
+          {
+            excluded: Math.random() > 0.5,
+            advance: Math.random() * 1000,
+            reheatTemperature: Math.round(Math.random() * 120)
+          },
+          {
+            excluded: Math.random() > 0.5,
+            advance: Math.random() * 1000,
+            reheatTemperature: Math.round(Math.random() * 120)
+          },
+          {
+            excluded: Math.random() > 0.5,
+            advance: Math.random() * 1000,
+            reheatTemperature: Math.round(Math.random() * 120)
+          },
+          {
+            excluded: Math.random() > 0.5,
+            advance: Math.random() * 1000,
+            reheatTemperature: Math.round(Math.random() * 120)
+          }
+        ]
+      }
+    };
+  }
+
+  coolingSample(id, absDate) {
+    return {
       deviceType: this.workloadOpts.machineTypeId,
       device: id,
       time: absDate,
-      setup: {
+      cooling: {
         time: absDate,
         value: {
-          partDiameter: Math.round(Math.random() * 500),
-          partThickness: Math.round(Math.random() * 10),
-          partLength: Math.round(Math.random() * 5000),
-          partType: Math.round(Math.random() * 5),
-          partCode: Math.round(Math.random() * 10000).toString(),
-          batchCode: Math.round(Math.random() * 10000).toString(),
-          heaters: [
+          oilPressure: Math.random() * 10000,
+          probes: [
             {
-              preheatPosition: Math.round(Math.random() * 1000),
-              heatPosition: Math.round(Math.random() * 1000),
-              temperature: Math.round(Math.random() * 200),
-              preheatTime: Math.round(Math.random() * 10),
-              heatTime: Math.round(Math.random() * 20)
+              temperature: Math.round() * 75
             },
             {
-              preheatPosition: Math.round(Math.random() * 1000),
-              heatPosition: Math.round(Math.random() * 1000),
-              temperature: Math.round(Math.random() * 200),
-              preheatTime: Math.round(Math.random() * 10),
-              heatTime: Math.round(Math.random() * 20)
-            }
-          ],
-          drives: [
-            {
-              time: Math.round(Math.random() * 10),
-              delay: Math.round(Math.random() * 5)
+              temperature: Math.round() * 75
             },
             {
-              time: Math.round(Math.random() * 10),
-              delay: Math.round(Math.random() * 5)
+              temperature: Math.round() * 75
             },
             {
-              time: Math.round(Math.random() * 10),
-              delay: Math.round(Math.random() * 5)
+              temperature: Math.round() * 75
             },
             {
-              time: Math.round(Math.random() * 10),
-              delay: Math.round(Math.random() * 5)
+              temperature: Math.round() * 75
             },
             {
-              time: Math.round(Math.random() * 10),
-              delay: Math.round(Math.random() * 5)
+              temperature: Math.round() * 75
             },
             {
-              time: Math.round(Math.random() * 10),
-              delay: Math.round(Math.random() * 5)
+              temperature: Math.round() * 75
             },
             {
-              time: Math.round(Math.random() * 10),
-              delay: Math.round(Math.random() * 5)
-            },
-            {
-              time: Math.round(Math.random() * 10),
-              delay: Math.round(Math.random() * 5)
+              temperature: Math.round() * 75
             }
           ]
         }
@@ -258,26 +365,71 @@ module.exports = class BigMachineSource {
     };
   }
 
-  temperatureProbe1Sample(id, absDate) {
+  extrusionSample(id, absDate) {
     return {
       deviceType: this.workloadOpts.machineTypeId,
       device: id,
       time: absDate,
-      temperatureProbe1: {
+      extrusion: {
         time: absDate,
-        value: Math.random() * 100 + 50
+        value: {
+          preheatTemperature: Math.round(Math.random() * 80),
+          melts: [
+            {
+              temperature: Math.round(Math.random() * 150),
+              pressure: Math.round(Math.random() * 50)
+            },
+            {
+              temperature: Math.round(Math.random() * 150),
+              pressure: Math.round(Math.random() * 50)
+            },
+            {
+              temperature: Math.round(Math.random() * 150),
+              pressure: Math.round(Math.random() * 50)
+            },
+            {
+              temperature: Math.round(Math.random() * 150),
+              pressure: Math.round(Math.random() * 50)
+            }
+          ],
+          screwRpm: Math.round(Math.random() * 45),
+          nozzleReheat: Math.round(Math.random() * 150),
+        }
       }
     };
   }
 
-  temperatureProbe2Sample(id, absDate) {
+  motionSample(id, absDate) {
     return {
       deviceType: this.workloadOpts.machineTypeId,
       device: id,
       time: absDate,
-      temperatureProbe2: {
+      motion: {
         time: absDate,
-        value: Math.random() * 100 + 50
+        value: {
+          rpm: Math.random() * 100,
+          phase: Math.random() * 100,
+          topBearingVibration: Math.random() * 100,
+          bottomBearingVibration: Math.random() * 100,
+          inverters: [
+            {
+              percent: Math.round(Math.random() * 100),
+              temperature: Math.round(Math.random() * 60)
+            },
+            {
+              percent: Math.round(Math.random() * 100),
+              temperature: Math.round(Math.random() * 60)
+            },
+            {
+              percent: Math.round(Math.random() * 100),
+              temperature: Math.round(Math.random() * 60)
+            },
+            {
+              percent: Math.round(Math.random() * 100),
+              temperature: Math.round(Math.random() * 60)
+            }
+          ]
+        }
       }
     };
   }
@@ -297,20 +449,37 @@ module.exports = class BigMachineSource {
     return this.queryMethods[query](absDate);
   }
 
-  lastWeekStatus(absDate) {
+  lastWeekStates(absDate) {
     let machineIndex = Math.floor(this.workloadOpts.machines.length * this.workloadOpts.machineUptime * Math.random());
 
     return {
-      name: "LAST_WEEK_STATUS",
+      name: "LAST_WEEK_STATES",
       type: "INTERVAL_RANGE",
       options: {
-        groups: ["status"],
+        groups: ["state"],
         deviceType: this.workloadOpts.machineTypeId,
         device: this.workloadOpts.machines[machineIndex],
         startTime: new Date(absDate.getTime() - 604800000),
         endTime: absDate
       },
-      interval: this.sampleIntervals.status
+      interval: this.sampleIntervals.state
+    };
+  }
+
+  lastWeekSetups(absDate) {
+    let machineIndex = Math.floor(this.workloadOpts.machines.length * this.workloadOpts.machineUptime * Math.random());
+
+    return {
+      name: "LAST_WEEK_SETUPS",
+      type: "INTERVAL_RANGE",
+      options: {
+        groups: ["setup"],
+        deviceType: this.workloadOpts.machineTypeId,
+        device: this.workloadOpts.machines[machineIndex],
+        startTime: new Date(absDate.getTime() - 604800000),
+        endTime: absDate
+      },
+      interval: this.sampleIntervals.setup
     };
   }
 
@@ -354,38 +523,123 @@ module.exports = class BigMachineSource {
     };
   }
 
-  lastHourTemperatures(absDate) {
+  lastHourExtrusion(absDate) {
     let machineIndex = Math.floor(this.workloadOpts.machines.length * this.workloadOpts.machineUptime * Math.random());
 
     return {
-      name: "LAST_HOUR_TEMPERATURES",
+      name: "LAST_HOUR_EXTRUSION",
       type: "TIME_COMPLEX_RANGE",
       options: {
-        groups: ["temperatureProbe1"],
+        groups: ["extrusion"],
         deviceType: this.workloadOpts.machineTypeId,
         device: this.workloadOpts.machines[machineIndex],
         startTime: new Date(absDate.getTime() - 3600000),
         endTime: absDate
       },
-      interval: this.sampleIntervals.temperatureProbe1
+      interval: this.sampleIntervals.extrusion
     };
   }
 
-  lastDayAggrTemperatures(absDate) {
+  lastDayAggrExtrusion(absDate) {
     let machineIndex = Math.floor(this.workloadOpts.machines.length * this.workloadOpts.machineUptime * Math.random());
 
     return {
-      name: "LAST_HOUR_TEMPERATURES",
+      name: "LAST_DAY_EXTRUSION_AGGR",
       type: "TIME_COMPLEX_RANGE_BUCKET_AVG",
       options: {
-        groups: ["temperatureProbe2"],
+        groups: ["extrusion"],
+        select: {
+          extrusion: ["screwRpm"]
+        },
+        deviceType: this.workloadOpts.machineTypeId,
+        device: this.workloadOpts.machines[machineIndex],
+        startTime: new Date(absDate.getTime() - 86400000),
+        endTime: absDate,
+        buckets: 64
+      },
+      interval: this.sampleIntervals.extrusion
+    };
+  }
+
+  lastHourMotion(absDate) {
+    let machineIndex = Math.floor(this.workloadOpts.machines.length * this.workloadOpts.machineUptime * Math.random());
+
+    return {
+      name: "LAST_HOUR_MOTION",
+      type: "TIME_COMPLEX_RANGE",
+      options: {
+        groups: ["motion"],
+        deviceType: this.workloadOpts.machineTypeId,
+        device: this.workloadOpts.machines[machineIndex],
+        startTime: new Date(absDate.getTime() - 3600000),
+        endTime: absDate
+      },
+      interval: this.sampleIntervals.motion
+    };
+  }
+
+  lastDayAggrMotion(absDate) {
+    let machineIndex = Math.floor(this.workloadOpts.machines.length * this.workloadOpts.machineUptime * Math.random());
+
+    return {
+      name: "LAST_DAY_MOTION_AGGR",
+      type: "TIME_COMPLEX_RANGE_BUCKET_AVG",
+      options: {
+        groups: ["motion"],
+        select: {
+          motion: [
+            "rpm",
+            "phase",
+            "topBearingVibration",
+            "bottomBearingVibration"
+          ]
+        },
         deviceType: this.workloadOpts.machineTypeId,
         device: this.workloadOpts.machines[machineIndex],
         startTime: new Date(absDate.getTime() - 86400000),
         endTime: absDate,
         buckets: 1024
       },
-      interval: this.sampleIntervals.temperatureProbe2
+      interval: this.sampleIntervals.motion
+    };
+  }
+
+
+  lastHourCooling(absDate) {
+    let machineIndex = Math.floor(this.workloadOpts.machines.length * this.workloadOpts.machineUptime * Math.random());
+
+    return {
+      name: "LAST_HOUR_COOLING",
+      type: "TIME_COMPLEX_RANGE",
+      options: {
+        groups: ["cooling"],
+        deviceType: this.workloadOpts.machineTypeId,
+        device: this.workloadOpts.machines[machineIndex],
+        startTime: new Date(absDate.getTime() - 3600000),
+        endTime: absDate
+      },
+      interval: this.sampleIntervals.cooling
+    };
+  }
+
+  lastDayAggrCooling(absDate) {
+    let machineIndex = Math.floor(this.workloadOpts.machines.length * this.workloadOpts.machineUptime * Math.random());
+
+    return {
+      name: "LAST_DAY_COOLING_AGGR",
+      type: "TIME_COMPLEX_RANGE_BUCKET_AVG",
+      options: {
+        groups: ["cooling"],
+        select: {
+          cooling: ["oilPressure"]
+        },
+        deviceType: this.workloadOpts.machineTypeId,
+        device: this.workloadOpts.machines[machineIndex],
+        startTime: new Date(absDate.getTime() - 86400000),
+        endTime: absDate,
+        buckets: 1024
+      },
+      interval: this.sampleIntervals.cooling
     };
   }
 
@@ -414,21 +668,21 @@ module.exports = class BigMachineSource {
     };
   }
 
-  oldSetup(absDate) {
+  oldStatus(absDate) {
     let machineIndex = Math.floor(this.workloadOpts.machines.length * this.workloadOpts.machineUptime * Math.random());
     let yearTime = moment(absDate).startOf('year').valueOf();
     let nowTime = absDate.getTime();
 
     return {
-      name: "LAST_MONTH_MACHINE_ENERGY",
+      name: "OLD_MACHINE_STATUS",
       type: "TIME_COMPLEX_LAST_BEFORE",
       options: {
-        groups: ["counters"],
+        groups: ["status"],
         deviceType: this.workloadOpts.machineTypeId,
         device: this.workloadOpts.machines[machineIndex],
         time: new Date(yearTime + (nowTime - yearTime) * Math.random())
       },
-      interval: this.sampleIntervals.counters
+      interval: this.sampleIntervals.status
     };
   }
 
