@@ -4,6 +4,8 @@ services:
   worker:
     image: localhost:5000/db-test_worker
     deploy:
+      restart_policy:
+        condition: none
       placement:
         constraints:
           - node.labels.worker == true
