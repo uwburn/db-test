@@ -143,7 +143,7 @@ module.exports = class MachineStreams {
 
           let queryName = queryNames[i];
 
-          if (absTime  % this.source.queryIntervals[queryName] === 0) {
+          if (relTime % this.source.queryIntervals[queryName] === 0) {
             result.stream.push(this.source.query(queryName, absDate));
 
             if (--queries[queryName] === 0) {
