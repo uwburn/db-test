@@ -1,7 +1,7 @@
 "use strict";
 
 const BulkWriteMachine = require(`./BulkWriteMachine`);
-const Source = require(`./BigMachineSource`);
+const Source = require(`./MidMachineSource`);
 
 module.exports = class BulkWriteMidMachine extends BulkWriteMachine {
 

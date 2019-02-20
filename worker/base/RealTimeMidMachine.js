@@ -1,7 +1,7 @@
 "use strict";
 
 const RealTimeMachine = require(`./RealTimeMachine`);
-const Source = require(`./BigMachineSource`);
+const Source = require(`./MidMachineSource`);
 
 module.exports = class RealTimeMidMachine extends RealTimeMachine {
 
