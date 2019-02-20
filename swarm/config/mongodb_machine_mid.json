@@ -1,0 +1,17 @@
+{
+  "database": "mongoB",
+  "databaseOpts": {
+    "url": "mongodb://mongodb1:27017,mongodb2:27017,mongodb3:27017?replicaSet=rs0",
+    "options": {
+      "useNewUrlParser": true
+    }
+  },
+  "suite": "MachineData",
+  "suiteOpts": {
+    "machineSize": "Mid",
+    "machines": 128,
+    "startYear": 2010,
+    "years": 3,
+    "machineUptime": 0.6
+  }
+}
