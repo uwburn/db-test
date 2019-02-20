@@ -275,7 +275,7 @@ module.exports = class MongoMachineSink {
     return await new Promise((resolve, reject) => {
       let count = 0;
 
-      let cursor = coll.aggregate(stages).forEach((doc) => {
+      let cursor = coll.aggregate(stages, { allowDiskUse: true }).forEach((doc) => {
         count++
       }, (err) => {
         if (err)
@@ -369,7 +369,7 @@ module.exports = class MongoMachineSink {
     return await new Promise((resolve, reject) => {
       let count = 0;
 
-      coll.aggregate(stages).forEach((doc) => {
+      coll.aggregate(stages, { allowDiskUse: true }).forEach((doc) => {
         ++count;
       }, (err) => {
         if (err)
@@ -464,7 +464,7 @@ module.exports = class MongoMachineSink {
         }
       ];
 
-      promises.push(coll.aggregate(stages).toArray());
+      promises.push(coll.aggregate(stages, { allowDiskUse: true }).toArray());
     }
 
     let results = await Promise.all(promises);
@@ -551,7 +551,7 @@ module.exports = class MongoMachineSink {
       {
         $match: {
           time: {
-            $lt: options.oTime
+            $lt: options.time
           }
         }
       },
@@ -568,7 +568,7 @@ module.exports = class MongoMachineSink {
     return await new Promise((resolve, reject) => {
       let count = 0;
 
-      let cursor = coll.aggregate(stages).forEach((doc) => {
+      let cursor = coll.aggregate(stages, { allowDiskUse: true }).forEach((doc) => {
         count++
       }, (err) => {
         if (err)
@@ -662,7 +662,7 @@ module.exports = class MongoMachineSink {
 
     let subs = [];
     await new Promise((resolve, reject) => {
-      coll.aggregate(stages).forEach((doc) => {
+      coll.aggregate(stages, { allowDiskUse: true }).forEach((doc) => {
         let o1 = {};
         let o2 = {};
         let sub = {};
@@ -723,15 +723,13 @@ module.exports = class MongoMachineSink {
     let stages = [
       {
         $match: {
-          "_id.time": {
-            startTime: { $lt: options.endTime },
-            endTime: { $gt: options.startTime }
-          }
+          startTime: { $lt: options.endTime },
+          endTime: { $gt: options.startTime }
         }
       },
       {
         $group: {
-          _id: "$_id.device",
+          _id: "$device",
           count: { $sum: 1 }
         }
       },
@@ -748,7 +746,7 @@ module.exports = class MongoMachineSink {
     return await new Promise((resolve, reject) => {
       let count = 0;
 
-      coll.aggregate(stages).forEach((doc) => {
+      coll.aggregate(stages, { allowDiskUse: true }).forEach((doc) => {
         ++count;
       }, (err) => {
         if (err)
