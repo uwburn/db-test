@@ -5,7 +5,7 @@ const MachineDataStreams = require(`./MachineStreams`);
 
 const MAX_WORKER_DELAY = 5000;
 
-module.exports = class BulkMachine extends BaseWorkload {
+module.exports = class BulkWriteMachine extends BaseWorkload {
 
   constructor(id, workerId, workloadOpts, source, mqttClient) {
     super(id, workerId, mqttClient);
