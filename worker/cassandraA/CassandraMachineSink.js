@@ -284,13 +284,22 @@ module.exports = class CassandraMachineSink {
         if (!bucket)
           return;
 
+        if (bucket.minTime === undefined)
+          bucket.minTime = row.timestamp.getTime();
+
+        if (bucket.maxTime === undefined)
+          bucket.maxTime = row.timestamp.getTime();
+
         row.value = JSON.parse(row.value);
 
-        bucket.minTime = Math.min(bucket.minTime, row.time);
-        bucket.maxTime = Math.max(bucket.maxTime, row.time);
+        bucket.minTime = Math.min(bucket.minTime, row.timestamp.getTime());
+        bucket.maxTime = Math.max(bucket.maxTime, row.timestamp.getTime());
         ++bucket.count;
         for (let k in paths) {
           let path = paths[k];
+          if (bucket[group + "_" + path + "_avg"] === undefined)
+            bucket[group + "_" + path + "_avg"] = 0;
+
           bucket[group + "_" + path + "_avg"] += _.get(row.value, path);
         }
       }).on('end', function () {
@@ -432,7 +441,9 @@ module.exports = class CassandraMachineSink {
       }).on('data', function (row) {
         ++count;
 
-        row.value = _.pick(row.value, paths);
+        row.value = JSON.parse(row.value);
+        if (paths.length)
+          row.value = _.pick(row.value, paths);
       }).on('end', function () {
         resolve(count);
       }).on('error', function (err) {
