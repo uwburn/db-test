@@ -146,7 +146,7 @@ module.exports = class MachineStreams {
           if (relTime % this.source.queryIntervals[queryName] === 0) {
             result.stream.push(this.source.query(queryName, absDate));
 
-            if (--queries[queryName] === 0) {
+            if (--queries[queryName] <= 0) {
               delete queries[queryName];
               queryNames = Object.keys(queries);
             }
