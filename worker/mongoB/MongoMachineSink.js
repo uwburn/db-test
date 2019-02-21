@@ -476,8 +476,12 @@ module.exports = class MongoMachineSink {
       let o2 = {};
       let sub = {};
       for (let k in result) {
-        if (k.endsWith("_first"))
+        if (k === "_first")
+          o1.record = result[k];
+        else if (k.endsWith("_first"))
           o1[k.substring(0, k.length - 6)] = result[k];
+        else if (k === "_last")
+          o2.record = result[k];
         else if (k.endsWith("_last"))
           o2[k.substring(0, k.length - 5)] = result[k];
         else
@@ -667,12 +671,16 @@ module.exports = class MongoMachineSink {
         let o2 = {};
         let sub = {};
         for (let k in doc) {
-          if (k.endsWith("_first"))
-            o1[k.substring(0, k.length - 6)] = doc[k];
+          if (k === "_first")
+            o1.record = result[k];
+          else if (k.endsWith("_first"))
+            o1[k.substring(0, k.length - 6)] = result[k];
+          else if (k === "_last")
+            o2.record = result[k];
           else if (k.endsWith("_last"))
-            o2[k.substring(0, k.length - 5)] = doc[k];
+            o2[k.substring(0, k.length - 5)] = result[k];
           else
-            sub[k] = doc[k];
+            sub[k] = result[k];
         }
 
         subs.push(_.assign(sub, subtractDocs(o1, o2)));

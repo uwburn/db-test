@@ -265,7 +265,11 @@ module.exports = class MongoMachineSink {
   }
 
   async queryTimeComplexDifference(name, options) {
-    options.select = options.select || {};
+    if (!options.select) {
+      options.select = {};
+      for (let k of options.groups)
+        options.select[k] = [];
+    }
 
     let promises = [];
 
@@ -347,6 +351,12 @@ module.exports = class MongoMachineSink {
   }
 
   async queryTimeComplexLastBefore(name, options) {
+    if (!options.select) {
+      options.select = {};
+      for (let k of options.groups)
+        options.select[k] = [];
+    }
+
     let criteria = {
       "_id.device": Binary(uuidParse.parse(options.device, Buffer.allocUnsafe(16)), Binary.SUBTYPE_UUID),
       "_id.time": {
@@ -404,7 +414,11 @@ module.exports = class MongoMachineSink {
   }
 
   async queryTimeComplexTopDifference(name, options) {
-    options.select = options.select || {};
+    if (!options.select) {
+      options.select = {};
+      for (let k of options.groups)
+        options.select[k] = [];
+    }
 
     let criteria = {
       "_id.time": {
@@ -495,15 +509,13 @@ module.exports = class MongoMachineSink {
     options.select = options.select || {};
 
     let criteria = {
-      "_id.time": {
-        startTime: { $lt: options.endTime },
-        endTime: { $gt: options.startTime }
-      },
+      startTime: { $lt: options.endTime },
+      endTime: { $gt: options.startTime },
       group: { $in: options.groups },
     };
 
     let group = {
-      _id: "$_id.device",
+      _id: "$device",
       count: { $sum: 1 }
     };
 
