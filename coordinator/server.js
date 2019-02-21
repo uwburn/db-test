@@ -10,6 +10,7 @@ const DECIMAL_DIGITS = 2;
 
 const DISCOVER_WORKERS_TIMEOUT = 15000;
 const CHECK_WORKERS_INTERVAL = 1000;
+const WORKER_TIMEOUT = process.env.WOKRER_TIMEOUT || 60000;
 const workers = {};
 let workersCount = 0;
 
@@ -280,7 +281,7 @@ setInterval(() => {
 
   for (let workerId in workers) {
     let workerStatus = workers[workerId];
-    if (now - workerStatus.time >= 60000) {
+    if (now - workerStatus.time >= WORKER_TIMEOUT) {
       console.log(`Worker ${workerId} timed out, aborting`);
       shutdown();
     }
