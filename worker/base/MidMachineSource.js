@@ -71,131 +71,134 @@ module.exports = class MidMachineSource {
       device: id,
       time: absDate,
       status: {
-        current: Math.round(Math.random() * 100000),
-        motors: [
-          {
-            torque: Math.round(Math.random() * 10000),
-            current: Math.round(Math.random() * 6000)
-          },
-          {
-            torque: Math.round(Math.random() * 10000),
-            current: Math.round(Math.random() * 6000)
-          },
-          {
-            torque: Math.round(Math.random() * 10000),
-            current: Math.round(Math.random() * 6000)
-          },
-          {
-            torque: Math.round(Math.random() * 10000),
-            current: Math.round(Math.random() * 6000)
-          },
-          {
-            torque: Math.round(Math.random() * 10000),
-            current: Math.round(Math.random() * 6000)
-          },
-          {
-            torque: Math.round(Math.random() * 10000),
-            current: Math.round(Math.random() * 6000)
-          },
-          {
-            torque: Math.round(Math.random() * 10000),
-            current: Math.round(Math.random() * 6000)
-          },
-          {
-            torque: Math.round(Math.random() * 10000),
-            current: Math.round(Math.random() * 6000)
-          },
-          {
-            torque: Math.round(Math.random() * 10000),
-            current: Math.round(Math.random() * 6000)
-          },
-          {
-            torque: Math.round(Math.random() * 10000),
-            current: Math.round(Math.random() * 6000)
-          },
-          {
-            torque: Math.round(Math.random() * 10000),
-            current: Math.round(Math.random() * 6000)
-          },
-          {
-            torque: Math.round(Math.random() * 10000),
-            current: Math.round(Math.random() * 6000)
-          }
-        ],
-        tools: [
-          {
-            temperature: Math.round(Math.random() * 30) + 90
-          },
-          {
-            temperature: Math.round(Math.random() * 30) + 90
-          },
-          {
-            temperature: Math.round(Math.random() * 30) + 90
-          },
-          {
-            temperature: Math.round(Math.random() * 30) + 90
-          },
-          {
-            temperature: Math.round(Math.random() * 30) + 90
-          },
-          {
-            temperature: Math.round(Math.random() * 30) + 90
-          },
-          {
-            temperature: Math.round(Math.random() * 30) + 90
-          },
-          {
-            temperature: Math.round(Math.random() * 30) + 90
-          },
-          {
-            temperature: Math.round(Math.random() * 30) + 90
-          },
-          {
-            temperature: Math.round(Math.random() * 30) + 90
-          },
-          {
-            temperature: Math.round(Math.random() * 30) + 90
-          },
-          {
-            temperature: Math.round(Math.random() * 30) + 90
-          },
-          {
-            temperature: Math.round(Math.random() * 30) + 90
-          },
-          {
-            temperature: Math.round(Math.random() * 30) + 90
-          },
-          {
-            temperature: Math.round(Math.random() * 30) + 90
-          },
-          {
-            temperature: Math.round(Math.random() * 30) + 90
-          },
-          {
-            temperature: Math.round(Math.random() * 30) + 90
-          },
-          {
-            temperature: Math.round(Math.random() * 30) + 90
-          },
-          {
-            temperature: Math.round(Math.random() * 30) + 90
-          },
-          {
-            temperature: Math.round(Math.random() * 30) + 90
-          },
-          {
-            temperature: Math.round(Math.random() * 30) + 90
-          },
-          {
-            temperature: Math.round(Math.random() * 30) + 90
-          },
-          {
-            temperature: Math.round(Math.random() * 30) + 90
-          },
-          {
-            temperature: Math.round(Math.random() * 30) + 90
-          }
-        ]
+        time: absDate,
+        value: {
+          current: Math.round(Math.random() * 100000),
+          motors: [
+            {
+              torque: Math.round(Math.random() * 10000),
+              current: Math.round(Math.random() * 6000)
+            },
+            {
+              torque: Math.round(Math.random() * 10000),
+              current: Math.round(Math.random() * 6000)
+            },
+            {
+              torque: Math.round(Math.random() * 10000),
+              current: Math.round(Math.random() * 6000)
+            },
+            {
+              torque: Math.round(Math.random() * 10000),
+              current: Math.round(Math.random() * 6000)
+            },
+            {
+              torque: Math.round(Math.random() * 10000),
+              current: Math.round(Math.random() * 6000)
+            },
+            {
+              torque: Math.round(Math.random() * 10000),
+              current: Math.round(Math.random() * 6000)
+            },
+            {
+              torque: Math.round(Math.random() * 10000),
+              current: Math.round(Math.random() * 6000)
+            },
+            {
+              torque: Math.round(Math.random() * 10000),
+              current: Math.round(Math.random() * 6000)
+            },
+            {
+              torque: Math.round(Math.random() * 10000),
+              current: Math.round(Math.random() * 6000)
+            },
+            {
+              torque: Math.round(Math.random() * 10000),
+              current: Math.round(Math.random() * 6000)
+            },
+            {
+              torque: Math.round(Math.random() * 10000),
+              current: Math.round(Math.random() * 6000)
+            },
+            {
+              torque: Math.round(Math.random() * 10000),
+              current: Math.round(Math.random() * 6000)
+            }
+          ],
+          tools: [
+            {
+              temperature: Math.round(Math.random() * 30) + 90
+            },
+            {
+              temperature: Math.round(Math.random() * 30) + 90
+            },
+            {
+              temperature: Math.round(Math.random() * 30) + 90
+            },
+            {
+              temperature: Math.round(Math.random() * 30) + 90
+            },
+            {
+              temperature: Math.round(Math.random() * 30) + 90
+            },
+            {
+              temperature: Math.round(Math.random() * 30) + 90
+            },
+            {
+              temperature: Math.round(Math.random() * 30) + 90
+            },
+            {
+              temperature: Math.round(Math.random() * 30) + 90
+            },
+            {
+              temperature: Math.round(Math.random() * 30) + 90
+            },
+            {
+              temperature: Math.round(Math.random() * 30) + 90
+            },
+            {
+              temperature: Math.round(Math.random() * 30) + 90
+            },
+            {
+              temperature: Math.round(Math.random() * 30) + 90
+            },
+            {
+              temperature: Math.round(Math.random() * 30) + 90
+            },
+            {
+              temperature: Math.round(Math.random() * 30) + 90
+            },
+            {
+              temperature: Math.round(Math.random() * 30) + 90
+            },
+            {
+              temperature: Math.round(Math.random() * 30) + 90
+            },
+            {
+              temperature: Math.round(Math.random() * 30) + 90
+            },
+            {
+              temperature: Math.round(Math.random() * 30) + 90
+            },
+            {
+              temperature: Math.round(Math.random() * 30) + 90
+            },
+            {
+              temperature: Math.round(Math.random() * 30) + 90
+            },
+            {
+              temperature: Math.round(Math.random() * 30) + 90
+            },
+            {
+              temperature: Math.round(Math.random() * 30) + 90
+            },
+            {
+              temperature: Math.round(Math.random() * 30) + 90
+            },
+            {
+              temperature: Math.round(Math.random() * 30) + 90
+            }
+          ]
+        }
       }
     }
   }
@@ -722,13 +725,13 @@ module.exports = class MidMachineSource {
       options: {
         groups: ["status"],
         select: {
-          extrusion: ["current"]
+          status: ["current"]
         },
         deviceType: this.workloadOpts.machineTypeId,
         device: this.workloadOpts.machines[machineIndex],
         startTime: new Date(absDate.getTime() - 86400000),
         endTime: absDate,
-        buckets: 1024
+        buckets: 128
       },
       interval: this.sampleIntervals.status
     };
