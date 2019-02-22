@@ -136,18 +136,18 @@ module.exports = class MachineStreams {
 
     let queryNames = Object.keys(queries);
 
-    let timedOut = false;
+    /*let timedOut = false;
     const resumeReadLater = (size) => {
       timedOut = true;
       console.log(JSON.stringify(queries));
       setTimeout(() => {
         result.stream._read(size);
       }, STREAM_SUSPENSION_TIME);
-    }
+    }*/
 
     result.stream._read = (size) => {
-      if (timedOut)
-        console.log("Invoked _read after timeout");
+      /*if (timedOut)
+        console.log("Invoked _read after timeout");*/
 
       let readTime = new Date().getTime();
       let readQueries = 0;
@@ -168,16 +168,13 @@ module.exports = class MachineStreams {
 
             ++queriesCount;
 
-            if (++readQueries >= size)
-              return;
+            if (++readQueries >= size || !pushRes)
+              return i = ++i % queryNames.length || 0;
 
-            if (!pushRes)
-              return;
-
-            if (new Date().getTime() - readTime > STREAM_TIMEOUT) {
+            /*if (new Date().getTime() - readTime > STREAM_TIMEOUT) {
               resumeReadLater(size);
-              return;
-            }
+              return i = ++i % queryNames.length || 0;
+            }*/
           }
         }
 
@@ -192,6 +189,7 @@ module.exports = class MachineStreams {
         }
       }
 
+      //console.log(queriesCount);
       result.stream.push(null);
     };
 
@@ -262,11 +260,12 @@ module.exports = class MachineStreams {
 
               ++samplesCount;
 
-              if (++readSamples >= size)
+              if (++readSamples >= size || !pushRes) {
+                j = ++j % machine.groupNames.length || 0;
+                if (!j)
+                  i = ++i % this.machineIds.length || 0;
                 return;
-
-              if (!pushRes)
-                return;
+              }
             }
           }
 
