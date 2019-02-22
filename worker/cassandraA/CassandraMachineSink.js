@@ -8,9 +8,6 @@ const _ = require('lodash');
 
 const HIGH_WATERMARK = 256;
 
-const maxTime = 8640000000000000;
-const maxDate = new Date(maxTime);
-
 let sinkStatsInterval;
 
 function subtractValues(o1, o2) {
