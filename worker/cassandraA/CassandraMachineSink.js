@@ -218,7 +218,8 @@ module.exports = class CassandraMachineSink {
         ++count;
 
         row.value = JSON.parse(row.value);
-        row.value = _.pick(row.value, paths);
+        if (paths && paths.length)
+          row.value = _.pick(row.value, paths);
       }).on('end', function () {
         resolve(count);
       }).on('error', function (err) {
@@ -341,7 +342,6 @@ module.exports = class CassandraMachineSink {
 
   async queryTimeComplexDifferenceSingleGroup(name, options) {
     let group = options.groups[0];
-    let paths = options.select[group];
 
     let promises = [];
     for (let i = 0; i < options.times.length -1; ++i) {
@@ -439,7 +439,7 @@ module.exports = class CassandraMachineSink {
         ++count;
 
         row.value = JSON.parse(row.value);
-        if (paths.length)
+        if (paths && paths.length)
           row.value = _.pick(row.value, paths);
       }).on('end', function () {
         resolve(count);
