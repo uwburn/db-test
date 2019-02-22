@@ -144,7 +144,7 @@ module.exports = class MachineStreams {
           let queryName = queryNames[i];
 
           if (relTime % this.source.queryIntervals[queryName] === 0) {
-            result.stream.push(this.source.query(queryName, absDate));
+            let pushRes = result.stream.push(this.source.query(queryName, absDate));
 
             if (--queries[queryName] <= 0) {
               delete queries[queryName];
@@ -154,6 +154,9 @@ module.exports = class MachineStreams {
             ++queriesCount;
 
             if (++readQueries >= size)
+              return;
+
+            if (!pushRes)
               return;
           }
         }
@@ -218,7 +221,7 @@ module.exports = class MachineStreams {
             done = false;
             let interval = this.source.sampleIntervals[groupName];
             if ((relTime + machine.writeDelay) % interval === 0) {
-              result.stream.push({
+              let pushRes = result.stream.push({
                 id: id,
                 groupName: groupName,
                 sample: this.source.sample(id, groupName, absDate),
@@ -235,6 +238,9 @@ module.exports = class MachineStreams {
               ++samplesCount;
 
               if (++readSamples >= size)
+                return;
+
+              if (!pushRes)
                 return;
             }
           }
@@ -296,7 +302,8 @@ module.exports = class MachineStreams {
       pushed = false;
       for (let i = 0; i < size && i < queue.length; ++i) {
         pushed = true;
-        result.stream.push(queue.shift());
+        if (!result.stream.push(queue.shift()))
+          return;
       }
     };
 
@@ -360,7 +367,8 @@ module.exports = class MachineStreams {
       pushed = false;
       for (let i = 0; i < size && i < queue.length; ++i) {
         pushed = true;
-        result.stream.push(queue.shift());
+        if (!result.stream.push(queue.shift()))
+          return;
       }
     };
 
