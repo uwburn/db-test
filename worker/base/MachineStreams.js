@@ -6,6 +6,8 @@ const _ = require("lodash");
 const HIGH_WATERMARK = 256;
 const REAL_TIME_STEP = 1000;
 const MAX_BULK_READS = 100000;
+const STREAM_TIMEOUT = 30000;
+const STREAM_SUSPENSION_TIME = 5000;
 
 function gcd(a, b) {
   if (!b) {
@@ -134,7 +136,20 @@ module.exports = class MachineStreams {
 
     let queryNames = Object.keys(queries);
 
+    let timedOut = false;
+    const resumeReadLater = (size) => {
+      timedOut = true;
+      console.log(JSON.stringify(queries));
+      setTimeout(() => {
+        result.stream._read(size);
+      }, STREAM_SUSPENSION_TIME);
+    }
+
     result.stream._read = (size) => {
+      if (timedOut)
+        console.log("Invoked _read after timeout");
+
+      let readTime = new Date().getTime();
       let readQueries = 0;
       while (!done) {
         done = true;
@@ -158,6 +173,11 @@ module.exports = class MachineStreams {
 
             if (!pushRes)
               return;
+
+            if (new Date().getTime() - readTime > STREAM_TIMEOUT) {
+              resumeReadLater(size);
+              return;
+            }
           }
         }
 
@@ -165,6 +185,11 @@ module.exports = class MachineStreams {
         absTime += this.bulkReadsTimeStep;
         absDate = new Date(absTime);
         relTime += this.bulkReadsTimeStep;
+
+        if (new Date().getTime() - readTime > STREAM_TIMEOUT) {
+          resumeReadLater(size);
+          return;
+        }
       }
 
       result.stream.push(null);
