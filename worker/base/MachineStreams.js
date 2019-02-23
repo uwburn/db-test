@@ -146,7 +146,7 @@ module.exports = class MachineStreams {
         done = i == 0;
         for (; i < queryNames.length; ++i) {
           let queryName = queryNames[i];
-          if (--queries[queryName] <= 0)
+          if (queries[queryName] <= 0)
             continue;
 
           done = false;
@@ -154,6 +154,7 @@ module.exports = class MachineStreams {
           if (relTime % this.source.queryIntervals[queryName] === 0) {
             let pushRes = result.stream.push(this.source.query(queryName, absDate));
 
+            --queries[queryName]
             ++queriesCount;
 
             if (++readQueries >= size || !pushRes) {
