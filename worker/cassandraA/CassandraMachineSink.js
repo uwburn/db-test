@@ -1,14 +1,10 @@
 "use strict";
 
-const { Writable } = require('stream');
-
 const cassandra = require('cassandra-driver');
 const FlattenJS = require('flattenjs');
 const _ = require('lodash');
 
-const HIGH_WATERMARK = 256;
-
-let sinkStatsInterval;
+const BaseSink = require(`../base/BaseSink`);
 
 function subtractValues(o1, o2) {
   let d = { };
@@ -35,38 +31,12 @@ function subtractValues(o1, o2) {
   return res;
 }
 
-module.exports = class CassandraMachineSink {
+module.exports = class CassandraMachineSink extends BaseSink {
 
   constructor(databaseOpts) {
+    super(64, 32);
+
     this.databaseOpts = databaseOpts;
-
-    this.reads = 0;
-    this.successfulReads = 0;
-    this.totalReadLatency = 0;
-    this.writes = 0;
-    this.successfulWrites = 0;
-    this.totalWriteLatency = 0;
-    this.errors = 0;
-
-    this.latencyByType = {
-      INTERVAL_RANGE: 0,
-      TIME_COMPLEX_RANGE: 0,
-      TIME_COMPLEX_RANGE_BUCKET_AVG: 0,
-      TIME_COMPLEX_DIFFERENCE: 0,
-      TIME_COMPLEX_LAST_BEFORE: 0,
-      TIME_COMPLEX_TOP_DIFFERENCE: 0,
-      INTERVAL_TOP_COUNT: 0
-    };
-    
-    this.countByType = {
-      INTERVAL_RANGE: 0,
-      TIME_COMPLEX_RANGE: 0,
-      TIME_COMPLEX_RANGE_BUCKET_AVG: 0,
-      TIME_COMPLEX_DIFFERENCE: 0,
-      TIME_COMPLEX_LAST_BEFORE: 0,
-      TIME_COMPLEX_TOP_DIFFERENCE: 0,
-      INTERVAL_TOP_COUNT: 0
-    };
   }
 
   async init() {
@@ -80,59 +50,13 @@ module.exports = class CassandraMachineSink {
     this.cassandraClient = new cassandra.Client(this.databaseOpts);
     await this.cassandraClient.execute("USE db_test;", [], {});
 
-    sinkStatsInterval = setInterval(() => {
-      for (let k in this.latencyByType) {
-        if (!this.countByType[k])
-          continue;
-          
-        let latency = this.latencyByType[k]/this.countByType[k];
-
-        let d = Math.pow(10, 2);
-        latency = Math.round(latency * d) / d;
-
-        console.log(`${k} avg. latency: ${latency}, tot. latency: ${this.latencyByType[k]}, count: ${this.countByType[k]}`);
-      }
-    }, 60000);
+    super.init();
   }
 
   async cleanup() {
-    clearInterval(sinkStatsInterval);
+    super.cleanup();
 
     await this.cassandraClient.shutdown();
-  }
-
-  queryStream() {
-    let result = {
-      stream: Writable({
-        objectMode: true,
-        highWaterMark: HIGH_WATERMARK
-      }),
-      reads: 0,
-      successfulReads: 0,
-      totalReadLatency: 0,
-      writes: 0,
-      successfulWrites: 0,
-      totalWriteLatency: 0,
-      errors: 0
-    };
-
-    result.stream._write = (chunk, enc, callback) => {
-      let t0 = Date.now();
-      this.query(chunk.name, chunk.type, chunk.options).then(() => {
-        ++result.successfulReads;
-        result.totalReadLatency += Date.now() - t0;
-
-        ++this.countByType[chunk.type];
-        this.latencyByType[chunk.type] += Date.now() - t0;
-      }).catch((err) => {
-        console.error(err);
-        ++result.errors;
-      }).then(() => {
-        ++result.reads;
-      }).then(callback);
-    };
-
-    return result;
   }
 
   async query(name, type, options) {
@@ -556,37 +480,6 @@ module.exports = class CassandraMachineSink {
 
   async queryIntervalTopCountMultipleGroups(name, options) {
     throw new Error("Currently not supported, as no query requires it");
-  }
-
-  recordStream() {
-    let result = {
-      stream: Writable({
-        objectMode: true,
-        highWaterMark: HIGH_WATERMARK
-      }),
-      reads: 0,
-      successfulReads: 0,
-      totalReadLatency: 0,
-      writes: 0,
-      successfulWrites: 0,
-      totalWriteLatency: 0,
-      errors: 0
-    };
-
-    result.stream._write = (chunk, enc, callback) => {
-      let t0 = Date.now();
-      this.record(chunk.id, chunk.groupName, chunk.sample).then(() => {
-        ++result.successfulWrites;
-        result.totalWriteLatency += Date.now() - t0;
-      }).catch((err) => {
-        console.error(err);
-        ++result.errors;
-      }).then(() => {
-        ++result.writes;
-      }).then(callback);
-    };
-
-    return result;
   }
 
   async record(id, groupName, sample) {
