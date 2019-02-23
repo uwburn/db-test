@@ -6,8 +6,6 @@ const _ = require("lodash");
 const HIGH_WATERMARK = 256;
 const REAL_TIME_STEP = 1000;
 const MAX_BULK_READS = 100000;
-//const STREAM_TIMEOUT = 30000;
-//const STREAM_SUSPENSION_TIME = 5000;
 
 function gcd(a, b) {
   if (!b) {
@@ -134,17 +132,15 @@ module.exports = class MachineStreams {
     let relTime = 0;
     let i = 0;
 
+    const advanceTime = () => {
+      absTime += this.bulkReadsTimeStep;
+      absDate = new Date(absTime);
+      relTime += this.bulkReadsTimeStep;
+    };
+
     let queryNames = Object.keys(queries);
 
-    /*const resumeReadLater = (size) => {
-      console.log(`Resuming after timout prevention, queries: ${JSON.stringify(queries)}`);
-      setTimeout(() => {
-        result.stream._read(size);
-      }, STREAM_SUSPENSION_TIME);
-    }*/
-
     result.stream._read = (size) => {
-      //let readTime = new Date().getTime();
       let readQueries = 0;
       while (!done) {
         done = i == 0;
@@ -160,18 +156,19 @@ module.exports = class MachineStreams {
 
             ++queriesCount;
 
-            if (++readQueries >= size || !pushRes)
-              return;
+            if (++readQueries >= size || !pushRes) {
+              i = ++i % queryNames.length || 0;
 
-            /*if (new Date().getTime() - readTime > STREAM_TIMEOUT)
-              return resumeReadLater(size);*/
+              if (i === 0)
+                advanceTime();
+
+              return;
+            }
           }
         }
 
         i = 0;
-        absTime += this.bulkReadsTimeStep;
-        absDate = new Date(absTime);
-        relTime += this.bulkReadsTimeStep;
+        advanceTime();
       }
 
       result.stream.push(null);
@@ -208,10 +205,16 @@ module.exports = class MachineStreams {
 
     let done = false;
     let absTime = this.workloadOpts.startTime + initialDelay;
-    let absDate = new Date(this.workloadOpts.startTime);
+    let absDate = new Date(absTime);
     let relTime = initialDelay;
     let i = 0;
     let j = 0;
+
+    const advanceTime = () => {
+      absTime += this.bulkWritesTimeStep;
+      absDate = new Date(absTime);
+      relTime += this.bulkWritesTimeStep;
+    };
 
     result.stream._read = (size) => {
       let readSamples = 0;
@@ -245,8 +248,17 @@ module.exports = class MachineStreams {
 
               ++samplesCount;
 
-              if (++readSamples >= size || !pushRes)
+              if (++readSamples >= size || !pushRes) {
+                j = ++j % machine.groupNames.length || 0;
+
+                if (j === 0)
+                  i = ++i % this.machineIds.length || 0;
+
+                if (i === 0 && j === 0)
+                  advanceTime();
+
                 return;
+              }
             }
           }
 
@@ -254,9 +266,7 @@ module.exports = class MachineStreams {
         }
 
         i = 0;
-        absTime += this.bulkWritesTimeStep;
-        absDate = new Date(absTime);
-        relTime += this.bulkWritesTimeStep;
+        advanceTime();
       }
 
       result.stream.push(null);
