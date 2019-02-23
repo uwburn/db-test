@@ -6,8 +6,8 @@ const _ = require("lodash");
 const HIGH_WATERMARK = 256;
 const REAL_TIME_STEP = 1000;
 const MAX_BULK_READS = 100000;
-const STREAM_TIMEOUT = 30000;
-const STREAM_SUSPENSION_TIME = 5000;
+//const STREAM_TIMEOUT = 30000;
+//const STREAM_SUSPENSION_TIME = 5000;
 
 function gcd(a, b) {
   if (!b) {
@@ -136,45 +136,35 @@ module.exports = class MachineStreams {
 
     let queryNames = Object.keys(queries);
 
-    /*let timedOut = false;
-    const resumeReadLater = (size) => {
-      timedOut = true;
-      console.log(JSON.stringify(queries));
+    /*const resumeReadLater = (size) => {
+      console.log(`Resuming after timout prevention, queries: ${JSON.stringify(queries)}`);
       setTimeout(() => {
         result.stream._read(size);
       }, STREAM_SUSPENSION_TIME);
     }*/
 
     result.stream._read = (size) => {
-      /*if (timedOut)
-        console.log("Invoked _read after timeout");*/
-
-      let readTime = new Date().getTime();
+      //let readTime = new Date().getTime();
       let readQueries = 0;
       while (!done) {
-        done = true;
+        done = i == 0;
         for (; i < queryNames.length; ++i) {
-          done = false;
-
           let queryName = queryNames[i];
+          if (--queries[queryName] <= 0)
+            continue;
+
+          done = false;
 
           if (relTime % this.source.queryIntervals[queryName] === 0) {
             let pushRes = result.stream.push(this.source.query(queryName, absDate));
 
-            if (--queries[queryName] <= 0) {
-              delete queries[queryName];
-              queryNames = Object.keys(queries);
-            }
-
             ++queriesCount;
 
             if (++readQueries >= size || !pushRes)
-              return i = ++i % queryNames.length || 0;
+              return;
 
-            /*if (new Date().getTime() - readTime > STREAM_TIMEOUT) {
-              resumeReadLater(size);
-              return i = ++i % queryNames.length || 0;
-            }*/
+            /*if (new Date().getTime() - readTime > STREAM_TIMEOUT)
+              return resumeReadLater(size);*/
           }
         }
 
@@ -182,14 +172,8 @@ module.exports = class MachineStreams {
         absTime += this.bulkReadsTimeStep;
         absDate = new Date(absTime);
         relTime += this.bulkReadsTimeStep;
-
-        if (new Date().getTime() - readTime > STREAM_TIMEOUT) {
-          resumeReadLater(size);
-          return;
-        }
       }
 
-      //console.log(queriesCount);
       result.stream.push(null);
     };
 
@@ -218,17 +202,21 @@ module.exports = class MachineStreams {
       percent: percent
     };
 
+    let initialDelay = Number.MAX_SAFE_INTEGER;
+    for (let k in machines)
+      initialDelay = Math.min(machines[k].writeDelay, initialDelay);
+
     let done = false;
-    let absTime = this.workloadOpts.startTime;
+    let absTime = this.workloadOpts.startTime + initialDelay;
     let absDate = new Date(this.workloadOpts.startTime);
-    let relTime = 0;
+    let relTime = initialDelay;
     let i = 0;
     let j = 0;
 
     result.stream._read = (size) => {
       let readSamples = 0;
       while (!done) {
-        done = true;
+        done = (i == 0 && j == 0);
         for (; i < this.machineIds.length; ++i) {
           let id = this.machineIds[i];
           let machine = machines[id];
@@ -240,6 +228,8 @@ module.exports = class MachineStreams {
 
           for (; j < machine.groupNames.length; ++j) {
             let groupName = machine.groupNames[j];
+            if (machine.groups[groupName] >= samples[groupName])
+              continue;
 
             done = false;
             let interval = this.source.sampleIntervals[groupName];
@@ -253,19 +243,10 @@ module.exports = class MachineStreams {
 
               ++machine.groups[groupName];
 
-              if (machine.groups[groupName] >= samples[groupName]) {
-                delete machine.groups[groupName];
-                machine.groupNames = Object.keys(machine.groups);
-              }
-
               ++samplesCount;
 
-              if (++readSamples >= size || !pushRes) {
-                j = ++j % machine.groupNames.length || 0;
-                if (!j)
-                  i = ++i % this.machineIds.length || 0;
+              if (++readSamples >= size || !pushRes)
                 return;
-              }
             }
           }
 
