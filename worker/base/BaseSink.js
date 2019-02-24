@@ -7,8 +7,8 @@ const SINK_STATS_INTERVAL = 60000;
 module.exports = class BaseSink {
 
   constructor(queryHighWaterMark, recordHighWaterMark) {
-    this.queryHighWaterMark = process.env.QUERY_HIGH_WATERMARK || queryHighWaterMark || 16;
-    this.recordHighWaterMark = process.env.RECORD_HIGH_WATERMARK || recordHighWaterMark || 16;
+    this.queryHighWaterMark = parseInt(process.env.QUERY_HIGH_WATERMARK) || queryHighWaterMark || 16;
+    this.recordHighWaterMark = parseInt(process.env.RECORD_HIGH_WATERMARK) || recordHighWaterMark || 16;
 
     this.reads = 0;
     this.successfulReads = 0;
@@ -27,7 +27,7 @@ module.exports = class BaseSink {
       TIME_COMPLEX_TOP_DIFFERENCE: 0,
       INTERVAL_TOP_COUNT: 0
     };
-    
+
     this.countByType = {
       INTERVAL_RANGE: 0,
       TIME_COMPLEX_RANGE: 0,
@@ -44,7 +44,7 @@ module.exports = class BaseSink {
       for (let k in this.latencyByType) {
         if (!this.countByType[k])
           continue;
-          
+
         let latency = this.latencyByType[k]/this.countByType[k];
 
         let d = Math.pow(10, 2);
@@ -99,7 +99,7 @@ module.exports = class BaseSink {
         return this.query(chunk.name, chunk.type, chunk.options, chunk.interval).then(() => {
           ++result.successfulReads;
           result.totalReadLatency += Date.now() - t0;
-  
+
           ++this.countByType[chunk.type];
           this.latencyByType[chunk.type] += Date.now() - t0;
         }).catch((err) => {
