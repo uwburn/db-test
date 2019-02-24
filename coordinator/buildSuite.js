@@ -5,6 +5,8 @@ const moment = require(`moment`);
 const MongoClient = require(`mongodb`).MongoClient;
 const cassandra = require(`cassandra-driver`);
 
+const BULK_READS_LIMIT = 100000;
+
 module.exports = function (database, databaseOpts, suite, suiteOptions) {
   switch (suite) {
     case `MachineData`:
@@ -87,7 +89,8 @@ function buildMachineDataSuite(database, databaseOpts, suiteOptions) {
               endTime: startYear.clone().add(year, `year`).month(11).date(31).hour(23).minute(45).valueOf(),
               machineUptime: suiteOptions.machineUptime,
               machines: machines.slice(startIndex, endIndex),
-              machineTypeId: machineTypeId
+              machineTypeId: machineTypeId,
+              bulkReadsLimit: Math.floor(BULK_READS_LIMIT / totalWorkers)
             }
           };
         case 2:
