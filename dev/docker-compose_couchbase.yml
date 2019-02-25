@@ -1,0 +1,13 @@
+version: '3.3'
+
+services:
+  couchbase:
+    image: couchbase:community
+    ports:
+      - "8091-8094:8091-8094"
+      - "11210:11210"
+    volumes:
+      - couchbase_data:/opt/couchbase/var
+
+volumes:
+  couchbase_data:
