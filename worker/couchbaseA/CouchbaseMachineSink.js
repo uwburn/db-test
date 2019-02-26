@@ -47,10 +47,15 @@ module.exports = class MongoMachineSink extends BaseSink {
 
   async init() {
     this.couchbaseCluster = new couchbase.Cluster('couchbase://localhost');
+    this.couchbaseCluster.authenticate(this.databaseOpts.username, this.databaseOpts.password);
     bluebird.promisifyAll(this.couchbaseCluster);
 
-    this.couchbaseBucket = cluster.openBucket('db-test');
-    bluebird.promisifyAll(this.couchbaseBucket);
+    this.couchbaseBucket = await new Promise((resolve, reject) => {
+      let bucket = this.couchbaseCluster.openBucket("db-test");
+      bluebird.promisifyAll(bucket);
+      bucket.once("connect", () => resolve(bucket));
+      bucket.on("error", (err) => console.log(err));
+    });
 
     super.init();
   }
@@ -62,7 +67,7 @@ module.exports = class MongoMachineSink extends BaseSink {
   }
 
   async query(name, type, options, interval) {
-    /*switch (type) {
+    switch (type) {
       case "INTERVAL_RANGE":
         return await this.queryIntervalRange(name, options);
       case "TIME_COMPLEX_RANGE":
@@ -77,7 +82,7 @@ module.exports = class MongoMachineSink extends BaseSink {
         return await this.queryTimeComplexTopDifference(name, options, interval);
       case "INTERVAL_TOP_COUNT":
         return await this.queryIntervalTopCount(name, options);
-    }*/
+    }
   }
 
   async queryIntervalRange(name, options) {
@@ -127,67 +132,26 @@ module.exports = class MongoMachineSink extends BaseSink {
   }
 
   async queryTimeComplexRangeSingleGroup(name, options, interval) {
-    /*let group = options.groups[0];
-    let coll = this.db.collection(`${group}_time_complex`);
-
-    let oStartTime = options.startTime.getTime();
-    let oEndTime = options.endTime.getTime();
-
-    let bucketTime = chooseBucketTime(interval);
-    let startTime = oStartTime - (oStartTime % bucketTime);
-    let endTime = oEndTime - (oEndTime % bucketTime);
-    if (endTime < oEndTime)
-      endTime += bucketTime;
-
-    let stages = [
-      {
-        $match: {
-          "_id.device": Binary(uuidParse.parse(options.device, Buffer.allocUnsafe(16)), Binary.SUBTYPE_UUID),
-          "_id.time": {
-            $gt: new Date(startTime),
-            $lt: new Date(endTime)
-          }
-        }
-      },
-      {
-        $project: {
-          _id: 1,
-          records: { $objectToArray: "$records" }
-        }
-      },
-      {
-        $unwind: "$records"
-      },
-      {
-        $project: {
-          time: {
-            $add: [ "$_id.time", { $toInt: "$records.k" } ]
-          },
-          record: "$records.v"
-        }
-      },
-      {
-        $match: {
-          time: {
-            $gt: options.startTime,
-            $lt: options.endTime
-          }
-        }
-      }
-    ];
+    let q = couchbase.N1qlQuery.fromString('SELECT * FROM `db-test` WHERE type = "time_complex" AND device = $device AND time >= $startTime AND time <= $endTime');
+    let req = await this.couchbaseBucket.query(q, {
+      device: options.device,
+      startTime: options.startTime.getTime(),
+      endTime: options.endTime.getTime()
+    });  
 
     return await new Promise((resolve, reject) => {
       let count = 0;
 
-      let cursor = coll.aggregate(stages, { allowDiskUse: true }).forEach((doc) => {
-        count++
-      }, (err) => {
-        if (err)
-          return reject();
-
+      req.on('row', (row) => {
+        count++;
+      });
+      req.on('error', (err) => {
+        reject(err);
+      });
+      req.on('end', (meta) => {
         resolve(count);
       });
-    });*/
+    });
   }
 
   async queryTimeComplexRangeMultiGroups(name, options, interval) {
@@ -686,23 +650,27 @@ module.exports = class MongoMachineSink extends BaseSink {
     let key = `time_complex::${groupName}::${sample.device}::${sample.time}`;
 
     await this.couchbaseBucket.upsertAsync(key, {
+      type: "time_complex",
       deviceType: sample.deviceType,
+      group: groupName,
       device: sample.device,
-      time: sample.time,
+      time: sample.time.getTime(),
       value: sample[groupName].value
     });
   }
 
   async recordInterval(id, groupName, sample) {
-    let key = `time_complex::${groupName}::${sample.device}::${sample.id}`;
+    let key = `interval::${groupName}::${sample.device}::${sample.id}`;
 
     await this.couchbaseBucket.upsertAsync(key, {
+      type: "interval",
       deviceType: sample.deviceType,
+      group: groupName,
       device: sample.device,
       id: sample.id,
-      startTime: sample.startTime,
-      endTime: sample.endTime,
-      value: sample[groupName].value
+      startTime: sample.startTime.getTime(),
+      endTime: sample.endTime.getTime(),
+      value: sample.value
     });
   }
 
