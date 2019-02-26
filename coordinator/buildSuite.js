@@ -4,6 +4,8 @@ const uuidv4 = require(`uuid/v4`);
 const moment = require(`moment`);
 const MongoClient = require(`mongodb`).MongoClient;
 const cassandra = require(`cassandra-driver`);
+const couchbase = require('couchbase');
+const bluebird = require("bluebird");
 
 const BULK_READS_LIMIT = 100000;
 
@@ -118,6 +120,8 @@ function buildMachineDataSuite(database, databaseOpts, suiteOptions) {
           return await prepareMachineDataMongoB(databaseOpts);
         case `cassandraA`:
           return await prepareMachineDataCassandraA(databaseOpts);
+        case "couchbaseA":
+          return await prepareMachineDataCouchbaseA(databaseOpts);
       }
     }
   };
@@ -186,4 +190,21 @@ async function prepareMachineDataCassandraA(databaseOpts) {
   await cassandraClient.execute(`CREATE TABLE IF NOT EXISTS interval (device_type text, group text, device text, start_time timestamp, end_time timestamp, value text, PRIMARY KEY (device_type, group, device, start_time, end_time));`, [], {});
 
   await cassandraClient.shutdown();
+}
+
+async function prepareMachineDataCouchbaseA(databaseOpts) {
+  console.log(`Waiting for Couchbase`);
+
+  let couchbaseCluster = new couchbase.Cluster(databaseOpts.url);
+  bluebird.promisifyAll(couchbaseCluster);
+  couchbaseCluster.authenticate(databaseOpts.username, databaseOpts.password);
+
+  let couchbaseManager = couchbaseCluster.manager(databaseOpts.managerUsername, databaseOpts.managerPassword);
+  bluebird.promisifyAll(couchbaseManager);
+  
+  await couchbaseManager.createBucketAsync("db-test", {
+    flushEnabled: true
+  });
+
+  
 }

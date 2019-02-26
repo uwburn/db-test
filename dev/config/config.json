@@ -1,10 +1,11 @@
 {
-  "database": "mongoB",
+  "database": "couchbaseA",
   "databaseOpts": {
-    "url": "mongodb://localhost:27017",
-    "options": {
-      "useNewUrlParser": true
-    }
+    "url": "couchbase://localhost/",
+    "username": "admin",
+    "passwrod": "password",
+    "managerUsername": "admin",
+    "managerPassword": "password"
   },
   "suite": "MachineData",
   "suiteOpts": {
