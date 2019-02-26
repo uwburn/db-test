@@ -5,7 +5,9 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
+    "bluebird": "^3.5.3",
     "cassandra-driver": "^3.5.0",
+    "couchbase": "^2.6.3",
     "flattenjs": "^1.0.4",
     "lodash": "^4.17.10",
     "moment": "^2.22.2",
