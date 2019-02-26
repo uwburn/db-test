@@ -201,10 +201,28 @@ async function prepareMachineDataCouchbaseA(databaseOpts) {
 
   let couchbaseManager = couchbaseCluster.manager(databaseOpts.managerUsername, databaseOpts.managerPassword);
   bluebird.promisifyAll(couchbaseManager);
+
+  try {
+    await couchbaseManager.removeBucketAsync("db-test");
+  }
+  catch(err) { }
   
   await couchbaseManager.createBucketAsync("db-test", {
-    flushEnabled: true
+    flushEnabled: 1
   });
 
+  await new Promise((resolve) => setTimeout(resolve, 5000));
+
+  let couchbaseBucket = await new Promise((resolve, reject) => {
+    let bucket = couchbaseCluster.openBucket("db-test");
+    bluebird.promisifyAll(bucket);
+    bucket.once("connect", () => resolve(bucket));
+    bucket.on("error", (err) => console.log(err));
+  });
+
+  await new Promise((resolve) => setTimeout(resolve, 5000));
+
+  let q = couchbase.N1qlQuery.fromString('CREATE PRIMARY INDEX `db-test_primary` ON `db-test`;');
+  await couchbaseBucket.queryAsync(q);
   
 }
