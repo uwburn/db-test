@@ -3,16 +3,16 @@
   "databaseOpts": {
     "url": "couchbase://localhost/",
     "username": "admin",
-    "passwrod": "password",
+    "password": "admin123",
     "managerUsername": "admin",
-    "managerPassword": "password"
+    "managerPassword": "admin123"
   },
   "suite": "MachineData",
   "suiteOpts": {
-    "machineSize": "Big",
-    "machines": 1,
+    "machineSize": "Small",
+    "machines": 16,
     "startYear": 2010,
     "years": 3,
-    "machineUptime": 0.0009
+    "machineUptime": 0.9
   }
 }
