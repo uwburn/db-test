@@ -8,12 +8,14 @@ services:
     image: localhost:5000/db-test_worker
     deploy:
       replicas: 8
+    environment:
+      QUERY_HIGH_WATERMARK: 2
     networks:
       mongodb:
 
 secrets:
   coordinator_config.json:
-    file: ./config/mongodb_machine_small.json
+    file: ./config/mongodb_machine_mid.json
 
 networks: 
   mongodb:

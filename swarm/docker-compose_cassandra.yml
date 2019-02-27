@@ -8,12 +8,14 @@ services:
     image: localhost:5000/db-test_worker
     deploy:
       replicas: 8
+    environment:
+      QUERY_HIGH_WATERMARK: 16
     networks:
       cassandra:
 
 secrets:
   coordinator_config.json:
-    file: ./config/cassandra_machine_small.json
+    file: ./config/cassandra_machine_big.json
 
 networks: 
   cassandra:
