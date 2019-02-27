@@ -37,7 +37,7 @@ function subtractDocs(o1, o2) {
   return res;
 }
 
-module.exports = class MongoMachineSink extends BaseSink {
+module.exports = class CouchbaseMachineSink extends BaseSink {
 
   constructor(databaseOpts) {
     super(16, 16);
@@ -95,27 +95,26 @@ module.exports = class MongoMachineSink extends BaseSink {
   }
 
   async queryIntervalRangeSingleGroup(name, options) {
-    /*let group = options.groups[0];
-    let coll = this.db.collection(`${group}_interval`);
-
-    let criteria = {
-      device: Binary(uuidParse.parse(options.device, Buffer.allocUnsafe(16)), Binary.SUBTYPE_UUID),
-      startTime: { $lt: options.endTime },
-      endTime: { $gt: options.startTime }
-    };
+    let q = couchbase.N1qlQuery.fromString('SELECT * FROM `db-test` WHERE type = "interval" AND device = $device AND startTime <= $endTime AND endTime >= $startTime');
+    let req = await this.couchbaseBucket.query(q, {
+      device: options.device,
+      startTime: options.startTime.getTime(),
+      endTime: options.endTime.getTime()
+    });  
 
     return await new Promise((resolve, reject) => {
       let count = 0;
 
-      coll.find(criteria).forEach((doc) => {
-        ++count;
-      }, (err) => {
-        if (err)
-          return reject();
-
+      req.on('row', (row) => {
+        count++;
+      });
+      req.on('error', (err) => {
+        reject(err);
+      });
+      req.on('end', (meta) => {
         resolve(count);
       });
-    });*/
+    });
   }
 
   async queryIntervalRangeMultipleGroups(name, options) {
@@ -168,84 +167,39 @@ module.exports = class MongoMachineSink extends BaseSink {
   }
 
   async queryTimeComplexRangeBucketAvgSingleGroup(name, options, interval) {
-    /*let group = options.groups[0];
-    let coll = this.db.collection(`${group}_time_complex`);
+    let group = options.groups[0];
 
-    let oStartTime = options.startTime.getTime();
-    let oEndTime = options.endTime.getTime();
+    let bin = Math.floor((options.endTime.getTime() - options.startTime.getTime()) / options.buckets);
 
-    let bucketTime = chooseBucketTime(interval);
-    let startTime = oStartTime - (oStartTime % bucketTime);
-    let endTime = oEndTime - (oEndTime % bucketTime);
-    if (endTime < oEndTime)
-      endTime += bucketTime;
-
-    let output = {
-      count: { $sum: 1 }
-    };
-
+    let q = 'SELECT'; 
     let select = options.select[group];
     for (let k in select) {
       let path = select[k];
-      output[path] =  { $avg: `$record.${path}` };
+      q += ` AVG(\`value\`.${path}) AS avg_${path}, COUNT(\`value\`.${path}) AS count_${path}`
     }
+    q += ' FROM `db-test` WHERE type = "time_complex" AND device = $device AND time <= $endTime AND time >= $startTime GROUP BY FLOOR(time / $bin)';
 
-    let stages = [
-      {
-        $match: {
-          "_id.device": Binary(uuidParse.parse(options.device, Buffer.allocUnsafe(16)), Binary.SUBTYPE_UUID),
-          "_id.time": {
-            $gt: new Date(startTime),
-            $lt: new Date(endTime)
-          }
-        }
-      },
-      {
-        $project: {
-          _id: 1,
-          records: { $objectToArray: "$records" }
-        }
-      },
-      {
-        $unwind: "$records"
-      },
-      {
-        $project: {
-          time: {
-            $add: [ "$_id.time", { $toInt: "$records.k" } ]
-          },
-          record: "$records.v"
-        }
-      },
-      {
-        $match: {
-          time: {
-            $gt: options.startTime,
-            $lt: options.endTime
-          }
-        }
-      },
-      {
-        $bucketAuto: {
-          groupBy: "$_id.time",
-          buckets: options.buckets,
-          output: output
-        }
-      }
-    ];
+    q = couchbase.N1qlQuery.fromString(q);
+    let req = await this.couchbaseBucket.query(q, {
+      device: options.device,
+      startTime: options.startTime.getTime(),
+      endTime: options.endTime.getTime(),
+      bin: bin
+    });  
 
     return await new Promise((resolve, reject) => {
       let count = 0;
 
-      coll.aggregate(stages, { allowDiskUse: true }).forEach((doc) => {
-        ++count;
-      }, (err) => {
-        if (err)
-          return reject();
-
+      req.on('row', (row) => {
+        count++;
+      });
+      req.on('error', (err) => {
+        reject(err);
+      });
+      req.on('end', (meta) => {
         resolve(count);
       });
-    });*/
+    });
   }
 
   async queryTimeComplexRangeBucketAvgMultiGroups(name, options, interval) {
