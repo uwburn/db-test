@@ -7,14 +7,9 @@ const bluebird = require("bluebird");
 
 const BaseSink = require(`../base/BaseSink`);
 
-function subtractDocs(o1, o2) {
-  let d = {
-    _id: o2._id
-  };
+function subtractValues(o1, o2) {
+  let d = { };
 
-  if (o1)
-    delete o1._id;
-  delete o2._id;
   let f1 = FlattenJS.convert(o1);
   let f2 = FlattenJS.convert(o2);
 
@@ -95,8 +90,11 @@ module.exports = class CouchbaseMachineSink extends BaseSink {
   }
 
   async queryIntervalRangeSingleGroup(name, options) {
-    let q = couchbase.N1qlQuery.fromString('SELECT * FROM `db-test` WHERE type = "interval" AND device = $device AND startTime <= $endTime AND endTime >= $startTime');
+    let group = options.groups[0];
+
+    let q = couchbase.N1qlQuery.fromString('SELECT * FROM `db-test` WHERE type = "interval" AND `group` = $group AND device = $device AND startTime <= $endTime AND endTime >= $startTime');
     let req = await this.couchbaseBucket.query(q, {
+      group: group,
       device: options.device,
       startTime: options.startTime.getTime(),
       endTime: options.endTime.getTime()
@@ -131,8 +129,11 @@ module.exports = class CouchbaseMachineSink extends BaseSink {
   }
 
   async queryTimeComplexRangeSingleGroup(name, options, interval) {
-    let q = couchbase.N1qlQuery.fromString('SELECT * FROM `db-test` WHERE type = "time_complex" AND device = $device AND time >= $startTime AND time <= $endTime');
+    let group = options.groups[0];
+
+    let q = couchbase.N1qlQuery.fromString('SELECT * FROM `db-test` WHERE type = "time_complex" AND `group` = $group AND device = $device AND time >= $startTime AND time <= $endTime');
     let req = await this.couchbaseBucket.query(q, {
+      group: group,
       device: options.device,
       startTime: options.startTime.getTime(),
       endTime: options.endTime.getTime()
@@ -177,10 +178,11 @@ module.exports = class CouchbaseMachineSink extends BaseSink {
       let path = select[k];
       q += ` AVG(\`value\`.${path}) AS avg_${path}, COUNT(\`value\`.${path}) AS count_${path}`
     }
-    q += ' FROM `db-test` WHERE type = "time_complex" AND device = $device AND time <= $endTime AND time >= $startTime GROUP BY FLOOR(time / $bin)';
+    q += ' FROM `db-test` WHERE type = "time_complex" AND `group` = $group AND device = $device AND time <= $endTime AND time >= $startTime GROUP BY FLOOR(time / $bin)';
 
     q = couchbase.N1qlQuery.fromString(q);
     let req = await this.couchbaseBucket.query(q, {
+      group: group,
       device: options.device,
       startTime: options.startTime.getTime(),
       endTime: options.endTime.getTime(),
@@ -216,104 +218,70 @@ module.exports = class CouchbaseMachineSink extends BaseSink {
   }
 
   async queryTimeComplexDifferenceSingleGroup(name, options, interval) {
-    /*let group = options.groups[0];
-    let coll = this.db.collection(`${group}_time_complex`);
+    let group = options.groups[0];
 
-    let bucketTime = chooseBucketTime(interval);
+    let qAsc = couchbase.N1qlQuery.fromString("SELECT * FROM `db-test` WHERE type = 'time_complex' AND `group` = $group AND device = $device AND time >= $startTime AND time <= $endTime ORDER BY time ASC LIMIT 1");
+    let qDesc = couchbase.N1qlQuery.fromString("SELECT * FROM `db-test` WHERE type = 'time_complex' AND `group` = $group AND device = $device AND time >= $startTime AND time <= $endTime ORDER BY time DESC LIMIT 1");
+
     let promises = [];
     for (let i = 0; i < options.times.length -1; ++i) {
-      let oStartTime = options.times[i].getTime();
-      let oEndTime = options.times[i + 1].getTime();
+      let startTime = options.times[i];
+      let endTime = options.times[i + 1];
 
-      let startTime = oStartTime - (oStartTime % bucketTime);
-      let endTime = oEndTime - (oEndTime % bucketTime);
-      if (endTime < oEndTime)
-        endTime += bucketTime;
+      promises.push(this.couchbaseBucket.queryAsync(qAsc, {
+        group: group,
+        device: options.device,
+        startTime: startTime.getTime(),
+        endTime: endTime.getTime()
+      }));
 
-      let _group = {
-        _id: "$_id.device"
-      };
-      let select = options.select[group];
-      let hasPath = false;
-      for (let k in select) {
-        let path = select[k];
-        hasPath = true;
-        _group[path + "_first"] = {$first: "$record." + path};
-        _group[path + "_last"] = {$last: "$record." + path};
-      }
-      if (!hasPath) {
-        _group["_first"] = {$first: "$record"};
-        _group["_last"] = {$last: "$record"};
-      }
-
-      let stages = [
-        {
-          $match: {
-            "_id.device": Binary(uuidParse.parse(options.device, Buffer.allocUnsafe(16)), Binary.SUBTYPE_UUID),
-            "_id.time": {
-              $gt: new Date(startTime),
-              $lt: new Date(endTime)
-            }
-          }
-        },
-        {
-          $project: {
-            _id: 1,
-            records: { $objectToArray: "$records" }
-          }
-        },
-        {
-          $unwind: "$records"
-        },
-        {
-          $project: {
-            time: {
-              $add: [ "$_id.time", { $toInt: "$records.k" } ]
-            },
-            record: "$records.v"
-          }
-        },
-        {
-          $match: {
-            time: {
-              $gt: options.times[i],
-              $lt: options.times[i+1]
-            }
-          }
-        },
-        {
-          $group: _group
-        }
-      ];
-
-      promises.push(coll.aggregate(stages, { allowDiskUse: true }).toArray());
+      promises.push(this.couchbaseBucket.queryAsync(qDesc, {
+        group: group,
+        device: options.device,
+        startTime: startTime.getTime(),
+        endTime: endTime.getTime()
+      }));
     }
 
     let results = await Promise.all(promises);
 
-    let subs = results.map((result) => {
-      result = result[0];
-
-      let o1 = {};
-      let o2 = {};
-      let sub = {};
-      for (let k in result) {
-        if (k === "_first")
-          o1.record = result[k];
-        else if (k.endsWith("_first"))
-          o1[k.substring(0, k.length - 6)] = result[k];
-        else if (k === "_last")
-          o2.record = result[k];
-        else if (k.endsWith("_last"))
-          o2[k.substring(0, k.length - 5)] = result[k];
-        else
-          sub[k] = result[k];
+    let subs = [];
+    for (let i = 0; i < results.length -1; ++i) {
+      let first;
+      let firstValue;
+      if (results[i][0]) {
+        first = results[i][0]["db-test"];
+        firstValue = first.value;
+      }
+      else {
+        first = {};
+        firstValue = {};
       }
 
-      return _.assign(sub, subtractDocs(o1, o2));
-    });
+      let last;
+      let lastValue;
+      if (results[i + 1][0]) {
+        last = results[i + 1][0]["db-test"];
+        lastValue = last.value;
+      }
+      else {
+        last = {};
+        lastValue = {};
+      }
 
-    return subs.length;*/
+      let sub = {
+        deviceType: first.device_type,
+        device: first.device,
+        group: first.group,
+        startTime: first.timestamp,
+        endTime: last.timestamp,
+        value: subtractValues(firstValue, lastValue)
+      };
+
+      subs.push(sub);
+    }
+
+    return subs.length;
   }
 
   async queryTimeComplexDifferenceMultiGroups(name, options, interval) {
