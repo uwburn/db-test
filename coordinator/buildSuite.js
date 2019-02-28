@@ -116,11 +116,11 @@ function buildMachineDataSuite(database, databaseOpts, suiteOptions) {
     async prepareDatabase() {
       switch (database) {
         case `mongo`:
-          return await prepareMachineDataMongoB(databaseOpts);
+          return await prepareMachineDataMongo(databaseOpts);
         case `cassandra`:
-          return await prepareMachineDataCassandraA(databaseOpts);
+          return await prepareMachineDataCassandra(databaseOpts);
         case "couchbase":
-          return await prepareMachineDataCouchbaseA(databaseOpts);
+          return await prepareMachineDataCouchbase(databaseOpts);
       }
     }
   };
