@@ -5,7 +5,6 @@ services:
     networks: 
       cassandra:
   worker:
-    image: localhost:5000/db-test_worker
     deploy:
       replicas: 8
     networks:
