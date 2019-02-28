@@ -128,7 +128,7 @@ module.exports = class CouchbaseMachineSink extends BaseSink {
       return await this.queryTimeComplexRangeMultiGroups(name, options, interval);
   }
 
-  async queryTimeComplexRangeSingleGroup(name, options, interval) {
+  async queryTimeComplexRangeSingleGroup(name, options) {
     let group = options.groups[0];
 
     let q = couchbase.N1qlQuery.fromString('SELECT * FROM `db-test` WHERE type = "time_complex" AND `group` = $group AND device = $device AND time >= $startTime AND time <= $endTime');
@@ -167,7 +167,7 @@ module.exports = class CouchbaseMachineSink extends BaseSink {
       return await this.queryTimeComplexRangeBucketAvgMultiGroups(name, options, interval);
   }
 
-  async queryTimeComplexRangeBucketAvgSingleGroup(name, options, interval) {
+  async queryTimeComplexRangeBucketAvgSingleGroup(name, options) {
     let group = options.groups[0];
 
     let bin = Math.floor((options.endTime.getTime() - options.startTime.getTime()) / options.buckets);
@@ -217,7 +217,7 @@ module.exports = class CouchbaseMachineSink extends BaseSink {
       return await this.queryTimeComplexDifferenceMultiGroups(name, options, interval);
   }
 
-  async queryTimeComplexDifferenceSingleGroup(name, options, interval) {
+  async queryTimeComplexDifferenceSingleGroup(name, options) {
     let group = options.groups[0];
 
     let qAsc = couchbase.N1qlQuery.fromString("SELECT * FROM `db-test` WHERE type = 'time_complex' AND `group` = $group AND device = $device AND time >= $startTime AND time <= $endTime ORDER BY time ASC LIMIT 1");
@@ -297,80 +297,29 @@ module.exports = class CouchbaseMachineSink extends BaseSink {
       return await this.queryTimeComplexLastBeforeMultiGroups(name, options, interval);
   }
 
-  async queryTimeComplexLastBeforeSingleGroup(name, options, interval) {
-    /*let group = options.groups[0];
-    let coll = this.db.collection(`${group}_time_complex`);
+  async queryTimeComplexLastBeforeSingleGroup(name, options) {
+    let group = options.groups[0];
 
-    let oTime = options.time.getTime();
-
-    let bucketTime = chooseBucketTime(interval);
-    let time = oTime - (oTime % bucketTime);
-    if (time < oTime)
-      time += bucketTime;
-
-    let stages = [
-      {
-        $match: {
-          "_id.device": Binary(uuidParse.parse(options.device, Buffer.allocUnsafe(16)), Binary.SUBTYPE_UUID),
-          "_id.time": {
-            $lt: new Date(time)
-          }
-        }
-      },
-      {
-        $sort: {
-          "_id.time": -1
-        }
-      },
-      {
-        $limit: 1
-      },
-      {
-        $project: {
-          _id: 1,
-          records: { $objectToArray: "$records" }
-        }
-      },
-      {
-        $unwind: "$records"
-      },
-      {
-        $project: {
-          time: {
-            $add: [ "$_id.time", { $toInt: "$records.k" } ]
-          },
-          record: "$records.v"
-        }
-      },
-      {
-        $match: {
-          time: {
-            $lt: options.time
-          }
-        }
-      },
-      {
-        $sort: {
-          time: -1
-        }
-      },
-      {
-        $limit: 1
-      }
-    ];
+    let q = couchbase.N1qlQuery.fromString('SELECT * FROM `db-test` WHERE type = "time_complex" AND `group` = $group AND device = $device AND time <= $time ORDER BY time DESC LIMIT 1');
+    let req = await this.couchbaseBucket.query(q, {
+      group: group,
+      device: options.device,
+      time: options.time.getTime()
+    });  
 
     return await new Promise((resolve, reject) => {
       let count = 0;
 
-      let cursor = coll.aggregate(stages, { allowDiskUse: true }).forEach((doc) => {
-        count++
-      }, (err) => {
-        if (err)
-          return reject();
-
+      req.on('row', (row) => {
+        count++;
+      });
+      req.on('error', (err) => {
+        reject(err);
+      });
+      req.on('end', (meta) => {
         resolve(count);
       });
-    });*/
+    });
   }
 
   async queryTimeComplexLastBeforeMultiGroups(name, options, interval) {
@@ -386,117 +335,62 @@ module.exports = class CouchbaseMachineSink extends BaseSink {
       return await this.queryTimeComplexTopDifferenceMultiGroups(name, options, interval);
   }
 
-  async queryTimeComplexTopDifferenceSingleGroup(name, options, interval) {
-    /*let group = options.groups[0];
-    let coll = this.db.collection(`${group}_time_complex`);
+  async queryTimeComplexTopDifferenceSingleGroup(name, options) {
+    let group = options.groups[0];
+    let sorts = options.sort[group];
 
-    let oStartTime = options.startTime.getTime();
-    let oEndTime = options.endTime.getTime();
+    let q = couchbase.N1qlQuery.fromString('SELECT device, MIN(time) AS min_time, MAX(time) AS max_time FROM `db-test` WHERE type = "time_complex" AND `group` = $group AND time >= $startTime AND time <= $endTime  GROUP BY device;');
+    let boundaries = await this.couchbaseBucket.queryAsync(q, {
+      group: group,
+      startTime: options.startTime.getTime(),
+      endTime: options.endTime.getTime()
+    });
 
-    let bucketTime = chooseBucketTime(interval);
-    let startTime = oStartTime - (oStartTime % bucketTime);
-    let endTime = oEndTime - (oEndTime % bucketTime);
-    if (endTime < oEndTime)
-      endTime += bucketTime;
+    q = couchbase.N1qlQuery.fromString('SELECT * FROM `db-test` WHERE type = "time_complex" AND `group` = $group AND device = $device AND time = $time;');
 
-    let _group = {
-      _id: "$_id.device"
-    };
-    let select = options.select[group];
-    let hasPath = false;
-    for (let k in select) {
-      let path = select[k];
-      hasPath = true;
-      _group[path + "_first"] = {$first: "$record." + path};
-      _group[path + "_last"] = {$last: "$record." + path};
+    let promises = [];
+    for (let boundary of boundaries) {
+      promises.push(this.couchbaseBucket.queryAsync(q, {
+        group: group,
+        device: boundary.device,
+        time: boundary.min_time
+      }));
+
+      promises.push(this.couchbaseBucket.queryAsync(q, {
+        group: group,
+        device: boundary.device,
+        time: boundary.max_time
+      }));
     }
-    if (!hasPath) {
-      _group["_first"] = {$first: "$record"};
-      _group["_last"] = {$last: "$record"};
-    }
 
-    let stages = [
-      {
-        $match: {
-          "_id.time": {
-            $gt: new Date(startTime),
-            $lt: new Date(endTime)
-          }
-        }
-      },
-      {
-        $project: {
-          _id: 1,
-          records: { $objectToArray: "$records" }
-        }
-      },
-      {
-        $unwind: "$records"
-      },
-      {
-        $project: {
-          time: {
-            $add: [ "$_id.time", { $toInt: "$records.k" } ]
-          },
-          record: "$records.v"
-        }
-      },
-      {
-        $match: {
-          time: {
-            $gt: options.startTime,
-            $lt: options.endTime
-          }
-        }
-      },
-      {
-        $group: _group
-      }
-    ];
+    let results = await Promise.all(promises);
 
     let subs = [];
-    await new Promise((resolve, reject) => {
-      coll.aggregate(stages, { allowDiskUse: true }).forEach((doc) => {
-        let o1 = {};
-        let o2 = {};
-        let sub = {};
-        for (let k in doc) {
-          if (k === "_first")
-            o1.record = doc[k];
-          else if (k.endsWith("_first"))
-            o1[k.substring(0, k.length - 6)] = doc[k];
-          else if (k === "_last")
-            o2.record = doc[k];
-          else if (k.endsWith("_last"))
-            o2[k.substring(0, k.length - 5)] = doc[k];
-          else
-            sub[k] = doc[k];
-        }
+    for (let i = 0; i < results.length; i += 2) {
+      let first = results[i][0]["db-test"];
+      let last = results[i + 1][0]["db-test"];
 
-        subs.push(_.assign(sub, subtractDocs(o1, o2)));
-      }, (err) => {
-        if (err)
-          return reject();
+      let sub = {
+        deviceType: first.device_type,
+        device: first.device,
+        group: first.group,
+        value: subtractValues(first.value, last.value)
+      };
 
-        resolve();
-      });
-    });
+      subs.push(sub);
+    }
 
     let iteratees = [];
     let orders = [];
-    for (let k in options.sort) {
-      let group = options.sort[k];
-
-      for (let path in group) {
-        iteratees.push(k + "." + path);
-        orders.push(group[path]);
-      }
+    for (let path in sorts) {
+      iteratees.push("value." + path);
+      orders.push(group[path]);
     }
 
     let tops = _.orderBy(subs, iteratees, orders);
     tops = tops.slice(0, options.limit);
 
-    return tops.length;*/
+    return tops.length;
   }
 
   async queryTimeComplexTopDifferenceMultiGroups(name, options, interval) {
@@ -513,46 +407,29 @@ module.exports = class CouchbaseMachineSink extends BaseSink {
   }
 
   async queryIntervalTopCountSingleGroup(name, options) {
-    /*let group = options.groups[0];
-    let coll = this.db.collection(`${group}_interval`);
+    let group = options.groups[0];
 
-    options.select = options.select || {};
-
-    let stages = [
-      {
-        $match: {
-          startTime: { $lt: options.endTime },
-          endTime: { $gt: options.startTime }
-        }
-      },
-      {
-        $group: {
-          _id: "$device",
-          count: { $sum: 1 }
-        }
-      },
-      {
-        $sort: {
-          count: -1
-        }
-      },
-      {
-        $limit : options.limit
-      }
-    ];
+    let q = couchbase.N1qlQuery.fromString('SELECT device, COUNT(*) c FROM `db-test` WHERE type = "interval" AND `group` = $group AND startTime <= $endTime AND endTime >= $startTime GROUP BY device ORDER BY c DESC LIMIT $limit');
+    let req = await this.couchbaseBucket.query(q, {
+      group: group,
+      startTime: options.startTime.getTime(),
+      endTime: options.endTime.getTime(),
+      limit: options.limit
+    });  
 
     return await new Promise((resolve, reject) => {
       let count = 0;
 
-      coll.aggregate(stages, { allowDiskUse: true }).forEach((doc) => {
-        ++count;
-      }, (err) => {
-        if (err)
-          return reject();
-
+      req.on('row', (row) => {
+        count++;
+      });
+      req.on('error', (err) => {
+        reject(err);
+      });
+      req.on('end', (meta) => {
         resolve(count);
       });
-    });*/
+    });
   }
 
   async queryIntervalTopCountMultiGroups(name, options) {
