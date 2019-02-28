@@ -41,7 +41,7 @@ module.exports = class CouchbaseMachineSink extends BaseSink {
   }
 
   async init() {
-    this.couchbaseCluster = new couchbase.Cluster('couchbase://localhost');
+    this.couchbaseCluster = new couchbase.Cluster(this.databaseOpts.url);
     this.couchbaseCluster.authenticate(this.databaseOpts.username, this.databaseOpts.password);
     bluebird.promisifyAll(this.couchbaseCluster);
 
