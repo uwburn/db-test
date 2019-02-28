@@ -1,5 +1,5 @@
 {
-  "database": "couchbaseA",
+  "database": "couchbase",
   "databaseOpts": {
     "setupCluster": true,
     "url": "couchbase://localhost/",

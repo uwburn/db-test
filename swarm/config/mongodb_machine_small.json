@@ -1,5 +1,5 @@
 {
-  "database": "mongoB",
+  "database": "mongo",
   "databaseOpts": {
     "url": "mongodb://mongodb1:27017,mongodb2:27017,mongodb3:27017?replicaSet=rs0&readPreference=secondaryPreferred",
     "options": {

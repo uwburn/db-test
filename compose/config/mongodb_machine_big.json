@@ -1,5 +1,5 @@
 {
-  "database": "mongoB",
+  "database": "mongo",
   "databaseOpts": {
     "url": "mongodb://mongodb:27017",
     "options": {

@@ -115,13 +115,11 @@ function buildMachineDataSuite(database, databaseOpts, suiteOptions) {
     },
     async prepareDatabase() {
       switch (database) {
-        case `mongoA`:
-          return await prepareMachineDataMongoA(databaseOpts);
-        case `mongoB`:
+        case `mongo`:
           return await prepareMachineDataMongoB(databaseOpts);
-        case `cassandraA`:
+        case `cassandra`:
           return await prepareMachineDataCassandraA(databaseOpts);
-        case "couchbaseA":
+        case "couchbase":
           return await prepareMachineDataCouchbaseA(databaseOpts);
       }
     }
@@ -129,36 +127,7 @@ function buildMachineDataSuite(database, databaseOpts, suiteOptions) {
 
 }
 
-async function prepareMachineDataMongoA(databaseOpts) {
-  console.log(`Waiting for MongoDB`);
-  let mongoClient;
-  while (true) {
-    try {
-      mongoClient = await MongoClient.connect(databaseOpts.url, databaseOpts.options);
-      break;
-    } catch (err) { }
-  }
-
-  console.log(`Preparing db, collections and indexes`);
-  let db = mongoClient.db(`db-test`);
-  let timeComplexColl = db.collection(`timeComplex`);
-  let intervalColl = db.collection(`interval`);
-
-  await timeComplexColl.createIndex({ "_id.device": 1 });
-  await timeComplexColl.createIndex({ "_id.time": 1 });
-  await timeComplexColl.createIndex({ "_id.device": 1, "_id.time": 1 });
-  await timeComplexColl.createIndex({ "_id.device": 1, "_id.time": -1 });
-
-  await intervalColl.createIndex({ device: 1 });
-  await intervalColl.createIndex({ startTime: 1 });
-  await intervalColl.createIndex({ endTime: 1 });
-  await intervalColl.createIndex({ startTime: 1, endTime: -1 });
-  await intervalColl.createIndex({ device: 1, startTime: 1, endTime: -1 });
-
-  mongoClient.close();
-}
-
-async function prepareMachineDataMongoB(databaseOpts) {
+async function prepareMachineDataMongo(databaseOpts) {
   console.log(`Waiting for MongoDB`);
   let mongoClient;
   while (true) {
@@ -171,7 +140,7 @@ async function prepareMachineDataMongoB(databaseOpts) {
   mongoClient.close();
 }
 
-async function prepareMachineDataCassandraA(databaseOpts) {
+async function prepareMachineDataCassandra(databaseOpts) {
   let cassandraClient = new cassandra.Client(databaseOpts);
 
   console.log(`Waiting for Cassandra`);
@@ -193,7 +162,7 @@ async function prepareMachineDataCassandraA(databaseOpts) {
   await cassandraClient.shutdown();
 }
 
-async function prepareMachineDataCouchbaseA(databaseOpts) {
+async function prepareMachineDataCouchbase(databaseOpts) {
   console.log(`Waiting for Couchbase`);
 
   if (databaseOpts.setupCluster) {
