@@ -671,7 +671,7 @@ module.exports = class MidMachineSource {
       name: "OLD_SETUP",
       type: "TIME_COMPLEX_LAST_BEFORE",
       options: {
-        groups: "setup",
+        group: "setup",
         deviceType: this.workloadOpts.machineTypeId,
         device: this.workloadOpts.machines[machineIndex],
         time: new Date(yearTime + (nowTime - yearTime) * Math.random())
@@ -686,7 +686,7 @@ module.exports = class MidMachineSource {
       type: "TIME_COMPLEX_TOP_DIFFERENCE",
       options: {
         deviceType: this.workloadOpts.machineTypeId,
-        groups: "counters",
+        group: "counters",
         sort: { "totalWorkedTime": -1},
         limit: 10,
         startTime: new Date(absDate.getTime() - 86400000),
@@ -702,7 +702,7 @@ module.exports = class MidMachineSource {
       type: "INTERVAL_TOP_COUNT",
       options: {
         deviceType: this.workloadOpts.machineTypeId,
-        groups: "alarm",
+        group: "alarm",
         limit: 10,
         startTime: new Date(absDate.getTime() - 86400000),
         endTime: absDate
@@ -718,7 +718,7 @@ module.exports = class MidMachineSource {
       name: "LAST_DAY_STATUS_AGGR",
       type: "TIME_COMPLEX_RANGE_BUCKET_AVG",
       options: {
-        groups: "status",
+        group: "status",
         select: ["current"],
         deviceType: this.workloadOpts.machineTypeId,
         device: this.workloadOpts.machines[machineIndex],

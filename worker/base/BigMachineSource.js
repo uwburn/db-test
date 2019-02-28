@@ -661,7 +661,7 @@ module.exports = class BigMachineSource {
       name: "OLD_MACHINE_STATUS",
       type: "TIME_COMPLEX_LAST_BEFORE",
       options: {
-        groups: "status",
+        group: "status",
         deviceType: this.workloadOpts.machineTypeId,
         device: this.workloadOpts.machines[machineIndex],
         time: new Date(yearTime + (nowTime - yearTime) * Math.random())
