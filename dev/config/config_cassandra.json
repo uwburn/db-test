@@ -1,0 +1,17 @@
+{
+  "database": "cassandra",
+  "databaseOpts": {
+    "contactPoints": [
+      "localhost"
+    ],
+    "replicationFactor": 3
+  },
+  "suite": "MachineData",
+  "suiteOpts": {
+    "machineSize": "Small",
+    "machines": 16,
+    "startYear": 2010,
+    "years": 3,
+    "machineUptime": 0.9
+  }
+}

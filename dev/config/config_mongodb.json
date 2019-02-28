@@ -1,0 +1,17 @@
+{
+  "database": "mongo",
+  "databaseOpts": {
+    "url": "mongodb://localhost:27017",
+    "options": {
+      "useNewUrlParser": true
+    }
+  },
+  "suite": "MachineData",
+  "suiteOpts": {
+    "machineSize": "Small",
+    "machines": 16,
+    "startYear": 2010,
+    "years": 3,
+    "machineUptime": 0.9
+  }
+}
