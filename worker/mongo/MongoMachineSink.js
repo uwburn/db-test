@@ -109,17 +109,7 @@ module.exports = class MongoMachineSink extends BaseSink {
   }
 
   async queryIntervalRange(name, options) {
-    options.select = options.select || {};
-
-    if (options.groups.length === 1)
-      return await this.queryIntervalRangeSingleGroup(name, options);
-    else
-      return await this.queryIntervalRangeMultipleGroups(name, options);
-  }
-
-  async queryIntervalRangeSingleGroup(name, options) {
-    let group = options.groups[0];
-    let coll = this.db.collection(`${group}_interval`);
+    let coll = this.db.collection(`${options.group}_interval`);
 
     let criteria = {
       device: Binary(uuidParse.parse(options.device, Buffer.allocUnsafe(16)), Binary.SUBTYPE_UUID),
@@ -141,22 +131,8 @@ module.exports = class MongoMachineSink extends BaseSink {
     });
   }
 
-  async queryIntervalRangeMultipleGroups(name, options) {
-    throw new Error("Currently not supported, as no query requires it");
-  }
-
   async queryTimeComplexRange(name, options, interval) {
-    options.select = options.select || {};
-
-    if (options.groups.length === 1)
-      return await this.queryTimeComplexRangeSingleGroup(name, options, interval);
-    else
-      return await this.queryTimeComplexRangeMultiGroups(name, options, interval);
-  }
-
-  async queryTimeComplexRangeSingleGroup(name, options, interval) {
-    let group = options.groups[0];
-    let coll = this.db.collection(`${group}_time_complex`);
+    let coll = this.db.collection(`${options.group}_time_complex`);
 
     let oStartTime = options.startTime.getTime();
     let oEndTime = options.endTime.getTime();
@@ -204,10 +180,23 @@ module.exports = class MongoMachineSink extends BaseSink {
       }
     ];
 
+    if (options.select) {
+      let project = {
+        time: 1
+      };
+
+      for (let s of select)
+        _.set(project, `$record.${s}`, 1);
+
+      stages.push({
+        $project: project
+      });
+    }
+
     return await new Promise((resolve, reject) => {
       let count = 0;
 
-      let cursor = coll.aggregate(stages, { allowDiskUse: true }).forEach((doc) => {
+      coll.aggregate(stages, { allowDiskUse: true }).forEach((doc) => {
         count++
       }, (err) => {
         if (err)
@@ -218,22 +207,11 @@ module.exports = class MongoMachineSink extends BaseSink {
     });
   }
 
-  async queryTimeComplexRangeMultiGroups(name, options, interval) {
-    throw new Error("Currently not supported, as no query requires it");
-  }
-
   async queryTimeComplexRangeBucketAvg(name, options, interval) {
-    options.select = options.select || {};
-
-    if (options.groups.length === 1)
-      return await this.queryTimeComplexRangeBucketAvgSingleGroup(name, options, interval);
-    else
-      return await this.queryTimeComplexRangeBucketAvgMultiGroups(name, options, interval);
-  }
-
-  async queryTimeComplexRangeBucketAvgSingleGroup(name, options, interval) {
-    let group = options.groups[0];
-    let coll = this.db.collection(`${group}_time_complex`);
+    if (!options.select || options.select.length === 0)
+      throw new Error("Selection is required");
+    
+    let coll = this.db.collection(`${options.group}_time_complex`);
 
     let oStartTime = options.startTime.getTime();
     let oEndTime = options.endTime.getTime();
@@ -247,12 +225,8 @@ module.exports = class MongoMachineSink extends BaseSink {
     let output = {
       count: { $sum: 1 }
     };
-
-    let select = options.select[group];
-    for (let k in select) {
-      let path = select[k];
-      output[path] =  { $avg: `$record.${path}` };
-    }
+    for (let s of options.select)
+      output[s] =  { $avg: `$record.${s}` };
 
     let stages = [
       {
@@ -312,22 +286,10 @@ module.exports = class MongoMachineSink extends BaseSink {
     });
   }
 
-  async queryTimeComplexRangeBucketAvgMultiGroups(name, options, interval) {
-    throw new Error("Currently not supported, as no query requires it");
-  }
-
   async queryTimeComplexDifference(name, options, interval) {
     options.select = options.select || {};
 
-    if (options.groups.length === 1)
-      return await this.queryTimeComplexDifferenceSingleGroup(name, options, interval);
-    else
-      return await this.queryTimeComplexDifferenceMultiGroups(name, options, interval);
-  }
-
-  async queryTimeComplexDifferenceSingleGroup(name, options, interval) {
-    let group = options.groups[0];
-    let coll = this.db.collection(`${group}_time_complex`);
+    let coll = this.db.collection(`${options.group}_time_complex`);
 
     let bucketTime = chooseBucketTime(interval);
     let promises = [];
@@ -341,20 +303,10 @@ module.exports = class MongoMachineSink extends BaseSink {
         endTime += bucketTime;
 
       let _group = {
-        _id: "$_id.device"
+        _id: "$_id.device",
+        _first: {$first: "$record"},
+        _last: {$last: "$record"}
       };
-      let select = options.select[group];
-      let hasPath = false;
-      for (let k in select) {
-        let path = select[k];
-        hasPath = true;
-        _group[path + "_first"] = {$first: "$record." + path};
-        _group[path + "_last"] = {$last: "$record." + path};
-      }
-      if (!hasPath) {
-        _group["_first"] = {$first: "$record"};
-        _group["_last"] = {$last: "$record"};
-      }
 
       let stages = [
         {
@@ -426,22 +378,8 @@ module.exports = class MongoMachineSink extends BaseSink {
     return subs.length;
   }
 
-  async queryTimeComplexDifferenceMultiGroups(name, options, interval) {
-    throw new Error("Currently not supported, as no query requires it");
-  }
-
   async queryTimeComplexLastBefore(name, options, interval) {
-    options.select = options.select || {};
-
-    if (options.groups.length === 1)
-      return await this.queryTimeComplexLastBeforeSingleGroup(name, options, interval);
-    else
-      return await this.queryTimeComplexLastBeforeMultiGroups(name, options, interval);
-  }
-
-  async queryTimeComplexLastBeforeSingleGroup(name, options, interval) {
-    let group = options.groups[0];
-    let coll = this.db.collection(`${group}_time_complex`);
+    let coll = this.db.collection(`${options.group}_time_complex`);
 
     let oTime = options.time.getTime();
 
@@ -504,7 +442,7 @@ module.exports = class MongoMachineSink extends BaseSink {
     return await new Promise((resolve, reject) => {
       let count = 0;
 
-      let cursor = coll.aggregate(stages, { allowDiskUse: true }).forEach((doc) => {
+      coll.aggregate(stages, { allowDiskUse: true }).forEach((doc) => {
         count++
       }, (err) => {
         if (err)
@@ -515,22 +453,10 @@ module.exports = class MongoMachineSink extends BaseSink {
     });
   }
 
-  async queryTimeComplexLastBeforeMultiGroups(name, options, interval) {
-    throw new Error("Currently not supported, as no query requires it");
-  }
-
   async queryTimeComplexTopDifference(name, options, interval) {
     options.select = options.select || {};
 
-    if (options.groups.length === 1)
-      return await this.queryTimeComplexTopDifferenceSingleGroup(name, options, interval);
-    else
-      return await this.queryTimeComplexTopDifferenceMultiGroups(name, options, interval);
-  }
-
-  async queryTimeComplexTopDifferenceSingleGroup(name, options, interval) {
-    let group = options.groups[0];
-    let coll = this.db.collection(`${group}_time_complex`);
+    let coll = this.db.collection(`${options.group}_time_complex`);
 
     let oStartTime = options.startTime.getTime();
     let oEndTime = options.endTime.getTime();
@@ -542,20 +468,10 @@ module.exports = class MongoMachineSink extends BaseSink {
       endTime += bucketTime;
 
     let _group = {
-      _id: "$_id.device"
+      _id: "$_id.device",
+      _first: {$first: "$record"},
+      _last: {$last: "$record"}
     };
-    let select = options.select[group];
-    let hasPath = false;
-    for (let k in select) {
-      let path = select[k];
-      hasPath = true;
-      _group[path + "_first"] = {$first: "$record." + path};
-      _group[path + "_last"] = {$last: "$record." + path};
-    }
-    if (!hasPath) {
-      _group["_first"] = {$first: "$record"};
-      _group["_last"] = {$last: "$record"};
-    }
 
     let stages = [
       {
@@ -627,12 +543,8 @@ module.exports = class MongoMachineSink extends BaseSink {
     let iteratees = [];
     let orders = [];
     for (let k in options.sort) {
-      let group = options.sort[k];
-
-      for (let path in group) {
-        iteratees.push(k + "." + path);
-        orders.push(group[path]);
-      }
+      iteratees.push(k);
+      orders.push(options.sort[k]);
     }
 
     let tops = _.orderBy(subs, iteratees, orders);
@@ -641,24 +553,8 @@ module.exports = class MongoMachineSink extends BaseSink {
     return tops.length;
   }
 
-  async queryTimeComplexTopDifferenceMultiGroups(name, options, interval) {
-    throw new Error("Currently not supported, as no query requires it");
-  }
-
   async queryIntervalTopCount(name, options) {
-    options.select = options.select || {};
-
-    if (options.groups.length === 1)
-      return await this.queryIntervalTopCountSingleGroup(name, options);
-    else
-      return await this.queryIntervalTopCountMultiGroups(name, options);
-  }
-
-  async queryIntervalTopCountSingleGroup(name, options) {
-    let group = options.groups[0];
-    let coll = this.db.collection(`${group}_interval`);
-
-    options.select = options.select || {};
+    let coll = this.db.collection(`${options.group}_interval`);
 
     let stages = [
       {
@@ -695,10 +591,6 @@ module.exports = class MongoMachineSink extends BaseSink {
         resolve(count);
       });
     });
-  }
-
-  async queryIntervalTopCountMultiGroups(name, options) {
-    throw new Error("Currently not supported, as no query requires it");
   }
 
   async record(id, groupName, sample, interval) {

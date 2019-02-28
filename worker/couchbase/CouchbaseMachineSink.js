@@ -81,20 +81,9 @@ module.exports = class CouchbaseMachineSink extends BaseSink {
   }
 
   async queryIntervalRange(name, options) {
-    options.select = options.select || {};
-
-    if (options.groups.length === 1)
-      return await this.queryIntervalRangeSingleGroup(name, options);
-    else
-      return await this.queryIntervalRangeMultipleGroups(name, options);
-  }
-
-  async queryIntervalRangeSingleGroup(name, options) {
-    let group = options.groups[0];
-
     let q = couchbase.N1qlQuery.fromString('SELECT * FROM `db-test` WHERE type = "interval" AND `group` = $group AND device = $device AND startTime <= $endTime AND endTime >= $startTime');
     let req = await this.couchbaseBucket.query(q, {
-      group: group,
+      group: options.group,
       device: options.device,
       startTime: options.startTime.getTime(),
       endTime: options.endTime.getTime()
@@ -115,25 +104,21 @@ module.exports = class CouchbaseMachineSink extends BaseSink {
     });
   }
 
-  async queryIntervalRangeMultipleGroups(name, options) {
-    throw new Error("Currently not supported, as no query requires it");
-  }
+  async queryTimeComplexRange(name, options) {
+    let q = 'SELECT'; 
+    if (options.select && options.select.length > 0) {
+      q += " time"
+      for (let s of options.select)
+        q += `, \`value\`.${s}`
+    }
+    else {
+      q += " *"
+    }
+    q += ' FROM `db-test` WHERE type = "time_complex" AND `group` = $group AND device = $device AND time >= $startTime AND time <= $endTime';
 
-  async queryTimeComplexRange(name, options, interval) {
-    options.select = options.select || {};
-
-    if (options.groups.length === 1)
-      return await this.queryTimeComplexRangeSingleGroup(name, options, interval);
-    else
-      return await this.queryTimeComplexRangeMultiGroups(name, options, interval);
-  }
-
-  async queryTimeComplexRangeSingleGroup(name, options) {
-    let group = options.groups[0];
-
-    let q = couchbase.N1qlQuery.fromString('SELECT * FROM `db-test` WHERE type = "time_complex" AND `group` = $group AND device = $device AND time >= $startTime AND time <= $endTime');
+    let q = couchbase.N1qlQuery.fromString(q);
     let req = await this.couchbaseBucket.query(q, {
-      group: group,
+      group: options.group,
       device: options.device,
       startTime: options.startTime.getTime(),
       endTime: options.endTime.getTime()
@@ -154,35 +139,21 @@ module.exports = class CouchbaseMachineSink extends BaseSink {
     });
   }
 
-  async queryTimeComplexRangeMultiGroups(name, options, interval) {
-    throw new Error("Currently not supported, as no query requires it");
-  }
-
-  async queryTimeComplexRangeBucketAvg(name, options, interval) {
-    options.select = options.select || {};
-
-    if (options.groups.length === 1)
-      return await this.queryTimeComplexRangeBucketAvgSingleGroup(name, options, interval);
-    else
-      return await this.queryTimeComplexRangeBucketAvgMultiGroups(name, options, interval);
-  }
-
-  async queryTimeComplexRangeBucketAvgSingleGroup(name, options) {
-    let group = options.groups[0];
+  async queryTimeComplexRangeBucketAvg(name, options) {
+    if (!options.select || options.select.length === 0)
+      throw new Error("Selection is required");
 
     let bin = Math.floor((options.endTime.getTime() - options.startTime.getTime()) / options.buckets);
 
-    let q = 'SELECT'; 
-    let select = options.select[group];
-    for (let k in select) {
-      let path = select[k];
-      q += ` AVG(\`value\`.${path}) AS avg_${path}, COUNT(\`value\`.${path}) AS count_${path}`
+    let q = 'SELECT COUNT(*)'; 
+    for (let s in options.select) {
+      q += `, AVG(\`value\`.${s}) AS avg_${s}`
     }
     q += ' FROM `db-test` WHERE type = "time_complex" AND `group` = $group AND device = $device AND time <= $endTime AND time >= $startTime GROUP BY FLOOR(time / $bin)';
 
     q = couchbase.N1qlQuery.fromString(q);
     let req = await this.couchbaseBucket.query(q, {
-      group: group,
+      group: options.group,
       device: options.device,
       startTime: options.startTime.getTime(),
       endTime: options.endTime.getTime(),
@@ -204,22 +175,7 @@ module.exports = class CouchbaseMachineSink extends BaseSink {
     });
   }
 
-  async queryTimeComplexRangeBucketAvgMultiGroups(name, options, interval) {
-    throw new Error("Currently not supported, as no query requires it");
-  }
-
-  async queryTimeComplexDifference(name, options, interval) {
-    options.select = options.select || {};
-
-    if (options.groups.length === 1)
-      return await this.queryTimeComplexDifferenceSingleGroup(name, options, interval);
-    else
-      return await this.queryTimeComplexDifferenceMultiGroups(name, options, interval);
-  }
-
-  async queryTimeComplexDifferenceSingleGroup(name, options) {
-    let group = options.groups[0];
-
+  async queryTimeComplexDifference(name, options) {
     let qAsc = couchbase.N1qlQuery.fromString("SELECT * FROM `db-test` WHERE type = 'time_complex' AND `group` = $group AND device = $device AND time >= $startTime AND time <= $endTime ORDER BY time ASC LIMIT 1");
     let qDesc = couchbase.N1qlQuery.fromString("SELECT * FROM `db-test` WHERE type = 'time_complex' AND `group` = $group AND device = $device AND time >= $startTime AND time <= $endTime ORDER BY time DESC LIMIT 1");
 
@@ -229,14 +185,14 @@ module.exports = class CouchbaseMachineSink extends BaseSink {
       let endTime = options.times[i + 1];
 
       promises.push(this.couchbaseBucket.queryAsync(qAsc, {
-        group: group,
+        group: options.group,
         device: options.device,
         startTime: startTime.getTime(),
         endTime: endTime.getTime()
       }));
 
       promises.push(this.couchbaseBucket.queryAsync(qDesc, {
-        group: group,
+        group: options.group,
         device: options.device,
         startTime: startTime.getTime(),
         endTime: endTime.getTime()
@@ -284,25 +240,10 @@ module.exports = class CouchbaseMachineSink extends BaseSink {
     return subs.length;
   }
 
-  async queryTimeComplexDifferenceMultiGroups(name, options, interval) {
-    throw new Error("Currently not supported, as no query requires it");
-  }
-
-  async queryTimeComplexLastBefore(name, options, interval) {
-    options.select = options.select || {};
-
-    if (options.groups.length === 1)
-      return await this.queryTimeComplexLastBeforeSingleGroup(name, options, interval);
-    else
-      return await this.queryTimeComplexLastBeforeMultiGroups(name, options, interval);
-  }
-
-  async queryTimeComplexLastBeforeSingleGroup(name, options) {
-    let group = options.groups[0];
-
+  async queryTimeComplexLastBefore(name, options) {
     let q = couchbase.N1qlQuery.fromString('SELECT * FROM `db-test` WHERE type = "time_complex" AND `group` = $group AND device = $device AND time <= $time ORDER BY time DESC LIMIT 1');
     let req = await this.couchbaseBucket.query(q, {
-      group: group,
+      group: options.group,
       device: options.device,
       time: options.time.getTime()
     });  
@@ -322,26 +263,10 @@ module.exports = class CouchbaseMachineSink extends BaseSink {
     });
   }
 
-  async queryTimeComplexLastBeforeMultiGroups(name, options, interval) {
-    throw new Error("Currently not supported, as no query requires it");
-  }
-
   async queryTimeComplexTopDifference(name, options, interval) {
-    options.select = options.select || {};
-
-    if (options.groups.length === 1)
-      return await this.queryTimeComplexTopDifferenceSingleGroup(name, options, interval);
-    else
-      return await this.queryTimeComplexTopDifferenceMultiGroups(name, options, interval);
-  }
-
-  async queryTimeComplexTopDifferenceSingleGroup(name, options) {
-    let group = options.groups[0];
-    let sorts = options.sort[group];
-
     let q = couchbase.N1qlQuery.fromString('SELECT device, MIN(time) AS min_time, MAX(time) AS max_time FROM `db-test` WHERE type = "time_complex" AND `group` = $group AND time >= $startTime AND time <= $endTime  GROUP BY device;');
     let boundaries = await this.couchbaseBucket.queryAsync(q, {
-      group: group,
+      group: options.group,
       startTime: options.startTime.getTime(),
       endTime: options.endTime.getTime()
     });
@@ -351,13 +276,13 @@ module.exports = class CouchbaseMachineSink extends BaseSink {
     let promises = [];
     for (let boundary of boundaries) {
       promises.push(this.couchbaseBucket.queryAsync(q, {
-        group: group,
+        group: options.group,
         device: boundary.device,
         time: boundary.min_time
       }));
 
       promises.push(this.couchbaseBucket.queryAsync(q, {
-        group: group,
+        group: options.group,
         device: boundary.device,
         time: boundary.max_time
       }));
@@ -382,9 +307,9 @@ module.exports = class CouchbaseMachineSink extends BaseSink {
 
     let iteratees = [];
     let orders = [];
-    for (let path in sorts) {
-      iteratees.push("value." + path);
-      orders.push(group[path]);
+    for (let s in options.sort) {
+      iteratees.push("value." + s);
+      orders.push(options.sort[s]);
     }
 
     let tops = _.orderBy(subs, iteratees, orders);
@@ -393,25 +318,10 @@ module.exports = class CouchbaseMachineSink extends BaseSink {
     return tops.length;
   }
 
-  async queryTimeComplexTopDifferenceMultiGroups(name, options, interval) {
-    throw new Error("Currently not supported, as no query requires it");
-  }
-
-  async queryIntervalTopCount(name, options) {
-    options.select = options.select || {};
-
-    if (options.groups.length === 1)
-      return await this.queryIntervalTopCountSingleGroup(name, options);
-    else
-      return await this.queryIntervalTopCountMultiGroups(name, options);
-  }
-
   async queryIntervalTopCountSingleGroup(name, options) {
-    let group = options.groups[0];
-
     let q = couchbase.N1qlQuery.fromString('SELECT device, COUNT(*) c FROM `db-test` WHERE type = "interval" AND `group` = $group AND startTime <= $endTime AND endTime >= $startTime GROUP BY device ORDER BY c DESC LIMIT $limit');
     let req = await this.couchbaseBucket.query(q, {
-      group: group,
+      group: options.group,
       startTime: options.startTime.getTime(),
       endTime: options.endTime.getTime(),
       limit: options.limit
@@ -430,10 +340,6 @@ module.exports = class CouchbaseMachineSink extends BaseSink {
         resolve(count);
       });
     });
-  }
-
-  async queryIntervalTopCountMultiGroups(name, options) {
-    throw new Error("Currently not supported, as no query requires it");
   }
 
   async record(id, groupName, sample, interval) {

@@ -456,7 +456,7 @@ module.exports = class BigMachineSource {
       name: "LAST_WEEK_STATES",
       type: "INTERVAL_RANGE",
       options: {
-        groups: ["state"],
+        group: "state",
         deviceType: this.workloadOpts.machineTypeId,
         device: this.workloadOpts.machines[machineIndex],
         startTime: new Date(absDate.getTime() - 604800000),
@@ -473,7 +473,7 @@ module.exports = class BigMachineSource {
       name: "LAST_WEEK_SETUPS",
       type: "INTERVAL_RANGE",
       options: {
-        groups: ["setup"],
+        group: "setup",
         deviceType: this.workloadOpts.machineTypeId,
         device: this.workloadOpts.machines[machineIndex],
         startTime: new Date(absDate.getTime() - 604800000),
@@ -490,7 +490,7 @@ module.exports = class BigMachineSource {
       name: "LAST_DAY_ALARMS",
       type: "INTERVAL_RANGE",
       options: {
-        groups: ["alarm"],
+        group: "alarm",
         deviceType: this.workloadOpts.machineTypeId,
         device: this.workloadOpts.machines[machineIndex],
         startTime: new Date(absDate.getTime() - 86400000),
@@ -507,13 +507,8 @@ module.exports = class BigMachineSource {
       name: "LAST_MONTH_MACHINE_ENERGY",
       type: "TIME_COMPLEX_RANGE",
       options: {
-        groups: ["counters"],
-        select: {
-          "counters": [
-            "activeEnergyConsumed",
-            "reactiveEnergyProduced"
-          ]
-        },
+        group: "counters",
+        select: [ "activeEnergyConsumed", "reactiveEnergyProduced" ],
         deviceType: this.workloadOpts.machineTypeId,
         device: this.workloadOpts.machines[machineIndex],
         startTime: new Date(absDate.getTime() - 2073600000),
@@ -530,7 +525,7 @@ module.exports = class BigMachineSource {
       name: "LAST_HOUR_EXTRUSION",
       type: "TIME_COMPLEX_RANGE",
       options: {
-        groups: ["extrusion"],
+        group: "extrusion",
         deviceType: this.workloadOpts.machineTypeId,
         device: this.workloadOpts.machines[machineIndex],
         startTime: new Date(absDate.getTime() - 3600000),
@@ -547,10 +542,8 @@ module.exports = class BigMachineSource {
       name: "LAST_DAY_EXTRUSION_AGGR",
       type: "TIME_COMPLEX_RANGE_BUCKET_AVG",
       options: {
-        groups: ["extrusion"],
-        select: {
-          extrusion: ["screwRpm"]
-        },
+        group: "extrusion",
+        select: ["screwRpm"],
         deviceType: this.workloadOpts.machineTypeId,
         device: this.workloadOpts.machines[machineIndex],
         startTime: new Date(absDate.getTime() - 86400000),
@@ -568,7 +561,7 @@ module.exports = class BigMachineSource {
       name: "LAST_HOUR_MOTION",
       type: "TIME_COMPLEX_RANGE",
       options: {
-        groups: ["motion"],
+        group: "motion",
         deviceType: this.workloadOpts.machineTypeId,
         device: this.workloadOpts.machines[machineIndex],
         startTime: new Date(absDate.getTime() - 3600000),
@@ -585,15 +578,8 @@ module.exports = class BigMachineSource {
       name: "LAST_DAY_MOTION_AGGR",
       type: "TIME_COMPLEX_RANGE_BUCKET_AVG",
       options: {
-        groups: ["motion"],
-        select: {
-          motion: [
-            "rpm",
-            "phase",
-            "topBearingVibration",
-            "bottomBearingVibration"
-          ]
-        },
+        group: "motion",
+        select: [ "rpm", "phase", "topBearingVibration", "bottomBearingVibration" ],
         deviceType: this.workloadOpts.machineTypeId,
         device: this.workloadOpts.machines[machineIndex],
         startTime: new Date(absDate.getTime() - 86400000),
@@ -612,7 +598,7 @@ module.exports = class BigMachineSource {
       name: "LAST_HOUR_COOLING",
       type: "TIME_COMPLEX_RANGE",
       options: {
-        groups: ["cooling"],
+        group: "cooling",
         deviceType: this.workloadOpts.machineTypeId,
         device: this.workloadOpts.machines[machineIndex],
         startTime: new Date(absDate.getTime() - 3600000),
@@ -629,10 +615,8 @@ module.exports = class BigMachineSource {
       name: "LAST_DAY_COOLING_AGGR",
       type: "TIME_COMPLEX_RANGE_BUCKET_AVG",
       options: {
-        groups: ["cooling"],
-        select: {
-          cooling: ["oilPressure"]
-        },
+        group: "cooling",
+        select: ["oilPressure"],
         deviceType: this.workloadOpts.machineTypeId,
         device: this.workloadOpts.machines[machineIndex],
         startTime: new Date(absDate.getTime() - 86400000),
@@ -659,7 +643,7 @@ module.exports = class BigMachineSource {
       name: "THIS_YEAR_MONTHLY_COUNTERS_DIFFERENCE",
       type: "TIME_COMPLEX_DIFFERENCE",
       options: {
-        groups: ["counters"],
+        group: "counters",
         deviceType: this.workloadOpts.machineTypeId,
         device: this.workloadOpts.machines[machineIndex],
         times: times
@@ -677,7 +661,7 @@ module.exports = class BigMachineSource {
       name: "OLD_MACHINE_STATUS",
       type: "TIME_COMPLEX_LAST_BEFORE",
       options: {
-        groups: ["status"],
+        groups: "status",
         deviceType: this.workloadOpts.machineTypeId,
         device: this.workloadOpts.machines[machineIndex],
         time: new Date(yearTime + (nowTime - yearTime) * Math.random())
@@ -692,7 +676,7 @@ module.exports = class BigMachineSource {
       type: "TIME_COMPLEX_TOP_DIFFERENCE",
       options: {
         deviceType: this.workloadOpts.machineTypeId,
-        groups: ["counters"],
+        group: "counters",
         sort: {"totalWorkedTime": -1},
         limit: 10,
         startTime: new Date(absDate.getTime() - 86400000),
@@ -708,7 +692,7 @@ module.exports = class BigMachineSource {
       type: "INTERVAL_TOP_COUNT",
       options: {
         deviceType: this.workloadOpts.machineTypeId,
-        groups: ["alarm"],
+        group: "alarm",
         limit: 10,
         startTime: new Date(absDate.getTime() - 86400000),
         endTime: absDate

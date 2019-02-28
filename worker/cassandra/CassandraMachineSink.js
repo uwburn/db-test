@@ -79,22 +79,11 @@ module.exports = class CassandraMachineSink extends BaseSink {
   }
 
   async queryIntervalRange(name, options) {
-    options.select = options.select || {};
-
-    if (options.groups.length === 1)
-      return await this.queryIntervalRangeSingleGroup(name, options);
-    else
-      return await this.queryIntervalRangeMultipleGroups(name, options);
-  }
-
-  async queryIntervalRangeSingleGroup(name, options) {
-    let group = options.groups[0];
-
     let count = 0;
     return await new Promise((resolve, reject) => {
       this.cassandraClient.stream("SELECT * FROM interval WHERE device_type = ? AND group = ? AND device = ? AND start_time <= ? AND end_time >= ? ALLOW FILTERING", [
         options.deviceType,
-        group,
+        options.group,
         options.device,
         options.endTime,
         options.startTime
@@ -111,28 +100,12 @@ module.exports = class CassandraMachineSink extends BaseSink {
     });
   }
 
-  async queryIntervalRangeMultipleGroups(name, options) {
-    throw new Error("Currently not supported, as no query requires it");
-  }
-
   async queryTimeComplexRange(name, options) {
-    options.select = options.select || {};
-
-    if (options.groups.length === 1)
-      return await this.queryTimeComplexRangeSingleGroup(name, options);
-    else
-      return await this.queryTimeComplexRangeMultiGroups(name, options);
-  }
-
-  async queryTimeComplexRangeSingleGroup(name, options) {
-    let group = options.groups[0];
-    let paths = options.select[group];
-
     let count = 0;
     return await new Promise((resolve, reject) => {
       this.cassandraClient.stream("SELECT * FROM time_complex WHERE device_type = ? AND group = ? AND device = ? AND timestamp >= ? AND timestamp <= ?", [
         options.deviceType,
-        group,
+        options.group,
         options.device,
         options.startTime,
         options.endTime,
@@ -142,8 +115,8 @@ module.exports = class CassandraMachineSink extends BaseSink {
         ++count;
 
         row.value = JSON.parse(row.value);
-        if (paths && paths.length)
-          row.value = _.pick(row.value, paths);
+        if (options.select && options.select.length)
+          row.value = _.pick(row.value, options.select);
       }).on('end', function () {
         resolve(count);
       }).on('error', function (err) {
@@ -152,22 +125,9 @@ module.exports = class CassandraMachineSink extends BaseSink {
     });
   }
 
-  async queryTimeComplexRangeMultiGroups(name, options) {
-    throw new Error("Currently not supported, as no query requires it");
-  }
-
   async queryTimeComplexRangeBucketAvg(name, options) {
-    options.select = options.select || {};
-
-    if (options.groups.length === 1)
-      return await this.queryTimeComplexRangeBucketAvgSingleGroup(name, options);
-    else
-      return await this.queryTimeComplexRangeBucketAvgMultiGroups(name, options);
-  }
-
-  async queryTimeComplexRangeBucketAvgSingleGroup(name, options) {
-    let group = options.groups[0];
-    let paths = options.select[group];
+    if (!options.select || options.select.length === 0)
+      throw new Error("Selection is required");
 
     let duration = options.endTime.getTime() - options.startTime.getTime();
     let bucketStep = Math.round(duration / options.buckets);
@@ -181,17 +141,15 @@ module.exports = class CassandraMachineSink extends BaseSink {
         maxTime: Number.MIN_SAFE_INTEGER
       };
 
-      for (let k in paths) {
-        let path = paths[k];
-        buckets[i][group + "_" + path] = 0;
-      }
+      for (let s of options.select)
+        buckets[i][s + "_avg"] = 0;
     }
 
     let count = 0;
     await new Promise((resolve, reject) => {
       this.cassandraClient.stream("SELECT * FROM time_complex WHERE device_type = ? AND group = ? AND device = ? AND timestamp >= ? AND timestamp <= ?", [
         options.deviceType,
-        group,
+        options.group,
         options.device,
         options.startTime,
         options.endTime,
@@ -217,13 +175,8 @@ module.exports = class CassandraMachineSink extends BaseSink {
         bucket.minTime = Math.min(bucket.minTime, row.timestamp.getTime());
         bucket.maxTime = Math.max(bucket.maxTime, row.timestamp.getTime());
         ++bucket.count;
-        for (let k in paths) {
-          let path = paths[k];
-          if (bucket[group + "_" + path + "_avg"] === undefined)
-            bucket[group + "_" + path + "_avg"] = 0;
-
-          bucket[group + "_" + path + "_avg"] += _.get(row.value, path);
-        }
+        for (let s of options.select)
+          bucket[s + "_avg"] += _.get(row.value, s);
       }).on('end', function () {
         resolve(count);
       }).on('error', function (err) {
@@ -251,22 +204,7 @@ module.exports = class CassandraMachineSink extends BaseSink {
     return buckets.length;
   }
 
-  async queryTimeComplexRangeBucketAvgMultiGroups(name, options) {
-    throw new Error("Currently not supported, as no query requires it");
-  }
-
   async queryTimeComplexDifference(name, options) {
-    options.select = options.select || {};
-
-    if (options.groups.length === 1)
-      return await this.queryTimeComplexDifferenceSingleGroup(name, options);
-    else
-      return await this.queryTimeComplexDifferenceMultiGroups(name, options);
-  }
-
-  async queryTimeComplexDifferenceSingleGroup(name, options) {
-    let group = options.groups[0];
-
     let promises = [];
     for (let i = 0; i < options.times.length -1; ++i) {
       let startTime = options.times[i];
@@ -274,7 +212,7 @@ module.exports = class CassandraMachineSink extends BaseSink {
 
       promises.push(this.cassandraClient.execute("SELECT * FROM time_complex WHERE device_type = ? AND group = ? AND device = ? AND timestamp >= ? AND timestamp <= ? ORDER BY timestamp ASC LIMIT 1", [
         options.deviceType,
-        group,
+        options.group,
         options.device,
         startTime,
         endTime,
@@ -284,7 +222,7 @@ module.exports = class CassandraMachineSink extends BaseSink {
 
       promises.push(this.cassandraClient.execute("SELECT * FROM time_complex WHERE device_type = ? AND group = ? AND device = ? AND timestamp >= ? AND timestamp <= ? ORDER BY timestamp DESC LIMIT 1", [
         options.deviceType,
-        group,
+        options.group,
         options.device,
         startTime,
         endTime,
@@ -333,28 +271,12 @@ module.exports = class CassandraMachineSink extends BaseSink {
     return subs.length;
   }
 
-  async queryTimeComplexDifferenceMultiGroups(name, options) {
-    throw new Error("Currently not supported, as no query requires it");
-  }
-
   async queryTimeComplexLastBefore(name, options) {
-    options.select = options.select || {};
-
-    if (options.groups.length === 1)
-      return await this.queryTimeComplexLastBeforeSingleGroup(name, options);
-    else
-      return await this.queryTimeComplexLastBeforeMultipleGroups(name, options);
-  }
-
-  async queryTimeComplexLastBeforeSingleGroup(name, options) {
-    let group = options.groups[0];
-    let paths = options.select[group];
-
     let count = 0;
     return await new Promise((resolve, reject) => {
       this.cassandraClient.stream("SELECT * FROM time_complex WHERE device_type = ? AND group = ? AND device = ? AND timestamp <= ? ORDER BY timestamp DESC LIMIT 1", [
         options.deviceType,
-        group,
+        options.group,
         options.device,
         options.time,
       ], {
@@ -363,8 +285,6 @@ module.exports = class CassandraMachineSink extends BaseSink {
         ++count;
 
         row.value = JSON.parse(row.value);
-        if (paths && paths.length)
-          row.value = _.pick(row.value, paths);
       }).on('end', function () {
         resolve(count);
       }).on('error', function (err) {
@@ -373,26 +293,10 @@ module.exports = class CassandraMachineSink extends BaseSink {
     });
   }
 
-  async queryTimeComplexLastBeforeMultipleGroups(name, options) {
-    throw new Error("Currently not supported, as no query requires it");
-  }
-
   async queryTimeComplexTopDifference(name, options) {
-    options.select = options.select || {};
-
-    if (options.groups.length === 1)
-      return await this.queryTimeComplexTopDifferenceSingleGroup(name, options);
-    else
-      return await this.queryTimeComplexTopDifferenceMultipleGroups(name, options);
-  }
-
-  async queryTimeComplexTopDifferenceSingleGroup(name, options) {
-    let group = options.groups[0];
-    let sorts = options.sort[group];
-
     let boundaries = await this.cassandraClient.execute("SELECT device, MIN(timestamp) AS min_time, MAX(timestamp) AS max_time FROM time_complex WHERE device_type = ? AND group = ? AND timestamp >= ? AND timestamp <= ? GROUP BY device LIMIT 1000000 ALLOW FILTERING", [
       options.deviceType,
-      group,
+      options.group,
       options.startTime,
       options.endTime,
     ], {
@@ -403,14 +307,14 @@ module.exports = class CassandraMachineSink extends BaseSink {
     for (let boundary of boundaries.rows) {
       promises.push(this.cassandraClient.execute("SELECT * FROM time_complex WHERE device_type = ? AND group = ? AND device = ? AND timestamp = ?", [
         options.deviceType,
-        group,
+        options.group,
         boundary.device,
         boundary.min_time,
       ], {
         prepare: true
       }), this.cassandraClient.execute("SELECT * FROM time_complex WHERE device_type = ? AND group = ? AND device = ? AND timestamp = ?", [
         options.deviceType,
-        group,
+        options.group,
         boundary.device,
         boundary.max_time,
       ], {
@@ -440,9 +344,9 @@ module.exports = class CassandraMachineSink extends BaseSink {
 
     let iteratees = [];
     let orders = [];
-    for (let path in sorts) {
-      iteratees.push("value." + path);
-      orders.push(group[path]);
+    for (let s in options.sort) {
+      iteratees.push("value." + s);
+      orders.push(options.sort[s]);
     }
 
     let tops = _.orderBy(subs, iteratees, orders);
@@ -451,35 +355,16 @@ module.exports = class CassandraMachineSink extends BaseSink {
     return tops.length;
   }
 
-  async queryTimeComplexTopDifferenceMultipleGroups(name, options) {
-    throw new Error("Currently not supported, as no query requires it");
-  }
-
   async queryIntervalTopCount(name, options) {
-    options.select = options.select || {};
-
-    if (options.groups.length === 1)
-      return await this.queryIntervalTopCountSingleGroup(name, options);
-    else
-      return await this.queryIntervalTopCountMultipleGroups(name, options);
-  }
-
-  async queryIntervalTopCountSingleGroup(name, options) {
-    let group = options.groups[0];
-
     let counts = await this.cassandraClient.execute("SELECT device, COUNT(*) AS interval_count FROM interval WHERE device_type = ? AND group = ? GROUP BY device;", [
       options.deviceType,
-      group
+      options.group
     ], {
       prepare: true
     });
 
     let tops = _.orderBy(counts.rows, ["interval_count"], ["DESC"]);
     tops = tops.slice(0, options.limit);
-  }
-
-  async queryIntervalTopCountMultipleGroups(name, options) {
-    throw new Error("Currently not supported, as no query requires it");
   }
 
   async record(id, groupName, sample) {

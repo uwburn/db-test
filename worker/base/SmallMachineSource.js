@@ -125,12 +125,8 @@ module.exports = class SmallMachineSource {
       type: "TIME_COMPLEX_RANGE",
       options: {
         deviceType: this.workloadOpts.machineTypeId,
-        groups: ["counters"],
-        select: {
-          "counters": [
-            "processedQuantity"
-          ]
-        },
+        group: "counters",
+        select: [ "processedQuantity" ],
         device: this.workloadOpts.machines[machineIndex],
         startTime: new Date(absDate.getTime() - 2592000000),
         endTime: absDate
@@ -147,7 +143,7 @@ module.exports = class SmallMachineSource {
       type: "INTERVAL_RANGE",
       options: {
         deviceType: this.workloadOpts.machineTypeId,
-        groups: ["alarm"],
+        group: "alarm",
         device: this.workloadOpts.machines[machineIndex],
         startTime: new Date(absDate.getTime() - 5184000000),
         endTime: absDate
@@ -164,12 +160,8 @@ module.exports = class SmallMachineSource {
       type: "TIME_COMPLEX_RANGE_BUCKET_AVG",
       options: {
         deviceType: this.workloadOpts.machineTypeId,
-        groups: ["counters"],
-        select: {
-          "counters": [
-            "processedQuantity"
-          ]
-        },
+        group: "counters",
+        select: [ "processedQuantity" ],
         device: this.workloadOpts.machines[machineIndex],
         startTime: new Date(absDate.getTime() - 31536000000),
         endTime: absDate,
@@ -196,10 +188,7 @@ module.exports = class SmallMachineSource {
       type: "TIME_COMPLEX_DIFFERENCE",
       options: {
         deviceType: this.workloadOpts.machineTypeId,
-        groups: ["counters"],
-        select: {
-          "counters": [ ]
-        },
+        group: "counters",
         device: this.workloadOpts.machines[machineIndex],
         times: times
       },
@@ -217,10 +206,7 @@ module.exports = class SmallMachineSource {
       type: "TIME_COMPLEX_LAST_BEFORE",
       options: {
         deviceType: this.workloadOpts.machineTypeId,
-        groups: ["counters"],
-        select: {
-          "counters": [ ]
-        },
+        group: "counters",
         device: this.workloadOpts.machines[machineIndex],
         time: new Date(yearTime + (nowTime - yearTime) * Math.random())
       },
@@ -234,15 +220,8 @@ module.exports = class SmallMachineSource {
       type: "TIME_COMPLEX_TOP_DIFFERENCE",
       options: {
         deviceType: this.workloadOpts.machineTypeId,
-        groups: ["counters"],
-        select: {
-          "counters": [ ]
-        },
-        sort: {
-          "counters": {
-            "workingTime": "desc"
-          }
-        },
+        group: "counters",
+        sort: { "workingTime": -1 },
         limit: 10,
         startTime: new Date(absDate.getTime() - 604800000),
         endTime: absDate

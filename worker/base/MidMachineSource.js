@@ -592,7 +592,7 @@ module.exports = class MidMachineSource {
       name: "LAST_WEEK_STATES",
       type: "INTERVAL_RANGE",
       options: {
-        groups: ["state"],
+        group: "state",
         deviceType: this.workloadOpts.machineTypeId,
         device: this.workloadOpts.machines[machineIndex],
         startTime: new Date(absDate.getTime() - 604800000),
@@ -609,7 +609,7 @@ module.exports = class MidMachineSource {
       name: "LAST_DAY_ALARMS",
       type: "INTERVAL_RANGE",
       options: {
-        groups: ["alarm"],
+        group: "alarm",
         deviceType: this.workloadOpts.machineTypeId,
         device: this.workloadOpts.machines[machineIndex],
         startTime: new Date(absDate.getTime() - 86400000),
@@ -626,13 +626,8 @@ module.exports = class MidMachineSource {
       name: "LAST_MONTH_MACHINE_ENERGY",
       type: "TIME_COMPLEX_RANGE",
       options: {
-        groups: ["counters"],
-        select: {
-          "counters": [
-            "activeEnergyConsumed",
-            "reactiveEnergyProduced"
-          ]
-        },
+        group: "counters",
+        select: [ "activeEnergyConsumed", "reactiveEnergyProduced" ],
         deviceType: this.workloadOpts.machineTypeId,
         device: this.workloadOpts.machines[machineIndex],
         startTime: new Date(absDate.getTime() - 2073600000),
@@ -658,7 +653,7 @@ module.exports = class MidMachineSource {
       name: "THIS_YEAR_MONTHLY_COUNTERS_DIFFERENCE",
       type: "TIME_COMPLEX_DIFFERENCE",
       options: {
-        groups: ["counters"],
+        group: "counters",
         deviceType: this.workloadOpts.machineTypeId,
         device: this.workloadOpts.machines[machineIndex],
         times: times
@@ -676,7 +671,7 @@ module.exports = class MidMachineSource {
       name: "OLD_SETUP",
       type: "TIME_COMPLEX_LAST_BEFORE",
       options: {
-        groups: ["setup"],
+        groups: "setup",
         deviceType: this.workloadOpts.machineTypeId,
         device: this.workloadOpts.machines[machineIndex],
         time: new Date(yearTime + (nowTime - yearTime) * Math.random())
@@ -691,8 +686,8 @@ module.exports = class MidMachineSource {
       type: "TIME_COMPLEX_TOP_DIFFERENCE",
       options: {
         deviceType: this.workloadOpts.machineTypeId,
-        groups: ["counters"],
-        sort: {"totalWorkedTime": -1},
+        groups: "counters",
+        sort: { "totalWorkedTime": -1},
         limit: 10,
         startTime: new Date(absDate.getTime() - 86400000),
         endTime: absDate
@@ -707,7 +702,7 @@ module.exports = class MidMachineSource {
       type: "INTERVAL_TOP_COUNT",
       options: {
         deviceType: this.workloadOpts.machineTypeId,
-        groups: ["alarm"],
+        groups: "alarm",
         limit: 10,
         startTime: new Date(absDate.getTime() - 86400000),
         endTime: absDate
@@ -723,10 +718,8 @@ module.exports = class MidMachineSource {
       name: "LAST_DAY_STATUS_AGGR",
       type: "TIME_COMPLEX_RANGE_BUCKET_AVG",
       options: {
-        groups: ["status"],
-        select: {
-          status: ["current"]
-        },
+        groups: "status",
+        select: ["current"],
         deviceType: this.workloadOpts.machineTypeId,
         device: this.workloadOpts.machines[machineIndex],
         startTime: new Date(absDate.getTime() - 86400000),
