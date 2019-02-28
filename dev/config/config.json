@@ -1,7 +1,9 @@
 {
   "database": "couchbaseA",
   "databaseOpts": {
+    "setupCluster": true,
     "url": "couchbase://localhost/",
+    "httpUrl": "http://localhost:8091",
     "username": "admin",
     "password": "admin123",
     "managerUsername": "admin",

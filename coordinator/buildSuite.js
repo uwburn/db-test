@@ -6,6 +6,7 @@ const MongoClient = require(`mongodb`).MongoClient;
 const cassandra = require(`cassandra-driver`);
 const couchbase = require('couchbase');
 const bluebird = require("bluebird");
+const request = require("request-promise-native");
 
 const BULK_READS_LIMIT = 100000;
 
@@ -194,6 +195,77 @@ async function prepareMachineDataCassandraA(databaseOpts) {
 
 async function prepareMachineDataCouchbaseA(databaseOpts) {
   console.log(`Waiting for Couchbase`);
+
+  if (databaseOpts.setupCluster) {
+    while (true) {
+      try {
+        await request(databaseOpts.httpUrl);
+        break;
+      }
+      catch (err) { }
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 5000));
+
+    console.log("Setup Couchbase cluster");
+
+    await request({
+      method: "POST",
+      url: databaseOpts.httpUrl + "/settings/web?just_validate=1",
+      form: {
+        username: databaseOpts.username,
+        password: databaseOpts.password,
+        port: "SAME"
+      }
+    });
+
+    await request({
+      method: "POST",
+      url: databaseOpts.httpUrl + "/settings/stats",
+      form: {
+        sendStats: "false"
+      }
+    });
+
+    await request({
+      method: "POST",
+      url: databaseOpts.httpUrl + "/node/controller/setupServices",
+      form: {
+        services: "kv,index,fts,n1ql",
+        setDefaultMemQuotas: "true"
+      }
+    });
+
+    await request({
+      method: "POST",
+      url: databaseOpts.httpUrl + "/settings/indexes",
+      form: {
+        storageMode: "forestdb"
+      }
+    });
+
+    await request({
+      method: "POST",
+      url: databaseOpts.httpUrl + "/pools/default",
+      form: {
+        clusterName: "db-test"
+      }
+    });
+
+    await request({
+      method: "POST",
+      url: databaseOpts.httpUrl + "/settings/web?just_validate=0",
+      form: {
+        username: databaseOpts.username,
+        password: databaseOpts.password,
+        port: "SAME"
+      }
+    });
+
+    console.log("Waiting for services to settle")
+
+    await new Promise((resolve) => setTimeout(resolve, 15000));
+  }
 
   let couchbaseCluster = new couchbase.Cluster(databaseOpts.url);
   bluebird.promisifyAll(couchbaseCluster);
