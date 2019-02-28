@@ -5,9 +5,7 @@
     "url": "couchbase://localhost/",
     "httpUrl": "http://localhost:8091",
     "username": "admin",
-    "password": "admin123",
-    "managerUsername": "admin",
-    "managerPassword": "admin123"
+    "password": "admin123"
   },
   "suite": "MachineData",
   "suiteOpts": {

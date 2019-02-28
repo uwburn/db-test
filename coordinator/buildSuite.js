@@ -271,7 +271,7 @@ async function prepareMachineDataCouchbaseA(databaseOpts) {
   bluebird.promisifyAll(couchbaseCluster);
   couchbaseCluster.authenticate(databaseOpts.username, databaseOpts.password);
 
-  let couchbaseManager = couchbaseCluster.manager(databaseOpts.managerUsername, databaseOpts.managerPassword);
+  let couchbaseManager = couchbaseCluster.manager(databaseOpts.username, databaseOpts.password);
   bluebird.promisifyAll(couchbaseManager);
 
   try {
