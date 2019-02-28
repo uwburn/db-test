@@ -34,9 +34,7 @@ function subtractValues(o1, o2) {
 module.exports = class CassandraMachineSink extends BaseSink {
 
   constructor(databaseOpts) {
-    super(64, 32);
-
-    this.databaseOpts = databaseOpts;
+    super(databaseOpts, 64, 32);
   }
 
   async init() {

@@ -4,9 +4,17 @@ const { Writable } = require('stream');
 
 const SINK_STATS_INTERVAL = 60000;
 
+const UNCOMMON_QUERIES = {
+  TIME_COMPLEX_DIFFERENCE: true,
+  TIME_COMPLEX_TOP_DIFFERENCE: true,
+  INTERVAL_TOP_COUNT: true
+};
+
 module.exports = class BaseSink {
 
-  constructor(queryHighWaterMark, recordHighWaterMark) {
+  constructor(databaseOpts, queryHighWaterMark, recordHighWaterMark) {
+    this.databaseOpts = databaseOpts;
+
     this.queryHighWaterMark = parseInt(process.env.QUERY_HIGH_WATERMARK) || queryHighWaterMark || 16;
     this.recordHighWaterMark = parseInt(process.env.RECORD_HIGH_WATERMARK) || recordHighWaterMark || 16;
 
@@ -75,6 +83,9 @@ module.exports = class BaseSink {
     };
 
     result.stream._write = (chunk, enc, callback) => {
+      if (this.databaseOpts.skipUncommonQueries && UNCOMMON_QUERIES[chunk.type])
+        return callback();
+
       let t0 = Date.now();
       this.query(chunk.name, chunk.type, chunk.options, chunk.interval).then(() => {
         ++result.successfulReads;
@@ -95,6 +106,9 @@ module.exports = class BaseSink {
 
       let promises = chunks.map((chunk) => {
         chunk = chunk.chunk;
+
+        if (this.databaseOpts.skipUncommonQueries && UNCOMMON_QUERIES[chunk.type])
+          return;
 
         return this.query(chunk.name, chunk.type, chunk.options, chunk.interval).then(() => {
           ++result.successfulReads;

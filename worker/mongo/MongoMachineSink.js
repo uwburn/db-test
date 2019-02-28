@@ -66,9 +66,7 @@ function chooseBucketTime(interval) {
 module.exports = class MongoMachineSink extends BaseSink {
 
   constructor(databaseOpts) {
-    super(64, 64);
-
-    this.databaseOpts = databaseOpts;
+    super(databaseOpts, 64, 64);
 
     this.timeComplexCollections = { };
     this.intervalCollections = { };
