@@ -183,8 +183,8 @@ module.exports = class MongoMachineSink extends BaseSink {
         time: 1
       };
 
-      for (let s of select)
-        _.set(project, `$record.${s}`, 1);
+      for (let s of options.select)
+        _.set(project, `record.${s}`, 1);
 
       stages.push({
         $project: project
@@ -360,12 +360,8 @@ module.exports = class MongoMachineSink extends BaseSink {
       for (let k in result) {
         if (k === "_first")
           o1.record = result[k];
-        else if (k.endsWith("_first"))
-          o1[k.substring(0, k.length - 6)] = result[k];
         else if (k === "_last")
           o2.record = result[k];
-        else if (k.endsWith("_last"))
-          o2[k.substring(0, k.length - 5)] = result[k];
         else
           sub[k] = result[k];
       }
@@ -519,12 +515,8 @@ module.exports = class MongoMachineSink extends BaseSink {
         for (let k in doc) {
           if (k === "_first")
             o1.record = doc[k];
-          else if (k.endsWith("_first"))
-            o1[k.substring(0, k.length - 6)] = doc[k];
           else if (k === "_last")
             o2.record = doc[k];
-          else if (k.endsWith("_last"))
-            o2[k.substring(0, k.length - 5)] = doc[k];
           else
             sub[k] = doc[k];
         }
@@ -541,7 +533,7 @@ module.exports = class MongoMachineSink extends BaseSink {
     let iteratees = [];
     let orders = [];
     for (let k in options.sort) {
-      iteratees.push(k);
+      iteratees.push(`record.${k}`);
       orders.push(options.sort[k]);
     }
 

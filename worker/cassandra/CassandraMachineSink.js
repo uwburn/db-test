@@ -186,7 +186,7 @@ module.exports = class CassandraMachineSink extends BaseSink {
       let res = {
         deviceType: options.deviceType,
         device: options.device,
-        group: group,
+        group: options.group,
         time: new Date(b.time),
         count: b.count,
       };
@@ -343,7 +343,7 @@ module.exports = class CassandraMachineSink extends BaseSink {
     let iteratees = [];
     let orders = [];
     for (let s in options.sort) {
-      iteratees.push("value." + s);
+      iteratees.push(`value.${s}`);
       orders.push(options.sort[s]);
     }
 

@@ -114,7 +114,7 @@ module.exports = class CouchbaseMachineSink extends BaseSink {
     }
     q += ' FROM `db-test` WHERE type = "time_complex" AND `group` = $group AND device = $device AND time >= $startTime AND time <= $endTime';
 
-    let q = couchbase.N1qlQuery.fromString(q);
+    q = couchbase.N1qlQuery.fromString(q);
     let req = await this.couchbaseBucket.query(q, {
       group: options.group,
       device: options.device,
@@ -144,7 +144,7 @@ module.exports = class CouchbaseMachineSink extends BaseSink {
     let bin = Math.floor((options.endTime.getTime() - options.startTime.getTime()) / options.buckets);
 
     let q = 'SELECT COUNT(*)'; 
-    for (let s in options.select) {
+    for (let s of options.select) {
       q += `, AVG(\`value\`.${s}) AS avg_${s}`
     }
     q += ' FROM `db-test` WHERE type = "time_complex" AND `group` = $group AND device = $device AND time <= $endTime AND time >= $startTime GROUP BY FLOOR(time / $bin)';
@@ -316,7 +316,7 @@ module.exports = class CouchbaseMachineSink extends BaseSink {
     return tops.length;
   }
 
-  async queryIntervalTopCountSingleGroup(name, options) {
+  async queryIntervalTopCount(name, options) {
     let q = couchbase.N1qlQuery.fromString('SELECT device, COUNT(*) c FROM `db-test` WHERE type = "interval" AND `group` = $group AND startTime <= $endTime AND endTime >= $startTime GROUP BY device ORDER BY c DESC LIMIT $limit');
     let req = await this.couchbaseBucket.query(q, {
       group: options.group,
