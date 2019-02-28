@@ -280,7 +280,8 @@ async function prepareMachineDataCouchbaseA(databaseOpts) {
   catch(err) { }
   
   await couchbaseManager.createBucketAsync("db-test", {
-    flushEnabled: 1
+    flushEnabled: 1,
+    ramQuotaMB: databaseOpts.bucketRamQuotaMB || 1024
   });
 
   await new Promise((resolve) => setTimeout(resolve, 5000));
