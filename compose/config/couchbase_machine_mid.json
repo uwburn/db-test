@@ -1,0 +1,20 @@
+{
+  "database": "couchbaseA",
+  "databaseOpts": {
+    "setupCluster": true,
+    "url": "couchbase://couchbase/",
+    "httpUrl": "http://couchbase:8091",
+    "username": "admin",
+    "password": "admin123",
+    "managerUsername": "admin",
+    "managerPassword": "admin123"
+  },
+  "suite": "MachineData",
+  "suiteOpts": {
+    "machineSize": "Mid",
+    "machines": 128,
+    "startYear": 2010,
+    "years": 3,
+    "machineUptime": 0.6
+  }
+}
