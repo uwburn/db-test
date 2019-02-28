@@ -4,6 +4,9 @@ const uuidv4 = require(`uuid/v4`);
 const moment = require(`moment`);
 const MongoClient = require(`mongodb`).MongoClient;
 const cassandra = require(`cassandra-driver`);
+const couchbase = require('couchbase');
+const bluebird = require("bluebird");
+const request = require("request-promise-native");
 
 const BULK_READS_LIMIT = 100000;
 
@@ -118,6 +121,8 @@ function buildMachineDataSuite(database, databaseOpts, suiteOptions) {
           return await prepareMachineDataMongoB(databaseOpts);
         case `cassandraA`:
           return await prepareMachineDataCassandraA(databaseOpts);
+        case "couchbaseA":
+          return await prepareMachineDataCouchbaseA(databaseOpts);
       }
     }
   };
@@ -186,4 +191,116 @@ async function prepareMachineDataCassandraA(databaseOpts) {
   await cassandraClient.execute(`CREATE TABLE IF NOT EXISTS interval (device_type text, group text, device text, start_time timestamp, end_time timestamp, value text, PRIMARY KEY (device_type, group, device, start_time, end_time));`, [], {});
 
   await cassandraClient.shutdown();
+}
+
+async function prepareMachineDataCouchbaseA(databaseOpts) {
+  console.log(`Waiting for Couchbase`);
+
+  if (databaseOpts.setupCluster) {
+    while (true) {
+      try {
+        await request(databaseOpts.httpUrl);
+        break;
+      }
+      catch (err) { }
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 5000));
+
+    console.log("Setup Couchbase cluster");
+
+    await request({
+      method: "POST",
+      url: databaseOpts.httpUrl + "/settings/web?just_validate=1",
+      form: {
+        username: databaseOpts.username,
+        password: databaseOpts.password,
+        port: "SAME"
+      }
+    });
+
+    await request({
+      method: "POST",
+      url: databaseOpts.httpUrl + "/settings/stats",
+      form: {
+        sendStats: "false"
+      }
+    });
+
+    await request({
+      method: "POST",
+      url: databaseOpts.httpUrl + "/node/controller/setupServices",
+      form: {
+        services: "kv,index,fts,n1ql",
+        setDefaultMemQuotas: "true"
+      }
+    });
+
+    await request({
+      method: "POST",
+      url: databaseOpts.httpUrl + "/settings/indexes",
+      form: {
+        storageMode: "forestdb"
+      }
+    });
+
+    await request({
+      method: "POST",
+      url: databaseOpts.httpUrl + "/pools/default",
+      form: {
+        clusterName: "db-test"
+      }
+    });
+
+    await request({
+      method: "POST",
+      url: databaseOpts.httpUrl + "/settings/web?just_validate=0",
+      form: {
+        username: databaseOpts.username,
+        password: databaseOpts.password,
+        port: "SAME"
+      }
+    });
+
+    console.log("Waiting for services to settle")
+
+    await new Promise((resolve) => setTimeout(resolve, 15000));
+  }
+
+  let couchbaseCluster = new couchbase.Cluster(databaseOpts.url);
+  bluebird.promisifyAll(couchbaseCluster);
+  couchbaseCluster.authenticate(databaseOpts.username, databaseOpts.password);
+
+  let couchbaseManager = couchbaseCluster.manager(databaseOpts.username, databaseOpts.password);
+  bluebird.promisifyAll(couchbaseManager);
+
+  try {
+    await couchbaseManager.removeBucketAsync("db-test");
+  }
+  catch(err) { }
+  
+  await couchbaseManager.createBucketAsync("db-test", {
+    flushEnabled: 1,
+    ramQuotaMB: databaseOpts.bucketRamQuotaMB || 1024
+  });
+
+  await new Promise((resolve) => setTimeout(resolve, 5000));
+
+  let couchbaseBucket = await new Promise((resolve, reject) => {
+    let bucket = couchbaseCluster.openBucket("db-test");
+    bluebird.promisifyAll(bucket);
+    bucket.once("connect", () => resolve(bucket));
+    bucket.on("error", (err) => console.log(err));
+  });
+
+  await new Promise((resolve) => setTimeout(resolve, 5000));
+
+  let q = couchbase.N1qlQuery.fromString('CREATE PRIMARY INDEX `db-test_primary` ON `db-test`;');
+  await couchbaseBucket.queryAsync(q);
+
+  q = couchbase.N1qlQuery.fromString("CREATE INDEX `db-test_interval_device_times` ON `db-test`(`type`, `group`, `device`, `startTime`, `endTime`) WHERE type = 'interval' USING GSI;");
+  await couchbaseBucket.queryAsync(q);
+
+  q = couchbase.N1qlQuery.fromString("CREATE INDEX `db-test_time_complex_device_time` ON `db-test`(`type`, `group`, `device`, `time`) WHERE type = 'time_complex' USING GSI;");
+  await couchbaseBucket.queryAsync(q);
 }
