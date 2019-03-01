@@ -1,7 +1,7 @@
 "use strict";
 
-const BaseRealTimeSmallMachine = require(`../base/RealTimeSmallMachine`);
-const CouchbaseMachineSink = require(`./CouchbaseMachineSink`);
+const BaseRealTimeSmallMachine = require("../base/RealTimeSmallMachine");
+const CouchbaseMachineSink = require("./CouchbaseMachineSink");
 
 module.exports = class MongoRealTimeSmallMachine extends BaseRealTimeSmallMachine {
 

@@ -1,8 +1,8 @@
 "use strict";
 
-const uuidv4 = require(`uuid/v4`);
-const mqtt = require(`mqtt`);
-const Qlobber = require(`qlobber`).Qlobber;
+const uuidv4 = require("uuid/v4");
+const mqtt = require("mqtt");
+const Qlobber = require("qlobber").Qlobber;
 const fs = require("fs");
 const _ = require("lodash");
 
@@ -15,18 +15,18 @@ const workers = {};
 let workersCount = 0;
 
 const matcher = new Qlobber({
-  separator: `/`,
-  wildcard_one: `+`,
-  wildcard_some: `#`
+  separator: "/",
+  wildcard_one: "+",
+  wildcard_some: "#"
 });
-matcher.add(`worker/+/status`, workerStatus);
-matcher.add(`worker/+/work/+/status`, workStatus);
-matcher.add(`worker/+/work/+/log`, workLog);
+matcher.add("worker/+/status", workerStatus);
+matcher.add("worker/+/work/+/status", workStatus);
+matcher.add("worker/+/work/+/log", workLog);
 
-const config = require(process.env.CONFIG || `/run/secrets/coordinator_config.json`);
+const config = require(process.env.CONFIG || "/run/secrets/coordinator_config.json");
 
-const suite = require(`./buildSuite`)(config.database, config.databaseOpts, config.suite, config.suiteOpts);
-let status = `DISCOVERING_WORKERS`;
+const suite = require("./buildSuite")(config.database, config.databaseOpts, config.suite, config.suiteOpts);
+let status = "DISCOVERING_WORKERS";
 let stepIndex = 0;
 let stats = {
   description: suite.description,
@@ -39,23 +39,23 @@ let mqttClient;
 suite.prepareDatabase().then(function () {
   mqttClient = mqtt.connect(process.env.MQTT_ADDRESS);
 
-  mqttClient.on(`connect`, function () {
-    console.log(`Coordinator connected to MQTT`);
-    mqttClient.subscribe(`worker/#`);
+  mqttClient.on("connect", function () {
+    console.log("Coordinator connected to MQTT");
+    mqttClient.subscribe("worker/#");
 
-    console.log(`Discovering workers`);
+    console.log("Discovering workers");
     setTimeout(() => {
-      status = `WAITING_WORKERS`;
+      status = "WAITING_WORKERS";
       workersCount = Object.keys(workers).length;
     }, DISCOVER_WORKERS_TIMEOUT);
   });
 
-  mqttClient.on(`message`, function (topic, message) {
+  mqttClient.on("message", function (topic, message) {
     let handlers = matcher.match(topic);
     if (!handlers.length)
       return;
 
-    let levels = topic.split(`/`);
+    let levels = topic.split("/");
     message = JSON.parse(message);
 
     handlers[0](levels, message);
@@ -79,7 +79,6 @@ function workStatus(levels, message) {
 
 function workLog(levels, message) {
   let workerId = levels[1];
-  let workId = levels[3];
 
   let d = Math.pow(10, DECIMAL_DIGITS);
 
@@ -90,7 +89,7 @@ function workLog(levels, message) {
 }
 
 function waitForWorkers() {
-  if (status !== `WAITING_WORKERS`)
+  if (status !== "WAITING_WORKERS")
     return;
 
   let readyWorkersCount = 0;
@@ -98,12 +97,12 @@ function waitForWorkers() {
   for (let workerId in workers) {
     let worker = workers[workerId];
     switch (worker.status) {
-      case `READY`:
-        ++readyWorkersCount;
-        break;
-      case `BUSY`:
-        ++busyWorkersCount;
-        break;
+    case "READY":
+      ++readyWorkersCount;
+      break;
+    case "BUSY":
+      ++busyWorkersCount;
+      break;
     }
   }
 
@@ -184,7 +183,7 @@ function logStep() {
 }
 
 function logSuite() {
-  console.log(`Suite completed`);
+  console.log("Suite completed");
 
   _.assign(stats, {
     totalTime: 0,
@@ -218,11 +217,11 @@ function nextStep() {
     return;
   }
 
-  status = `WAITING_WORKERS`;
+  status = "WAITING_WORKERS";
 }
 
 function startStep() {
-  status = `RUNNING_STEP`;
+  status = "RUNNING_STEP";
 
   stats.steps[stepIndex] = {
     startTime: new Date().getTime(),
@@ -250,9 +249,9 @@ function startStep() {
 function shutdown() {
   writeStats();
 
-  console.log(`Shutting down workers`);
+  console.log("Shutting down workers");
 
-  mqttClient.publish(`shutdown`, JSON.stringify({}), function () {
+  mqttClient.publish("shutdown", JSON.stringify({}), function () {
     mqttClient.end(false, function () {
       if (process.env.NO_EXIT)
         setInterval(function() {}, 60000);
@@ -263,17 +262,18 @@ function shutdown() {
 }
 
 function writeStats() {
-  console.log(`Recording stats`);
+  console.log("Recording stats");
 
-  const statsDir = "/var/log/db-test/"
+  const statsDir = "/var/log/db-test/";
 
   try {
-    fs.mkdirSync(statsDir)
-  } catch (err) {
-    if (err.code !== 'EEXIST') throw err
+    fs.mkdirSync(statsDir);
+  }
+  catch (err) {
+    if (err.code !== "EEXIST") throw err;
   }
 
-  fs.writeFileSync(statsDir + suite.id + '.json', JSON.stringify(stats, null, 2));
+  fs.writeFileSync(statsDir + suite.id + ".json", JSON.stringify(stats, null, 2));
 }
 
 setInterval(() => {

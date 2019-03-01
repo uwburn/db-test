@@ -1,11 +1,11 @@
 "use strict";
 
-const couchbase = require('couchbase');
-const _ = require('lodash');
-const FlattenJS = require('flattenjs');
+const couchbase = require("couchbase");
+const _ = require("lodash");
+const FlattenJS = require("flattenjs");
 const bluebird = require("bluebird");
 
-const BaseSink = require(`../base/BaseSink`);
+const BaseSink = require("../base/BaseSink");
 
 function subtractValues(o1, o2) {
   let d = { };
@@ -43,7 +43,7 @@ module.exports = class CouchbaseMachineSink extends BaseSink {
     this.couchbaseCluster.authenticate(this.databaseOpts.username, this.databaseOpts.password);
     bluebird.promisifyAll(this.couchbaseCluster);
 
-    this.couchbaseBucket = await new Promise((resolve, reject) => {
+    this.couchbaseBucket = await new Promise((resolve) => {
       let bucket = this.couchbaseCluster.openBucket("db-test");
       bluebird.promisifyAll(bucket);
       bucket.once("connect", () => resolve(bucket));
@@ -61,25 +61,25 @@ module.exports = class CouchbaseMachineSink extends BaseSink {
 
   async query(name, type, options, interval) {
     switch (type) {
-      case "INTERVAL_RANGE":
-        return await this.queryIntervalRange(name, options);
-      case "TIME_COMPLEX_RANGE":
-        return await  this.queryTimeComplexRange(name, options, interval);
-      case "TIME_COMPLEX_RANGE_BUCKET_AVG":
-        return await this.queryTimeComplexRangeBucketAvg(name, options, interval);
-      case "TIME_COMPLEX_DIFFERENCE":
-        return await this.queryTimeComplexDifference(name, options, interval);
-      case "TIME_COMPLEX_LAST_BEFORE":
-        return await this.queryTimeComplexLastBefore(name, options, interval);
-      case "TIME_COMPLEX_TOP_DIFFERENCE":
-        return await this.queryTimeComplexTopDifference(name, options, interval);
-      case "INTERVAL_TOP_COUNT":
-        return await this.queryIntervalTopCount(name, options);
+    case "INTERVAL_RANGE":
+      return await this.queryIntervalRange(name, options);
+    case "TIME_COMPLEX_RANGE":
+      return await  this.queryTimeComplexRange(name, options, interval);
+    case "TIME_COMPLEX_RANGE_BUCKET_AVG":
+      return await this.queryTimeComplexRangeBucketAvg(name, options, interval);
+    case "TIME_COMPLEX_DIFFERENCE":
+      return await this.queryTimeComplexDifference(name, options, interval);
+    case "TIME_COMPLEX_LAST_BEFORE":
+      return await this.queryTimeComplexLastBefore(name, options, interval);
+    case "TIME_COMPLEX_TOP_DIFFERENCE":
+      return await this.queryTimeComplexTopDifference(name, options, interval);
+    case "INTERVAL_TOP_COUNT":
+      return await this.queryIntervalTopCount(name, options);
     }
   }
 
   async queryIntervalRange(name, options) {
-    let q = couchbase.N1qlQuery.fromString('SELECT * FROM `db-test` WHERE type = "interval" AND `group` = $group AND device = $device AND startTime <= $endTime AND endTime >= $startTime');
+    let q = couchbase.N1qlQuery.fromString("SELECT * FROM `db-test` WHERE type = \"interval\" AND `group` = $group AND device = $device AND startTime <= $endTime AND endTime >= $startTime");
     let req = await this.couchbaseBucket.query(q, {
       group: options.group,
       device: options.device,
@@ -90,29 +90,30 @@ module.exports = class CouchbaseMachineSink extends BaseSink {
     return await new Promise((resolve, reject) => {
       let count = 0;
 
-      req.on('row', (row) => {
-        count++;
+      req.on("row", (row) => {
+        if (row)
+          count++;
       });
-      req.on('error', (err) => {
+      req.on("error", (err) => {
         reject(err);
       });
-      req.on('end', (meta) => {
+      req.on("end", () => {
         resolve(count);
       });
     });
   }
 
   async queryTimeComplexRange(name, options) {
-    let q = 'SELECT'; 
+    let q = "SELECT"; 
     if (options.select && options.select.length > 0) {
-      q += " time"
+      q += " time";
       for (let s of options.select)
-        q += `, \`value\`.${s}`
+        q += `, \`value\`.${s}`;
     }
     else {
-      q += " *"
+      q += " *";
     }
-    q += ' FROM `db-test` WHERE type = "time_complex" AND `group` = $group AND device = $device AND time >= $startTime AND time <= $endTime';
+    q += " FROM `db-test` WHERE type = \"time_complex\" AND `group` = $group AND device = $device AND time >= $startTime AND time <= $endTime";
 
     q = couchbase.N1qlQuery.fromString(q);
     let req = await this.couchbaseBucket.query(q, {
@@ -125,13 +126,14 @@ module.exports = class CouchbaseMachineSink extends BaseSink {
     return await new Promise((resolve, reject) => {
       let count = 0;
 
-      req.on('row', (row) => {
-        count++;
+      req.on("row", (row) => {
+        if (row)
+          count++;
       });
-      req.on('error', (err) => {
+      req.on("error", (err) => {
         reject(err);
       });
-      req.on('end', (meta) => {
+      req.on("end", () => {
         resolve(count);
       });
     });
@@ -143,11 +145,11 @@ module.exports = class CouchbaseMachineSink extends BaseSink {
 
     let bin = Math.floor((options.endTime.getTime() - options.startTime.getTime()) / options.buckets);
 
-    let q = 'SELECT COUNT(*)'; 
+    let q = "SELECT COUNT(*)"; 
     for (let s of options.select) {
-      q += `, AVG(\`value\`.${s}) AS avg_${s}`
+      q += `, AVG(\`value\`.${s}) AS avg_${s}`;
     }
-    q += ' FROM `db-test` WHERE type = "time_complex" AND `group` = $group AND device = $device AND time <= $endTime AND time >= $startTime GROUP BY FLOOR(time / $bin)';
+    q += " FROM `db-test` WHERE type = \"time_complex\" AND `group` = $group AND device = $device AND time <= $endTime AND time >= $startTime GROUP BY FLOOR(time / $bin)";
 
     q = couchbase.N1qlQuery.fromString(q);
     let req = await this.couchbaseBucket.query(q, {
@@ -161,13 +163,14 @@ module.exports = class CouchbaseMachineSink extends BaseSink {
     return await new Promise((resolve, reject) => {
       let count = 0;
 
-      req.on('row', (row) => {
-        count++;
+      req.on("row", (row) => {
+        if (row)
+          count++;
       });
-      req.on('error', (err) => {
+      req.on("error", (err) => {
         reject(err);
       });
-      req.on('end', (meta) => {
+      req.on("end", () => {
         resolve(count);
       });
     });
@@ -239,7 +242,7 @@ module.exports = class CouchbaseMachineSink extends BaseSink {
   }
 
   async queryTimeComplexLastBefore(name, options) {
-    let q = couchbase.N1qlQuery.fromString('SELECT * FROM `db-test` WHERE type = "time_complex" AND `group` = $group AND device = $device AND time <= $time ORDER BY time DESC LIMIT 1');
+    let q = couchbase.N1qlQuery.fromString("SELECT * FROM `db-test` WHERE type = \"time_complex\" AND `group` = $group AND device = $device AND time <= $time ORDER BY time DESC LIMIT 1");
     let req = await this.couchbaseBucket.query(q, {
       group: options.group,
       device: options.device,
@@ -249,27 +252,28 @@ module.exports = class CouchbaseMachineSink extends BaseSink {
     return await new Promise((resolve, reject) => {
       let count = 0;
 
-      req.on('row', (row) => {
-        count++;
+      req.on("row", (row) => {
+        if (row)
+          count++;
       });
-      req.on('error', (err) => {
+      req.on("error", (err) => {
         reject(err);
       });
-      req.on('end', (meta) => {
+      req.on("end", () => {
         resolve(count);
       });
     });
   }
 
-  async queryTimeComplexTopDifference(name, options, interval) {
-    let q = couchbase.N1qlQuery.fromString('SELECT device, MIN(time) AS min_time, MAX(time) AS max_time FROM `db-test` WHERE type = "time_complex" AND `group` = $group AND time >= $startTime AND time <= $endTime  GROUP BY device;');
+  async queryTimeComplexTopDifference(name, options) {
+    let q = couchbase.N1qlQuery.fromString("SELECT device, MIN(time) AS min_time, MAX(time) AS max_time FROM `db-test` WHERE type = \"time_complex\" AND `group` = $group AND time >= $startTime AND time <= $endTime  GROUP BY device;");
     let boundaries = await this.couchbaseBucket.queryAsync(q, {
       group: options.group,
       startTime: options.startTime.getTime(),
       endTime: options.endTime.getTime()
     });
 
-    q = couchbase.N1qlQuery.fromString('SELECT * FROM `db-test` WHERE type = "time_complex" AND `group` = $group AND device = $device AND time = $time;');
+    q = couchbase.N1qlQuery.fromString("SELECT * FROM `db-test` WHERE type = \"time_complex\" AND `group` = $group AND device = $device AND time = $time;");
 
     let promises = [];
     for (let boundary of boundaries) {
@@ -317,7 +321,7 @@ module.exports = class CouchbaseMachineSink extends BaseSink {
   }
 
   async queryIntervalTopCount(name, options) {
-    let q = couchbase.N1qlQuery.fromString('SELECT device, COUNT(*) c FROM `db-test` WHERE type = "interval" AND `group` = $group AND startTime <= $endTime AND endTime >= $startTime GROUP BY device ORDER BY c DESC LIMIT $limit');
+    let q = couchbase.N1qlQuery.fromString("SELECT device, COUNT(*) c FROM `db-test` WHERE type = \"interval\" AND `group` = $group AND startTime <= $endTime AND endTime >= $startTime GROUP BY device ORDER BY c DESC LIMIT $limit");
     let req = await this.couchbaseBucket.query(q, {
       group: options.group,
       startTime: options.startTime.getTime(),
@@ -328,13 +332,14 @@ module.exports = class CouchbaseMachineSink extends BaseSink {
     return await new Promise((resolve, reject) => {
       let count = 0;
 
-      req.on('row', (row) => {
-        count++;
+      req.on("row", (row) => {
+        if (row)
+          count++;
       });
-      req.on('error', (err) => {
+      req.on("error", (err) => {
         reject(err);
       });
-      req.on('end', (meta) => {
+      req.on("end", () => {
         resolve(count);
       });
     });
@@ -342,10 +347,10 @@ module.exports = class CouchbaseMachineSink extends BaseSink {
 
   async record(id, groupName, sample, interval) {
     switch(sample.type) {
-      case "TIME_COMPLEX":
-        return await this.recordTimeComplex(id, groupName, sample.value, interval);
-      case "INTERVAL":
-        return await this.recordInterval(id, groupName, sample.value);
+    case "TIME_COMPLEX":
+      return await this.recordTimeComplex(id, groupName, sample.value, interval);
+    case "INTERVAL":
+      return await this.recordInterval(id, groupName, sample.value);
     }
   }
 

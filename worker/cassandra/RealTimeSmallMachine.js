@@ -1,7 +1,7 @@
 "use strict";
 
-const BaseRealTimeSmallMachine = require(`../base/RealTimeSmallMachine`);
-const CassandraMachineSink = require(`./CassandraMachineSink`);
+const BaseRealTimeSmallMachine = require("../base/RealTimeSmallMachine");
+const CassandraMachineSink = require("./CassandraMachineSink");
 
 module.exports = class RealTimeSmallMachine extends BaseRealTimeSmallMachine {
 

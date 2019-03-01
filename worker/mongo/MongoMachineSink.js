@@ -1,12 +1,12 @@
 "use strict";
 
-const MongoClient = require('mongodb').MongoClient;
-const Binary = require('mongodb').Binary;
-const uuidParse = require('uuid-parse');
-const _ = require('lodash');
-const FlattenJS = require('flattenjs');
+const MongoClient = require("mongodb").MongoClient;
+const Binary = require("mongodb").Binary;
+const uuidParse = require("uuid-parse");
+const _ = require("lodash");
+const FlattenJS = require("flattenjs");
 
-const BaseSink = require(`../base/BaseSink`);
+const BaseSink = require("../base/BaseSink");
 
 function subtractDocs(o1, o2) {
   let d = {
@@ -74,9 +74,9 @@ module.exports = class MongoMachineSink extends BaseSink {
 
   async init() {
     this.mongoClient = await MongoClient.connect(this.databaseOpts.url, this.databaseOpts.options);
-    this.db = this.mongoClient.db(`db-test`);
-    this.timeComplexColl = this.db.collection(`timeComplex`);
-    this.intervalColl = this.db.collection(`interval`);
+    this.db = this.mongoClient.db("db-test");
+    this.timeComplexColl = this.db.collection("timeComplex");
+    this.intervalColl = this.db.collection("interval");
 
     super.init();
   }
@@ -89,20 +89,20 @@ module.exports = class MongoMachineSink extends BaseSink {
 
   async query(name, type, options, interval) {
     switch (type) {
-      case "INTERVAL_RANGE":
-        return await this.queryIntervalRange(name, options);
-      case "TIME_COMPLEX_RANGE":
-        return await  this.queryTimeComplexRange(name, options, interval);
-      case "TIME_COMPLEX_RANGE_BUCKET_AVG":
-        return await this.queryTimeComplexRangeBucketAvg(name, options, interval);
-      case "TIME_COMPLEX_DIFFERENCE":
-        return await this.queryTimeComplexDifference(name, options, interval);
-      case "TIME_COMPLEX_LAST_BEFORE":
-        return await this.queryTimeComplexLastBefore(name, options, interval);
-      case "TIME_COMPLEX_TOP_DIFFERENCE":
-        return await this.queryTimeComplexTopDifference(name, options, interval);
-      case "INTERVAL_TOP_COUNT":
-        return await this.queryIntervalTopCount(name, options);
+    case "INTERVAL_RANGE":
+      return await this.queryIntervalRange(name, options);
+    case "TIME_COMPLEX_RANGE":
+      return await  this.queryTimeComplexRange(name, options, interval);
+    case "TIME_COMPLEX_RANGE_BUCKET_AVG":
+      return await this.queryTimeComplexRangeBucketAvg(name, options, interval);
+    case "TIME_COMPLEX_DIFFERENCE":
+      return await this.queryTimeComplexDifference(name, options, interval);
+    case "TIME_COMPLEX_LAST_BEFORE":
+      return await this.queryTimeComplexLastBefore(name, options, interval);
+    case "TIME_COMPLEX_TOP_DIFFERENCE":
+      return await this.queryTimeComplexTopDifference(name, options, interval);
+    case "INTERVAL_TOP_COUNT":
+      return await this.queryIntervalTopCount(name, options);
     }
   }
 
@@ -119,7 +119,8 @@ module.exports = class MongoMachineSink extends BaseSink {
       let count = 0;
 
       coll.find(criteria).forEach((doc) => {
-        ++count;
+        if (doc)
+          ++count;
       }, (err) => {
         if (err)
           return reject();
@@ -195,7 +196,8 @@ module.exports = class MongoMachineSink extends BaseSink {
       let count = 0;
 
       coll.aggregate(stages, { allowDiskUse: true }).forEach((doc) => {
-        count++
+        if (doc)
+          count++;
       }, (err) => {
         if (err)
           return reject();
@@ -274,7 +276,8 @@ module.exports = class MongoMachineSink extends BaseSink {
       let count = 0;
 
       coll.aggregate(stages, { allowDiskUse: true }).forEach((doc) => {
-        ++count;
+        if (doc)
+          ++count;
       }, (err) => {
         if (err)
           return reject();
@@ -437,7 +440,8 @@ module.exports = class MongoMachineSink extends BaseSink {
       let count = 0;
 
       coll.aggregate(stages, { allowDiskUse: true }).forEach((doc) => {
-        count++
+        if (doc)
+          count++;
       }, (err) => {
         if (err)
           return reject();
@@ -573,7 +577,8 @@ module.exports = class MongoMachineSink extends BaseSink {
       let count = 0;
 
       coll.aggregate(stages, { allowDiskUse: true }).forEach((doc) => {
-        ++count;
+        if (doc)
+          ++count;
       }, (err) => {
         if (err)
           return reject();
@@ -585,10 +590,10 @@ module.exports = class MongoMachineSink extends BaseSink {
 
   async record(id, groupName, sample, interval) {
     switch(sample.type) {
-      case "TIME_COMPLEX":
-        return await this.recordTimeComplex(id, groupName, sample.value, interval);
-      case "INTERVAL":
-        return await this.recordInterval(id, groupName, sample.value);
+    case "TIME_COMPLEX":
+      return await this.recordTimeComplex(id, groupName, sample.value, interval);
+    case "INTERVAL":
+      return await this.recordInterval(id, groupName, sample.value);
     }
   }
 
@@ -602,7 +607,7 @@ module.exports = class MongoMachineSink extends BaseSink {
         await collection.createIndex({ "_id.device": 1, "_id.time": 1 });
         await collection.createIndex({ "_id.device": 1, "_id.time": -1 });
       }
-      catch(err) { }
+      catch(err) { /* eslint-disable-line*/ }
       this.timeComplexCollections[groupName] = collection;
     }
 
@@ -645,7 +650,7 @@ module.exports = class MongoMachineSink extends BaseSink {
         await collection.createIndex({ startTime: 1, endTime: -1 });
         await collection.createIndex({ device: 1, startTime: 1, endTime: -1 });
       }
-      catch(err) { }
+      catch(err) { /* eslint-disable-line */ }
       this.intervalCollections[groupName] = collection;
     }
 

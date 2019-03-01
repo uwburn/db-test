@@ -59,7 +59,7 @@ module.exports = class BaseWorkload {
           this.endTime = new Date().getTime();
 
           this.log();
-          console.log(`Workload completed`);
+          console.log("Workload completed");
 
           resolve();
         });
@@ -74,7 +74,7 @@ module.exports = class BaseWorkload {
   stats() {
     let percents = this.readStreams.map(e => e.percent());
     let percent = percents.reduce((acc, e, i, arr) => {
-      return acc + e / arr.length
+      return acc + e / arr.length;
     }, 0);
 
     let stats = this.writeStreams.reduce((acc, e) => {

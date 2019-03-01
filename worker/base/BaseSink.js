@@ -1,6 +1,6 @@
 "use strict";
 
-const { Writable } = require('stream');
+const { Writable } = require("stream");
 
 const SINK_STATS_INTERVAL = 60000;
 
@@ -132,7 +132,7 @@ module.exports = class BaseSink {
     return result;
   }
 
-  async query(name, type, options) {
+  async query() {
     throw new Error("Base class doesn't implement query method");
   }
 
@@ -178,7 +178,7 @@ module.exports = class BaseSink {
           ++result.errors;
         }).then(() => {
           ++result.writes;
-        })
+        });
       });
 
       Promise.all(promises).then(() => {
@@ -189,7 +189,7 @@ module.exports = class BaseSink {
     return result;
   }
 
-  async record(id, groupName, sample) {
+  async record() {
     throw new Error("Base class doesn't implement record method");
   }
 

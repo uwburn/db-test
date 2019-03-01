@@ -1,7 +1,7 @@
 "use strict";
 
-const BaseBulkWriteMidMachine = require(`../base/BulkWriteMidMachine`);
-const CouchbaseMachineSink = require(`./CouchbaseMachineSink`);
+const BaseBulkWriteMidMachine = require("../base/BulkWriteMidMachine");
+const CouchbaseMachineSink = require("./CouchbaseMachineSink");
 
 module.exports = class MongoBulkWriteBigMachine extends BaseBulkWriteMidMachine {
 

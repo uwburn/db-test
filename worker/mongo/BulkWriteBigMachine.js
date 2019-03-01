@@ -1,7 +1,7 @@
 "use strict";
 
-const BaseBulkWriteBigMachine = require(`../base/BulkWriteBigMachine`);
-const MongoMachineSink = require(`./MongoMachineSink`);
+const BaseBulkWriteBigMachine = require("../base/BulkWriteBigMachine");
+const MongoMachineSink = require("./MongoMachineSink");
 
 module.exports = class MongoBulkWriteBigMachine extends BaseBulkWriteBigMachine {
 

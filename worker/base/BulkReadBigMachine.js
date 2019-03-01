@@ -1,7 +1,7 @@
 "use strict";
 
-const BulkReadMachine = require(`./BulkReadMachine`);
-const Source = require(`./BigMachineSource`);
+const BulkReadMachine = require("./BulkReadMachine");
+const Source = require("./BigMachineSource");
 
 module.exports = class BulkReadBigMachine extends BulkReadMachine {
 

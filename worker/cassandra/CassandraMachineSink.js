@@ -1,10 +1,10 @@
 "use strict";
 
-const cassandra = require('cassandra-driver');
-const FlattenJS = require('flattenjs');
-const _ = require('lodash');
+const cassandra = require("cassandra-driver");
+const FlattenJS = require("flattenjs");
+const _ = require("lodash");
 
-const BaseSink = require(`../base/BaseSink`);
+const BaseSink = require("../base/BaseSink");
 
 function subtractValues(o1, o2) {
   let d = { };
@@ -39,7 +39,7 @@ module.exports = class CassandraMachineSink extends BaseSink {
 
   async init() {
     this.databaseOpts.profiles = [
-      new cassandra.ExecutionProfile('default', {
+      new cassandra.ExecutionProfile("default", {
         consistency: 1,
         readTimeout: 10000
       })
@@ -59,20 +59,20 @@ module.exports = class CassandraMachineSink extends BaseSink {
 
   async query(name, type, options) {
     switch (type) {
-      case "INTERVAL_RANGE":
-        return await this.queryIntervalRange(name, options);
-      case "TIME_COMPLEX_RANGE":
-        return await  this.queryTimeComplexRange(name, options);
-      case "TIME_COMPLEX_RANGE_BUCKET_AVG":
-        return await this.queryTimeComplexRangeBucketAvg(name, options);
-      case "TIME_COMPLEX_DIFFERENCE":
-        return await this.queryTimeComplexDifference(name, options);
-      case "TIME_COMPLEX_LAST_BEFORE":
-        return await this.queryTimeComplexLastBefore(name, options);
-      case "TIME_COMPLEX_TOP_DIFFERENCE":
-        return await this.queryTimeComplexTopDifference(name, options);
-      case "INTERVAL_TOP_COUNT":
-        return await this.queryIntervalTopCount(name, options);
+    case "INTERVAL_RANGE":
+      return await this.queryIntervalRange(name, options);
+    case "TIME_COMPLEX_RANGE":
+      return await  this.queryTimeComplexRange(name, options);
+    case "TIME_COMPLEX_RANGE_BUCKET_AVG":
+      return await this.queryTimeComplexRangeBucketAvg(name, options);
+    case "TIME_COMPLEX_DIFFERENCE":
+      return await this.queryTimeComplexDifference(name, options);
+    case "TIME_COMPLEX_LAST_BEFORE":
+      return await this.queryTimeComplexLastBefore(name, options);
+    case "TIME_COMPLEX_TOP_DIFFERENCE":
+      return await this.queryTimeComplexTopDifference(name, options);
+    case "INTERVAL_TOP_COUNT":
+      return await this.queryIntervalTopCount(name, options);
     }
   }
 
@@ -87,12 +87,12 @@ module.exports = class CassandraMachineSink extends BaseSink {
         options.startTime
       ], {
         prepare: true
-      }).on('data', function (row) {
+      }).on("data", function (row) {
         ++count;
         row.value = JSON.parse(row.value);
-      }).on('end', function () {
+      }).on("end", function () {
         resolve(count);
-      }).on('error', function (err) {
+      }).on("error", function (err) {
         reject(err);
       });
     });
@@ -109,15 +109,15 @@ module.exports = class CassandraMachineSink extends BaseSink {
         options.endTime,
       ], {
         prepare: true
-      }).on('data', function (row) {
+      }).on("data", function (row) {
         ++count;
 
         row.value = JSON.parse(row.value);
         if (options.select && options.select.length)
           row.value = _.pick(row.value, options.select);
-      }).on('end', function () {
+      }).on("end", function () {
         resolve(count);
-      }).on('error', function (err) {
+      }).on("error", function (err) {
         reject(err);
       });
     });
@@ -153,7 +153,7 @@ module.exports = class CassandraMachineSink extends BaseSink {
         options.endTime,
       ], {
         prepare: true
-      }).on('data', function (row) {
+      }).on("data", function (row) {
         ++count;
 
         let bucketIndex = Math.floor((row.timestamp - options.startTime.getTime()) / bucketStep) - 1;
@@ -175,9 +175,9 @@ module.exports = class CassandraMachineSink extends BaseSink {
         ++bucket.count;
         for (let s of options.select)
           bucket[s + "_avg"] += _.get(row.value, s);
-      }).on('end', function () {
+      }).on("end", function () {
         resolve(count);
-      }).on('error', function (err) {
+      }).on("error", function (err) {
         reject(err);
       });
     });
@@ -279,13 +279,13 @@ module.exports = class CassandraMachineSink extends BaseSink {
         options.time,
       ], {
         prepare: true
-      }).on('data', function (row) {
+      }).on("data", function (row) {
         ++count;
 
         row.value = JSON.parse(row.value);
-      }).on('end', function () {
+      }).on("end", function () {
         resolve(count);
-      }).on('error', function (err) {
+      }).on("error", function (err) {
         reject(err);
       });
     });
@@ -363,14 +363,16 @@ module.exports = class CassandraMachineSink extends BaseSink {
 
     let tops = _.orderBy(counts.rows, ["interval_count"], ["DESC"]);
     tops = tops.slice(0, options.limit);
+
+    return tops.length;
   }
 
   async record(id, groupName, sample) {
     switch (sample.type) {
-      case "TIME_COMPLEX":
-        return await this.recordTimeComplex(id, groupName, sample.value);
-      case "INTERVAL":
-        return await this.recordInterval(id, groupName, sample.value);
+    case "TIME_COMPLEX":
+      return await this.recordTimeComplex(id, groupName, sample.value);
+    case "INTERVAL":
+      return await this.recordInterval(id, groupName, sample.value);
     }
   }
 
@@ -396,8 +398,8 @@ module.exports = class CassandraMachineSink extends BaseSink {
       sample.endTime,
       JSON.stringify(sample.value)
     ], {
-        prepare: true
-      });
+      prepare: true
+    });
   }
 
 };

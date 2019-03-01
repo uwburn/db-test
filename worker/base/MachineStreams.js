@@ -1,6 +1,6 @@
 "use strict";
 
-const { Readable } = require('stream');
+const { Readable } = require("stream");
 const _ = require("lodash");
 
 const HIGH_WATERMARK = 256;
@@ -12,7 +12,7 @@ function gcd(a, b) {
   }
 
   return gcd(b, a % b);
-};
+}
 
 module.exports = class MachineStreams {
 
@@ -153,7 +153,7 @@ module.exports = class MachineStreams {
           if (relTime % this.source.queryIntervals[queryName] === 0) {
             let pushRes = result.stream.push(this.source.query(queryName, absDate));
 
-            --queries[queryName]
+            --queries[queryName];
             ++queriesCount;
 
             if (++readQueries >= size || !pushRes) {

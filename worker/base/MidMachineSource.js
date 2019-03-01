@@ -1,7 +1,7 @@
 "use strict";
 
-const uuidv4 = require('uuid/v4');
-const moment = require('moment');
+const uuidv4 = require("uuid/v4");
+const moment = require("moment");
 
 module.exports = class MidMachineSource {
 
@@ -62,7 +62,7 @@ module.exports = class MidMachineSource {
     return {
       type: this.sampleTypes[groupName],
       value: this.sampleMethods[groupName](id, absDate)
-    }
+    };
   }
 
   statusSample(id, absDate) {
@@ -200,7 +200,7 @@ module.exports = class MidMachineSource {
           ]
         }
       }
-    }
+    };
   }
 
   stateSample(id, absDate) {
@@ -642,11 +642,11 @@ module.exports = class MidMachineSource {
 
     let times = [];
     let absM = moment(absDate);
-    let m = moment(absDate).startOf('year');
+    let m = moment(absDate).startOf("year");
     let year = m.year();
     while (m.year() === year && m.isBefore(absM)) {
       times.push(m.toDate());
-      m.add(1, 'month');
+      m.add(1, "month");
     }
 
     return {
@@ -664,7 +664,7 @@ module.exports = class MidMachineSource {
 
   oldSetup(absDate) {
     let machineIndex = Math.floor(this.workloadOpts.machines.length * this.workloadOpts.machineUptime * Math.random());
-    let yearTime = moment(absDate).startOf('year').valueOf();
+    let yearTime = moment(absDate).startOf("year").valueOf();
     let nowTime = absDate.getTime();
 
     return {

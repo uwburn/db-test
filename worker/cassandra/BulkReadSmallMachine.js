@@ -1,7 +1,7 @@
 "use strict";
 
-const BaseBulkReadSmallMachine = require(`../base/BulkReadSmallMachine`);
-const CassandraMachineSink = require(`./CassandraMachineSink`);
+const BaseBulkReadSmallMachine = require("../base/BulkReadSmallMachine");
+const CassandraMachineSink = require("./CassandraMachineSink");
 
 module.exports = class BulkSmallMachine extends BaseBulkReadSmallMachine {
 

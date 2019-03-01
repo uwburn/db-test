@@ -1,7 +1,7 @@
 "use strict";
 
-const BaseBulkReadSmallMachine = require(`../base/BulkReadSmallMachine`);
-const CouchbaseMachineSink = require(`./CouchbaseMachineSink`);
+const BaseBulkReadSmallMachine = require("../base/BulkReadSmallMachine");
+const CouchbaseMachineSink = require("./CouchbaseMachineSink");
 
 module.exports = class MongoBulkReadSmallMachine extends BaseBulkReadSmallMachine {
 
