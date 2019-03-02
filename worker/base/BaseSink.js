@@ -4,12 +4,6 @@ const { Writable } = require("stream");
 
 const SINK_STATS_INTERVAL = 60000;
 
-const UNCOMMON_QUERIES = {
-  TIME_COMPLEX_DIFFERENCE: true,
-  TIME_COMPLEX_TOP_DIFFERENCE: true,
-  INTERVAL_TOP_COUNT: true
-};
-
 module.exports = class BaseSink {
 
   constructor(databaseOpts, queryHighWaterMark, recordHighWaterMark) {
@@ -31,9 +25,7 @@ module.exports = class BaseSink {
       TIME_COMPLEX_RANGE: 0,
       TIME_COMPLEX_RANGE_BUCKET_AVG: 0,
       TIME_COMPLEX_DIFFERENCE: 0,
-      TIME_COMPLEX_LAST_BEFORE: 0,
-      TIME_COMPLEX_TOP_DIFFERENCE: 0,
-      INTERVAL_TOP_COUNT: 0
+      TIME_COMPLEX_LAST_BEFORE: 0
     };
 
     this.countByType = {
@@ -41,9 +33,7 @@ module.exports = class BaseSink {
       TIME_COMPLEX_RANGE: 0,
       TIME_COMPLEX_RANGE_BUCKET_AVG: 0,
       TIME_COMPLEX_DIFFERENCE: 0,
-      TIME_COMPLEX_LAST_BEFORE: 0,
-      TIME_COMPLEX_TOP_DIFFERENCE: 0,
-      INTERVAL_TOP_COUNT: 0
+      TIME_COMPLEX_LAST_BEFORE: 0
     };
   }
 
@@ -83,9 +73,6 @@ module.exports = class BaseSink {
     };
 
     result.stream._write = (chunk, enc, callback) => {
-      if (this.databaseOpts.skipUncommonQueries && UNCOMMON_QUERIES[chunk.type])
-        return callback();
-
       let t0 = Date.now();
       this.query(chunk.name, chunk.type, chunk.options, chunk.interval).then(() => {
         ++result.successfulReads;
@@ -106,9 +93,6 @@ module.exports = class BaseSink {
 
       let promises = chunks.map((chunk) => {
         chunk = chunk.chunk;
-
-        if (this.databaseOpts.skipUncommonQueries && UNCOMMON_QUERIES[chunk.type])
-          return;
 
         return this.query(chunk.name, chunk.type, chunk.options, chunk.interval).then(() => {
           ++result.successfulReads;

@@ -71,10 +71,6 @@ module.exports = class CouchbaseMachineSink extends BaseSink {
       return await this.queryTimeComplexDifference(name, options, interval);
     case "TIME_COMPLEX_LAST_BEFORE":
       return await this.queryTimeComplexLastBefore(name, options, interval);
-    case "TIME_COMPLEX_TOP_DIFFERENCE":
-      return await this.queryTimeComplexTopDifference(name, options, interval);
-    case "INTERVAL_TOP_COUNT":
-      return await this.queryIntervalTopCount(name, options);
     }
   }
 
@@ -104,24 +100,17 @@ module.exports = class CouchbaseMachineSink extends BaseSink {
   }
 
   async queryTimeComplexRange(name, options) {
-    let q = "SELECT"; 
-    if (options.select && options.select.length > 0) {
-      q += " time";
-      for (let s of options.select)
-        q += `, \`value\`.${s}`;
-    }
-    else {
-      q += " *";
-    }
-    q += " FROM `db-test` WHERE type = \"time_complex\" AND `group` = $group AND device = $device AND time >= $startTime AND time <= $endTime";
-
-    q = couchbase.N1qlQuery.fromString(q);
-    let req = await this.couchbaseBucket.query(q, {
-      group: options.group,
-      device: options.device,
-      startTime: options.startTime.getTime(),
-      endTime: options.endTime.getTime()
-    });  
+    let q = couchbase.ViewQuery.from("time_complex", "by_group_device_time")
+      .range([ 
+        options.group, 
+        options.device, 
+        options.startTime.getTime()
+      ], [
+        options.group, 
+        options.device, 
+        options.endTime.getTime()
+      ], true);
+    let req = await this.couchbaseBucket.query(q);  
 
     return await new Promise((resolve, reject) => {
       let count = 0;
@@ -143,29 +132,52 @@ module.exports = class CouchbaseMachineSink extends BaseSink {
     if (!options.select || options.select.length === 0)
       throw new Error("Selection is required");
 
-    let bin = Math.floor((options.endTime.getTime() - options.startTime.getTime()) / options.buckets);
+    let duration = options.endTime.getTime() - options.startTime.getTime();
+    let bucketStep = Math.round(duration / options.buckets);
 
-    let q = "SELECT COUNT(*)"; 
-    for (let s of options.select) {
-      q += `, AVG(\`value\`.${s}) AS avg_${s}`;
+    let buckets = [];
+    for (let i = 0; i < options.buckets; ++i) {
+      buckets[i] = {
+        time: options.startTime.getTime() + i * bucketStep,
+        count: 0,
+        minTime: Number.MAX_SAFE_INTEGER,
+        maxTime: Number.MIN_SAFE_INTEGER
+      };
+
+      for (let s of options.select)
+        buckets[i][s + "_avg"] = 0;
     }
-    q += " FROM `db-test` WHERE type = \"time_complex\" AND `group` = $group AND device = $device AND time <= $endTime AND time >= $startTime GROUP BY FLOOR(time / $bin)";
 
-    q = couchbase.N1qlQuery.fromString(q);
-    let req = await this.couchbaseBucket.query(q, {
-      group: options.group,
-      device: options.device,
-      startTime: options.startTime.getTime(),
-      endTime: options.endTime.getTime(),
-      bin: bin
-    });  
+    let q = couchbase.ViewQuery.from("time_complex", "by_group_device_time")
+      .range([ 
+        options.group, 
+        options.device, 
+        options.startTime.getTime()
+      ], [
+        options.group, 
+        options.device, 
+        options.endTime.getTime()
+      ], true);
+    let req = await this.couchbaseBucket.query(q);  
 
     return await new Promise((resolve, reject) => {
       let count = 0;
 
       req.on("row", (row) => {
-        if (row)
-          count++;
+        ++count;
+
+        let bucketIndex = Math.floor((row.value.time - options.startTime.getTime()) / bucketStep) - 1;
+        let bucket = buckets[bucketIndex];
+
+        if (!bucket)
+          return;
+
+        bucket.minTime = Math.min(bucket.minTime, row.value.time);
+        bucket.maxTime = Math.max(bucket.maxTime, row.value.time);
+        row.value = row.value.value;
+        ++bucket.count;
+        for (let s of options.select)
+          bucket[s + "_avg"] += _.get(row.value, s);
       });
       req.on("error", (err) => {
         reject(err);
@@ -177,28 +189,36 @@ module.exports = class CouchbaseMachineSink extends BaseSink {
   }
 
   async queryTimeComplexDifference(name, options) {
-    let qAsc = couchbase.N1qlQuery.fromString("SELECT * FROM `db-test` WHERE type = 'time_complex' AND `group` = $group AND device = $device AND time >= $startTime AND time <= $endTime ORDER BY time ASC LIMIT 1");
-    let qDesc = couchbase.N1qlQuery.fromString("SELECT * FROM `db-test` WHERE type = 'time_complex' AND `group` = $group AND device = $device AND time >= $startTime AND time <= $endTime ORDER BY time DESC LIMIT 1");
-
     let promises = [];
-    for (let i = 0; i < options.times.length -1; ++i) {
-      let startTime = options.times[i];
-      let endTime = options.times[i + 1];
+    let qAsc = couchbase.ViewQuery.from("time_complex", "by_group_device_time")
+      .range([ 
+        options.group, 
+        options.device, 
+        options.startTime.getTime()
+      ], [
+        options.group, 
+        options.device, 
+        options.endTime.getTime()
+      ], true)
+      .order(couchbase.ViewQuery.Order.ASCENDING)
+      .limit(1);
 
-      promises.push(this.couchbaseBucket.queryAsync(qAsc, {
-        group: options.group,
-        device: options.device,
-        startTime: startTime.getTime(),
-        endTime: endTime.getTime()
-      }));
+    promises.push(this.couchbaseBucket.queryAsync(qAsc));
 
-      promises.push(this.couchbaseBucket.queryAsync(qDesc, {
-        group: options.group,
-        device: options.device,
-        startTime: startTime.getTime(),
-        endTime: endTime.getTime()
-      }));
-    }
+    let qDesc = couchbase.ViewQuery.from("time_complex", "by_group_device_time")
+      .range([
+        options.group, 
+        options.device, 
+        options.endTime.getTime()
+      ], [ 
+        options.group, 
+        options.device, 
+        options.startTime.getTime()
+      ], true)
+      .order(couchbase.ViewQuery.Order.DESCENDING)
+      .limit(1);
+
+    promises.push(this.couchbaseBucket.queryAsync(qDesc));
 
     let results = await Promise.all(promises);
 
@@ -207,7 +227,7 @@ module.exports = class CouchbaseMachineSink extends BaseSink {
       let first;
       let firstValue;
       if (results[i][0]) {
-        first = results[i][0]["db-test"];
+        first = results[i][0].value;
         firstValue = first.value;
       }
       else {
@@ -218,7 +238,7 @@ module.exports = class CouchbaseMachineSink extends BaseSink {
       let last;
       let lastValue;
       if (results[i + 1][0]) {
-        last = results[i + 1][0]["db-test"];
+        last = results[i + 1][0].value;
         lastValue = last.value;
       }
       else {
@@ -227,11 +247,10 @@ module.exports = class CouchbaseMachineSink extends BaseSink {
       }
 
       let sub = {
-        deviceType: first.device_type,
-        device: first.device,
-        group: first.group,
-        startTime: first.timestamp,
-        endTime: last.timestamp,
+        device: options.device,
+        group: options.group,
+        startTime: first.time,
+        endTime: last.time,
         value: subtractValues(firstValue, lastValue)
       };
 
@@ -242,92 +261,19 @@ module.exports = class CouchbaseMachineSink extends BaseSink {
   }
 
   async queryTimeComplexLastBefore(name, options) {
-    let q = couchbase.N1qlQuery.fromString("SELECT * FROM `db-test` WHERE type = \"time_complex\" AND `group` = $group AND device = $device AND time <= $time ORDER BY time DESC LIMIT 1");
-    let req = await this.couchbaseBucket.query(q, {
-      group: options.group,
-      device: options.device,
-      time: options.time.getTime()
-    });  
+    let q = couchbase.ViewQuery.from("time_complex", "by_group_device_time")
+      .range([
+        options.group, 
+        options.device, 
+        options.time.getTime()
+      ], [
+        options.group, 
+        options.device
+      ])
+      .order(couchbase.ViewQuery.Order.DESCENDING)
+      .limit(1);
 
-    return await new Promise((resolve, reject) => {
-      let count = 0;
-
-      req.on("row", (row) => {
-        if (row)
-          count++;
-      });
-      req.on("error", (err) => {
-        reject(err);
-      });
-      req.on("end", () => {
-        resolve(count);
-      });
-    });
-  }
-
-  async queryTimeComplexTopDifference(name, options) {
-    let q = couchbase.N1qlQuery.fromString("SELECT device, MIN(time) AS min_time, MAX(time) AS max_time FROM `db-test` WHERE type = \"time_complex\" AND `group` = $group AND time >= $startTime AND time <= $endTime  GROUP BY device;");
-    let boundaries = await this.couchbaseBucket.queryAsync(q, {
-      group: options.group,
-      startTime: options.startTime.getTime(),
-      endTime: options.endTime.getTime()
-    });
-
-    q = couchbase.N1qlQuery.fromString("SELECT * FROM `db-test` WHERE type = \"time_complex\" AND `group` = $group AND device = $device AND time = $time;");
-
-    let promises = [];
-    for (let boundary of boundaries) {
-      promises.push(this.couchbaseBucket.queryAsync(q, {
-        group: options.group,
-        device: boundary.device,
-        time: boundary.min_time
-      }));
-
-      promises.push(this.couchbaseBucket.queryAsync(q, {
-        group: options.group,
-        device: boundary.device,
-        time: boundary.max_time
-      }));
-    }
-
-    let results = await Promise.all(promises);
-
-    let subs = [];
-    for (let i = 0; i < results.length; i += 2) {
-      let first = results[i][0]["db-test"];
-      let last = results[i + 1][0]["db-test"];
-
-      let sub = {
-        deviceType: first.device_type,
-        device: first.device,
-        group: first.group,
-        value: subtractValues(first.value, last.value)
-      };
-
-      subs.push(sub);
-    }
-
-    let iteratees = [];
-    let orders = [];
-    for (let s in options.sort) {
-      iteratees.push("value." + s);
-      orders.push(options.sort[s]);
-    }
-
-    let tops = _.orderBy(subs, iteratees, orders);
-    tops = tops.slice(0, options.limit);
-
-    return tops.length;
-  }
-
-  async queryIntervalTopCount(name, options) {
-    let q = couchbase.N1qlQuery.fromString("SELECT device, COUNT(*) c FROM `db-test` WHERE type = \"interval\" AND `group` = $group AND startTime <= $endTime AND endTime >= $startTime GROUP BY device ORDER BY c DESC LIMIT $limit");
-    let req = await this.couchbaseBucket.query(q, {
-      group: options.group,
-      startTime: options.startTime.getTime(),
-      endTime: options.endTime.getTime(),
-      limit: options.limit
-    });  
+    let req = await this.couchbaseBucket.query(q); 
 
     return await new Promise((resolve, reject) => {
       let count = 0;

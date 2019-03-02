@@ -3,6 +3,9 @@
 const uuidv4 = require("uuid/v4");
 const moment = require("moment");
 
+const MIN_QUERY_INTERVAL = 15000;
+const MAX_QUERY_INTERVAL = 30000;
+
 module.exports = class BigMachineSource {
 
   constructor(workloadOpts) {
@@ -42,37 +45,48 @@ module.exports = class BigMachineSource {
     };
 
     this.queryIntervals = {
-      lastWeekStates: Math.floor(28800000 / this.workloadOpts.machines.length),
-      lastWeekSetups: Math.floor(28800000 / this.workloadOpts.machines.length),
-      lastDayAlarms: Math.floor(28800000 / this.workloadOpts.machines.length),
-      lastMonthMachineEnergy: Math.floor(28800000 / this.workloadOpts.machines.length),
-      lastHourExtrusion: Math.floor(28800000 / this.workloadOpts.machines.length),
-      lastDayAggrExtrusion: Math.floor(28800000 / this.workloadOpts.machines.length),
-      lastHourCooling: Math.floor(28800000 / this.workloadOpts.machines.length),
-      lastDayAggrCooling: Math.floor(28800000 / this.workloadOpts.machines.length),
-      lastHourMotion: Math.floor(28800000 / this.workloadOpts.machines.length),
-      lastDayAggrMotion: Math.floor(28800000 / this.workloadOpts.machines.length),
-      thisYearMonthlyCountersDifference: Math.floor(28800000 / this.workloadOpts.machines.length),
-      oldStatus: Math.floor(604800000 / this.workloadOpts.machines.length),
-      topTenMachinesLastDayWorkingTime: 86400000,
-      topTenMachinesLastDayAlarms: 86400000
+      lastWeekStates: Math.min(Math.max(Math.floor(28800000 / this.workloadOpts.machines.length), MIN_QUERY_INTERVAL), MAX_QUERY_INTERVAL),
+      lastWeekSetups: Math.min(Math.max(Math.floor(28800000 / this.workloadOpts.machines.length), MIN_QUERY_INTERVAL), MAX_QUERY_INTERVAL),
+      lastDayAlarms: Math.min(Math.max(Math.floor(28800000 / this.workloadOpts.machines.length), MIN_QUERY_INTERVAL), MAX_QUERY_INTERVAL),
+      lasWeekMachineEnergy: Math.min(Math.max(Math.floor(28800000 / this.workloadOpts.machines.length), MIN_QUERY_INTERVAL), MAX_QUERY_INTERVAL),
+      lastHourExtrusion: Math.min(Math.max(Math.floor(28800000 / this.workloadOpts.machines.length), MIN_QUERY_INTERVAL), MAX_QUERY_INTERVAL),
+      lastDayAggrExtrusion: Math.min(Math.max(Math.floor(28800000 / this.workloadOpts.machines.length), MIN_QUERY_INTERVAL), MAX_QUERY_INTERVAL),
+      lastHourCooling: Math.min(Math.max(Math.floor(28800000 / this.workloadOpts.machines.length), MIN_QUERY_INTERVAL), MAX_QUERY_INTERVAL),
+      lastDayAggrCooling: Math.min(Math.max(Math.floor(28800000 / this.workloadOpts.machines.length), MIN_QUERY_INTERVAL), MAX_QUERY_INTERVAL),
+      lastHourMotion: Math.min(Math.max(Math.floor(28800000 / this.workloadOpts.machines.length), MIN_QUERY_INTERVAL), MAX_QUERY_INTERVAL),
+      lastDayAggrMotion: Math.min(Math.max(Math.floor(28800000 / this.workloadOpts.machines.length), MIN_QUERY_INTERVAL), MAX_QUERY_INTERVAL),
+      lastMonthCountersDifference: Math.min(Math.max(Math.floor(28800000 / this.workloadOpts.machines.length), MIN_QUERY_INTERVAL), MAX_QUERY_INTERVAL),
+      oldStatus: Math.min(Math.max(Math.floor(86400000 / this.workloadOpts.machines.length), MIN_QUERY_INTERVAL), MAX_QUERY_INTERVAL)
+    };
+
+    this.queryPhases = {
+      lastWeekStates: Math.floor(Math.random() * MAX_QUERY_INTERVAL),
+      lastWeekSetups: Math.floor(Math.random() * MAX_QUERY_INTERVAL),
+      lastDayAlarms: Math.floor(Math.random() * MAX_QUERY_INTERVAL),
+      lasWeekMachineEnergy: Math.floor(Math.random() * MAX_QUERY_INTERVAL),
+      lastHourExtrusion: Math.floor(Math.random() * MAX_QUERY_INTERVAL),
+      lastDayAggrExtrusion: Math.floor(Math.random() * MAX_QUERY_INTERVAL),
+      lastHourCooling: Math.floor(Math.random() * MAX_QUERY_INTERVAL),
+      lastDayAggrCooling: Math.floor(Math.random() * MAX_QUERY_INTERVAL),
+      lastHourMotion: Math.floor(Math.random() * MAX_QUERY_INTERVAL),
+      lastDayAggrMotion: Math.floor(Math.random() * MAX_QUERY_INTERVAL),
+      lastMonthCountersDifference: Math.floor(Math.random() * MAX_QUERY_INTERVAL),
+      oldStatus: Math.floor(Math.random() * MAX_QUERY_INTERVAL)
     };
 
     this.queryMethods = {
       lastWeekStates: this.lastWeekStates.bind(this),
       lastWeekSetups: this.lastWeekSetups.bind(this),
       lastDayAlarms: this.lastDayAlarms.bind(this),
-      lastMonthMachineEnergy: this.lastMonthMachineEnergy.bind(this),
+      lasWeekMachineEnergy: this.lasWeekMachineEnergy.bind(this),
       lastHourExtrusion: this.lastHourExtrusion.bind(this),
       lastDayAggrExtrusion: this.lastDayAggrExtrusion.bind(this),
       lastHourCooling: this.lastHourCooling.bind(this),
       lastDayAggrCooling: this.lastDayAggrCooling.bind(this),
       lastHourMotion: this.lastHourMotion.bind(this),
       lastDayAggrMotion: this.lastDayAggrMotion.bind(this),
-      thisYearMonthlyCountersDifference: this.thisYearMonthlyCountersDifference.bind(this),
-      oldStatus: this.oldStatus.bind(this),
-      topTenMachinesLastDayWorkingTime: this.topTenMachinesLastDayWorkingTime.bind(this),
-      topTenMachinesLastDayAlarms: this.topTenMachinesLastDayAlarms.bind(this)
+      lastMonthCountersDifference: this.lastMonthCountersDifference.bind(this),
+      oldStatus: this.oldStatus.bind(this)
     };
   }
 
@@ -500,18 +514,18 @@ module.exports = class BigMachineSource {
     };
   }
 
-  lastMonthMachineEnergy(absDate) {
+  lasWeekMachineEnergy(absDate) {
     let machineIndex = Math.floor(this.workloadOpts.machines.length * this.workloadOpts.machineUptime * Math.random());
 
     return {
-      name: "LAST_MONTH_MACHINE_ENERGY",
+      name: "LAST_WEEK_MACHINE_ENERGY",
       type: "TIME_COMPLEX_RANGE",
       options: {
         group: "counters",
         select: [ "activeEnergyConsumed", "reactiveEnergyProduced" ],
         deviceType: this.workloadOpts.machineTypeId,
         device: this.workloadOpts.machines[machineIndex],
-        startTime: new Date(absDate.getTime() - 2073600000),
+        startTime: new Date(absDate.getTime() - 604800000),
         endTime: absDate
       },
       interval: this.sampleIntervals.counters
@@ -627,26 +641,18 @@ module.exports = class BigMachineSource {
     };
   }
 
-  thisYearMonthlyCountersDifference(absDate) {
+  lastMonthCountersDifference(absDate) {
     let machineIndex = Math.floor(this.workloadOpts.machines.length * this.workloadOpts.machineUptime * Math.random());
 
-    let times = [];
-    let absM = moment(absDate);
-    let m = moment(absDate).startOf("year");
-    let year = m.year();
-    while (m.year() === year && m.isBefore(absM)) {
-      times.push(m.toDate());
-      m.add(1, "month");
-    }
-
     return {
-      name: "THIS_YEAR_MONTHLY_COUNTERS_DIFFERENCE",
+      name: "LAST_MONTH_COUNTERS_DIFFERENCE",
       type: "TIME_COMPLEX_DIFFERENCE",
       options: {
         group: "counters",
         deviceType: this.workloadOpts.machineTypeId,
         device: this.workloadOpts.machines[machineIndex],
-        times: times
+        startTime: new Date(absDate.getTime() - 2592000000),
+        endTime: absDate,
       },
       interval: this.sampleIntervals.counters
     };
@@ -667,37 +673,6 @@ module.exports = class BigMachineSource {
         time: new Date(yearTime + (nowTime - yearTime) * Math.random())
       },
       interval: this.sampleIntervals.status
-    };
-  }
-
-  topTenMachinesLastDayWorkingTime(absDate) {
-    return {
-      name: "TOP_TEN_MACHINES_LAST_DAY_WORKING_TIME",
-      type: "TIME_COMPLEX_TOP_DIFFERENCE",
-      options: {
-        deviceType: this.workloadOpts.machineTypeId,
-        group: "counters",
-        sort: {"totalWorkedTime": -1},
-        limit: 10,
-        startTime: new Date(absDate.getTime() - 86400000),
-        endTime: absDate
-      },
-      interval: this.sampleIntervals.counters
-    };
-  }
-
-  topTenMachinesLastDayAlarms(absDate) {
-    return {
-      name: "TOP_TEN_MACHINES_LAST_DAY_ALARMS",
-      type: "INTERVAL_TOP_COUNT",
-      options: {
-        deviceType: this.workloadOpts.machineTypeId,
-        group: "alarm",
-        limit: 10,
-        startTime: new Date(absDate.getTime() - 86400000),
-        endTime: absDate
-      },
-      interval: this.sampleIntervals.alarm
     };
   }
 

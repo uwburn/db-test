@@ -301,7 +301,7 @@ module.exports = class MachineStreams {
 
     let realTimeInterval = setInterval(() => {
       for (let query in this.source.queryIntervals) {
-        if ((absTime + this.readPhase) % this.source.queryIntervals[query] === 0)
+        if ((absTime + this.readPhase) % (this.source.queryIntervals[query] + Math.floor(this.source.queryPhases[query] / REAL_TIME_STEP) * REAL_TIME_STEP) === 0)
           queue.push(this.source.query(query, absDate));
       }
 

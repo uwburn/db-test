@@ -3,6 +3,9 @@
 const uuidv4 = require("uuid/v4");
 const moment = require("moment");
 
+const MIN_QUERY_INTERVAL = 5000;
+const MAX_QUERY_INTERVAL = 30000;
+
 module.exports = class SmallMachineSource {
 
   constructor(workloadOpts) {
@@ -30,21 +33,27 @@ module.exports = class SmallMachineSource {
     };
 
     this.queryIntervals = {
-      lastMonthProcessedQuantity: Math.floor(28800000 / this.workloadOpts.machines.length),
-      lastTwoMonthsAlarms: Math.floor(28800000 / this.workloadOpts.machines.length),
-      lastYearAggrProcessedQuantity: Math.floor(864000000 / this.workloadOpts.machines.length),
-      thisYearMonthlyCountersDifference: Math.floor(604800000 / this.workloadOpts.machines.length),
-      oldSetup: Math.floor(864000000 / this.workloadOpts.machines.length),
-      topTenMachinesLastWeekWorkingTime: 201600000
+      lastMonthProcessedQuantity: Math.min(Math.max(Math.floor(28800000 / this.workloadOpts.machines.length), MIN_QUERY_INTERVAL), MAX_QUERY_INTERVAL),
+      lastTwoMonthsAlarms: Math.min(Math.max(Math.floor(28800000 / this.workloadOpts.machines.length), MIN_QUERY_INTERVAL), MAX_QUERY_INTERVAL),
+      lastYearAggrProcessedQuantity: Math.min(Math.max(Math.floor(864000000 / this.workloadOpts.machines.length), MIN_QUERY_INTERVAL), MAX_QUERY_INTERVAL),
+      lastYearCountersDifference: Math.min(Math.max(Math.floor(604800000 / this.workloadOpts.machines.length), MIN_QUERY_INTERVAL), MAX_QUERY_INTERVAL),
+      oldSetup: Math.min(Math.max(Math.floor(864000000 / this.workloadOpts.machines.length), MIN_QUERY_INTERVAL), MAX_QUERY_INTERVAL)
+    };
+
+    this.queryPhases = {
+      lastMonthProcessedQuantity: Math.floor(Math.random() * MAX_QUERY_INTERVAL),
+      lastTwoMonthsAlarms: Math.floor(Math.random() * MAX_QUERY_INTERVAL),
+      lastYearAggrProcessedQuantity: Math.floor(Math.random() * MAX_QUERY_INTERVAL),
+      lastYearCountersDifference: Math.floor(Math.random() * MAX_QUERY_INTERVAL),
+      oldSetup: Math.floor(Math.random() * MAX_QUERY_INTERVAL)
     };
 
     this.queryMethods = {
       lastMonthProcessedQuantity: this.lastMonthProcessedQuantity.bind(this),
       lastTwoMonthsAlarms: this.lastTwoMonthsAlarms.bind(this),
       lastYearAggrProcessedQuantity: this.lastYearAggrProcessedQuantity.bind(this),
-      thisYearMonthlyCountersDifference: this.thisYearMonthlyCountersDifference.bind(this),
-      oldSetup: this.oldSetup.bind(this),
-      topTenMachinesLastWeekWorkingTime: this.topTenMachinesLastWeekWorkingTime.bind(this)
+      lastYearCountersDifference: this.lastYearCountersDifference.bind(this),
+      oldSetup: this.oldSetup.bind(this)
     };
   }
 
@@ -171,26 +180,18 @@ module.exports = class SmallMachineSource {
     };
   }
 
-  thisYearMonthlyCountersDifference(absDate) {
+  lastYearCountersDifference(absDate) {
     let machineIndex = Math.floor(this.workloadOpts.machines.length * this.workloadOpts.machineUptime * Math.random());
 
-    let times = [];
-    let absM = moment(absDate);
-    let m = moment(absDate).startOf("year");
-    let year = m.year();
-    while (m.year() === year && m.isBefore(absM)) {
-      times.push(m.toDate());
-      m.add(1, "month");
-    }
-
     return {
-      name: "THIS_YEAR_MONTHLY_COUNTERS_DIFFERENCE",
+      name: "LAST_YEAR_COUNTERS_DIFFERENCE",
       type: "TIME_COMPLEX_DIFFERENCE",
       options: {
         deviceType: this.workloadOpts.machineTypeId,
         group: "counters",
         device: this.workloadOpts.machines[machineIndex],
-        times: times
+        startTime: new Date(absDate.getTime() - 31536000000),
+        endTime: absDate,
       },
       interval: this.sampleIntervals.counters
     };
@@ -209,22 +210,6 @@ module.exports = class SmallMachineSource {
         group: "counters",
         device: this.workloadOpts.machines[machineIndex],
         time: new Date(yearTime + (nowTime - yearTime) * Math.random())
-      },
-      interval: this.sampleIntervals.counters
-    };
-  }
-
-  topTenMachinesLastWeekWorkingTime(absDate) {
-    return {
-      name: "TOP_TEN_MACHINES_LAST_WEEK_WORKING_TIME",
-      type: "TIME_COMPLEX_TOP_DIFFERENCE",
-      options: {
-        deviceType: this.workloadOpts.machineTypeId,
-        group: "counters",
-        sort: { "workingTime": -1 },
-        limit: 10,
-        startTime: new Date(absDate.getTime() - 604800000),
-        endTime: absDate
       },
       interval: this.sampleIntervals.counters
     };

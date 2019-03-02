@@ -3,6 +3,9 @@
 const uuidv4 = require("uuid/v4");
 const moment = require("moment");
 
+const MIN_QUERY_INTERVAL = 10000;
+const MAX_QUERY_INTERVAL = 30000;
+
 module.exports = class MidMachineSource {
 
   constructor(workloadOpts) {
@@ -36,24 +39,38 @@ module.exports = class MidMachineSource {
     };
 
     this.queryIntervals = {
-      lastWeekStates: Math.floor(28800000 / this.workloadOpts.machines.length),
-      lastDayAlarms: Math.floor(28800000 / this.workloadOpts.machines.length),
-      lastMonthMachineEnergy: Math.floor(28800000 / this.workloadOpts.machines.length),
-      thisYearMonthlyCountersDifference: Math.floor(28800000 / this.workloadOpts.machines.length),
-      oldSetup: Math.floor(604800000 / this.workloadOpts.machines.length),
-      topTenMachinesLastDayWorkingTime: 86400000,
-      topTenMachinesLastDayAlarms: 86400000,
-      lastDayAggrStatus: Math.floor(28800000 / this.workloadOpts.machines.length)
+      lastWeekStates: Math.min(Math.max(Math.floor(300000 / this.workloadOpts.machines.length), MIN_QUERY_INTERVAL), MAX_QUERY_INTERVAL),
+      lastDayAlarms: Math.min(Math.max(Math.floor(300000 / this.workloadOpts.machines.length), MIN_QUERY_INTERVAL), MAX_QUERY_INTERVAL),
+      lasWeekMachineEnergy: Math.min(Math.max(Math.floor(300000 / this.workloadOpts.machines.length), MIN_QUERY_INTERVAL), MAX_QUERY_INTERVAL),
+      lastMonthCountersDifference: Math.min(Math.max(Math.floor(300000 / this.workloadOpts.machines.length), MIN_QUERY_INTERVAL), MAX_QUERY_INTERVAL),
+      oldSetup: Math.min(Math.max(Math.floor(300000 / this.workloadOpts.machines.length), MIN_QUERY_INTERVAL), MAX_QUERY_INTERVAL),
+      lastDayAggrStatus: Math.min(Math.max(Math.floor(300000 / this.workloadOpts.machines.length), MIN_QUERY_INTERVAL), MAX_QUERY_INTERVAL)
+    };
+
+    this.queryPhases = {
+      lastWeekStates: Math.floor(Math.random() * MAX_QUERY_INTERVAL),
+      lastDayAlarms: Math.floor(Math.random() * MAX_QUERY_INTERVAL),
+      lasWeekMachineEnergy: Math.floor(Math.random() * MAX_QUERY_INTERVAL),
+      lastMonthCountersDifference: Math.floor(Math.random() * MAX_QUERY_INTERVAL),
+      oldSetup: Math.floor(Math.random() * MAX_QUERY_INTERVAL),
+      lastDayAggrStatus: Math.floor(Math.random() * MAX_QUERY_INTERVAL)
+    };
+
+    this.queryPhases = {
+      lastWeekStates: Math.floor(Math.random() * 30000),
+      lastDayAlarms: Math.floor(Math.random() * 30000),
+      lasWeekMachineEnergy: Math.floor(Math.random() * 30000),
+      lastMonthCountersDifference: Math.floor(Math.random() * 30000),
+      oldSetup: Math.floor(Math.random() * 30000),
+      lastDayAggrStatus: Math.floor(Math.random() * 30000)
     };
 
     this.queryMethods = {
       lastWeekStates: this.lastWeekStates.bind(this),
       lastDayAlarms: this.lastDayAlarms.bind(this),
-      lastMonthMachineEnergy: this.lastMonthMachineEnergy.bind(this),
-      thisYearMonthlyCountersDifference: this.thisYearMonthlyCountersDifference.bind(this),
+      lasWeekMachineEnergy: this.lasWeekMachineEnergy.bind(this),
+      lastMonthCountersDifference: this.lastMonthCountersDifference.bind(this),
       oldSetup: this.oldSetup.bind(this),
-      topTenMachinesLastDayWorkingTime: this.topTenMachinesLastDayWorkingTime.bind(this),
-      topTenMachinesLastDayAlarms: this.topTenMachinesLastDayAlarms.bind(this),
       lastDayAggrStatus: this.lastDayAggrStatus.bind(this)
     };
   }
@@ -619,44 +636,36 @@ module.exports = class MidMachineSource {
     };
   }
 
-  lastMonthMachineEnergy(absDate) {
+  lasWeekMachineEnergy(absDate) {
     let machineIndex = Math.floor(this.workloadOpts.machines.length * this.workloadOpts.machineUptime * Math.random());
 
     return {
-      name: "LAST_MONTH_MACHINE_ENERGY",
+      name: "LAST_WEEK_MACHINE_ENERGY",
       type: "TIME_COMPLEX_RANGE",
       options: {
         group: "counters",
         select: [ "activeEnergyConsumed", "reactiveEnergyProduced" ],
         deviceType: this.workloadOpts.machineTypeId,
         device: this.workloadOpts.machines[machineIndex],
-        startTime: new Date(absDate.getTime() - 2073600000),
+        startTime: new Date(absDate.getTime() - 604800000),
         endTime: absDate
       },
       interval: this.sampleIntervals.counters
     };
   }
 
-  thisYearMonthlyCountersDifference(absDate) {
+  lastMonthCountersDifference(absDate) {
     let machineIndex = Math.floor(this.workloadOpts.machines.length * this.workloadOpts.machineUptime * Math.random());
 
-    let times = [];
-    let absM = moment(absDate);
-    let m = moment(absDate).startOf("year");
-    let year = m.year();
-    while (m.year() === year && m.isBefore(absM)) {
-      times.push(m.toDate());
-      m.add(1, "month");
-    }
-
     return {
-      name: "THIS_YEAR_MONTHLY_COUNTERS_DIFFERENCE",
+      name: "LAST_MONTH_COUNTERS_DIFFERENCE",
       type: "TIME_COMPLEX_DIFFERENCE",
       options: {
         group: "counters",
         deviceType: this.workloadOpts.machineTypeId,
         device: this.workloadOpts.machines[machineIndex],
-        times: times
+        startTime: new Date(absDate.getTime() - 2073600000),
+        endTime: absDate
       },
       interval: this.sampleIntervals.counters
     };
@@ -680,51 +689,20 @@ module.exports = class MidMachineSource {
     };
   }
 
-  topTenMachinesLastDayWorkingTime(absDate) {
-    return {
-      name: "TOP_TEN_MACHINES_LAST_DAY_WORKING_TIME",
-      type: "TIME_COMPLEX_TOP_DIFFERENCE",
-      options: {
-        deviceType: this.workloadOpts.machineTypeId,
-        group: "counters",
-        sort: { "totalWorkedTime": -1},
-        limit: 10,
-        startTime: new Date(absDate.getTime() - 86400000),
-        endTime: absDate
-      },
-      interval: this.sampleIntervals.counters
-    };
-  }
-
-  topTenMachinesLastDayAlarms(absDate) {
-    return {
-      name: "TOP_TEN_MACHINES_LAST_DAY_ALARMS",
-      type: "INTERVAL_TOP_COUNT",
-      options: {
-        deviceType: this.workloadOpts.machineTypeId,
-        group: "alarm",
-        limit: 10,
-        startTime: new Date(absDate.getTime() - 86400000),
-        endTime: absDate
-      },
-      interval: this.sampleIntervals.alarm
-    };
-  }
-
   lastDayAggrStatus(absDate) {
     let machineIndex = Math.floor(this.workloadOpts.machines.length * this.workloadOpts.machineUptime * Math.random());
 
     return {
-      name: "LAST_DAY_STATUS_AGGR",
+      name: "LAST_TWO_WEEKS_STATUS_AGGR",
       type: "TIME_COMPLEX_RANGE_BUCKET_AVG",
       options: {
         group: "status",
         select: ["current"],
         deviceType: this.workloadOpts.machineTypeId,
         device: this.workloadOpts.machines[machineIndex],
-        startTime: new Date(absDate.getTime() - 86400000),
+        startTime: new Date(absDate.getTime() - 1209600000),
         endTime: absDate,
-        buckets: 128
+        buckets: 256
       },
       interval: this.sampleIntervals.status
     };

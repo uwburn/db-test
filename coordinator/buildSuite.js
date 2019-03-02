@@ -8,7 +8,7 @@ const couchbase = require("couchbase");
 const bluebird = require("bluebird");
 const request = require("request-promise-native");
 
-const BULK_READS_LIMIT = 100000;
+const BULK_READS_LIMIT = 32768;
 
 module.exports = function (database, databaseOpts, suite, suiteOptions) {
   switch (suite) {
@@ -88,7 +88,7 @@ function buildMachineDataSuite(database, databaseOpts, suiteOptions) {
           databaseOpts: databaseOpts,
           workload: `BulkRead${machineSize}Machine`,
           workloadOpts: {
-            startTime: startYear.clone().add(year, "year").valueOf(),
+            startTime: year === 0 ? startYear.clone().add(year, "year").add(6, "month").valueOf() : startYear.clone().add(year, "year").valueOf(),
             endTime: startYear.clone().add(year, "year").month(11).date(31).hour(23).minute(45).valueOf(),
             machineUptime: suiteOptions.machineUptime,
             machines: machines.slice(startIndex, endIndex),
@@ -255,7 +255,8 @@ async function prepareMachineDataCouchbase(databaseOpts) {
   
   await couchbaseManager.createBucketAsync("db-test", {
     flushEnabled: 1,
-    ramQuotaMB: databaseOpts.bucketRamQuotaMB || 1024
+    ramQuotaMB: databaseOpts.bucketRamQuotaMB || 1024,
+    replicaNumber: databaseOpts.replicaNumber || 3
   });
 
   await new Promise((resolve) => setTimeout(resolve, 5000));
@@ -269,33 +270,21 @@ async function prepareMachineDataCouchbase(databaseOpts) {
 
   await new Promise((resolve) => setTimeout(resolve, 5000));
 
+  let couchbaseBucketManager = couchbaseBucket.manager();
+  bluebird.promisifyAll(couchbaseBucketManager);
+
+  await couchbaseBucketManager.upsertDesignDocumentAsync("time_complex", {
+    views: {
+      by_group_device_time: {
+        map : "function (doc, meta) { if (doc.type !== 'time_complex') return; emit([doc.group, doc.device, doc.time], { time: doc.time, value: doc.value }); }"
+      }
+    }
+  });
+
   let q;
-  switch(databaseOpts.indexing) {
-  default:
-  case "BALANCED":
-    q = couchbase.N1qlQuery.fromString("CREATE PRIMARY INDEX `db-test_primary` ON `db-test`;");
-    await couchbaseBucket.queryAsync(q);
-    q = couchbase.N1qlQuery.fromString("CREATE INDEX `db-test_interval_device_times` ON `db-test`(`type`, `group`, `device`, `startTime`, `endTime`) WHERE type = 'interval' USING GSI;");
-    await couchbaseBucket.queryAsync(q);
-    q = couchbase.N1qlQuery.fromString("CREATE INDEX `db-test_time_complex_device_time` ON `db-test`(`type`, `group`, `device`, `time`) WHERE type = 'time_complex' USING VIEW;");
-    await couchbaseBucket.queryAsync(q);
-    break;
-  case "GSI":
-    q = couchbase.N1qlQuery.fromString("CREATE PRIMARY INDEX `db-test_primary` ON `db-test`;");
-    await couchbaseBucket.queryAsync(q);
-    q = couchbase.N1qlQuery.fromString("CREATE INDEX `db-test_interval_device_times` ON `db-test`(`type`, `group`, `device`, `startTime`, `endTime`) WHERE type = 'interval' USING GSI;");
-    await couchbaseBucket.queryAsync(q);
-    q = couchbase.N1qlQuery.fromString("CREATE INDEX `db-test_time_complex_device_time` ON `db-test`(`type`, `group`, `device`, `time`) WHERE type = 'time_complex' USING GSI;");
-    await couchbaseBucket.queryAsync(q);
-    break;
-  case "VIEW":
-    q = couchbase.N1qlQuery.fromString("CREATE PRIMARY INDEX `db-test_primary` ON `db-test`;");
-    await couchbaseBucket.queryAsync(q);
-    q = couchbase.N1qlQuery.fromString("CREATE INDEX `db-test_interval_device_times` ON `db-test`(`type`, `group`, `device`, `startTime`, `endTime`) WHERE type = 'interval' USING VIEW;");
-    await couchbaseBucket.queryAsync(q);
-    q = couchbase.N1qlQuery.fromString("CREATE INDEX `db-test_time_complex_device_time` ON `db-test`(`type`, `group`, `device`, `time`) WHERE type = 'time_complex' USING VIEW;");
-    await couchbaseBucket.queryAsync(q);
-    break;
-  }
+  q = couchbase.N1qlQuery.fromString("CREATE PRIMARY INDEX `db-test_primary` ON `db-test`;");
+  await couchbaseBucket.queryAsync(q);
+  q = couchbase.N1qlQuery.fromString("CREATE INDEX `db-test_interval_device_times` ON `db-test`(`type`, `group`, `device`, `startTime`, `endTime`) WHERE type = 'interval' USING GSI;");
+  await couchbaseBucket.queryAsync(q);
 
 }

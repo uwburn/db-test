@@ -99,10 +99,6 @@ module.exports = class MongoMachineSink extends BaseSink {
       return await this.queryTimeComplexDifference(name, options, interval);
     case "TIME_COMPLEX_LAST_BEFORE":
       return await this.queryTimeComplexLastBefore(name, options, interval);
-    case "TIME_COMPLEX_TOP_DIFFERENCE":
-      return await this.queryTimeComplexTopDifference(name, options, interval);
-    case "INTERVAL_TOP_COUNT":
-      return await this.queryIntervalTopCount(name, options);
     }
   }
 
@@ -292,74 +288,66 @@ module.exports = class MongoMachineSink extends BaseSink {
 
     let coll = this.db.collection(`${options.group}_time_complex`);
 
+    let oStartTime = options.startTime.getTime();
+    let oEndTime = options.endTime.getTime();
+
     let bucketTime = chooseBucketTime(interval);
-    let promises = [];
-    for (let i = 0; i < options.times.length -1; ++i) {
-      let oStartTime = options.times[i].getTime();
-      let oEndTime = options.times[i + 1].getTime();
+    let startTime = oStartTime - (oStartTime % bucketTime);
+    let endTime = oEndTime - (oEndTime % bucketTime);
+    if (endTime < oEndTime)
+      endTime += bucketTime;
 
-      let startTime = oStartTime - (oStartTime % bucketTime);
-      let endTime = oEndTime - (oEndTime % bucketTime);
-      if (endTime < oEndTime)
-        endTime += bucketTime;
+    let _group = {
+      _id: "$_id.device",
+      _first: {$first: "$record"},
+      _last: {$last: "$record"}
+    };
 
-      let _group = {
-        _id: "$_id.device",
-        _first: {$first: "$record"},
-        _last: {$last: "$record"}
-      };
-
-      let stages = [
-        {
-          $match: {
-            "_id.device": Binary(uuidParse.parse(options.device, Buffer.allocUnsafe(16)), Binary.SUBTYPE_UUID),
-            "_id.time": {
-              $gt: new Date(startTime),
-              $lt: new Date(endTime)
-            }
+    let stages = [
+      {
+        $match: {
+          "_id.device": Binary(uuidParse.parse(options.device, Buffer.allocUnsafe(16)), Binary.SUBTYPE_UUID),
+          "_id.time": {
+            $gt: new Date(startTime),
+            $lt: new Date(endTime)
           }
-        },
-        {
-          $project: {
-            _id: 1,
-            records: { $objectToArray: "$records" }
-          }
-        },
-        {
-          $unwind: "$records"
-        },
-        {
-          $project: {
-            time: {
-              $add: [ "$_id.time", { $toInt: "$records.k" } ]
-            },
-            record: "$records.v"
-          }
-        },
-        {
-          $match: {
-            time: {
-              $gt: options.times[i],
-              $lt: options.times[i+1]
-            }
-          }
-        },
-        {
-          $group: _group
         }
-      ];
+      },
+      {
+        $project: {
+          _id: 1,
+          records: { $objectToArray: "$records" }
+        }
+      },
+      {
+        $unwind: "$records"
+      },
+      {
+        $project: {
+          time: {
+            $add: [ "$_id.time", { $toInt: "$records.k" } ]
+          },
+          record: "$records.v"
+        }
+      },
+      {
+        $match: {
+          time: {
+            $gt: oStartTime,
+            $lt: oEndTime
+          }
+        }
+      },
+      {
+        $group: _group
+      }
+    ];
 
-      promises.push(coll.aggregate(stages, { allowDiskUse: true }).toArray());
-    }
-
-    let results = await Promise.all(promises);
-
-    let subs = results.map((result) => {
-      result = result[0];
-
+    let sub = {};
+    await coll.aggregate(stages, { allowDiskUse: true }).forEach((result) => {
       let o1 = {};
       let o2 = {};
-      let sub = {};
+      
       for (let k in result) {
         if (k === "_first")
           o1.record = result[k];
@@ -372,7 +360,7 @@ module.exports = class MongoMachineSink extends BaseSink {
       return _.assign(sub, subtractDocs(o1, o2));
     });
 
-    return subs.length;
+    return 2;
   }
 
   async queryTimeComplexLastBefore(name, options, interval) {
@@ -442,143 +430,6 @@ module.exports = class MongoMachineSink extends BaseSink {
       coll.aggregate(stages, { allowDiskUse: true }).forEach((doc) => {
         if (doc)
           count++;
-      }, (err) => {
-        if (err)
-          return reject();
-
-        resolve(count);
-      });
-    });
-  }
-
-  async queryTimeComplexTopDifference(name, options, interval) {
-    options.select = options.select || {};
-
-    let coll = this.db.collection(`${options.group}_time_complex`);
-
-    let oStartTime = options.startTime.getTime();
-    let oEndTime = options.endTime.getTime();
-
-    let bucketTime = chooseBucketTime(interval);
-    let startTime = oStartTime - (oStartTime % bucketTime);
-    let endTime = oEndTime - (oEndTime % bucketTime);
-    if (endTime < oEndTime)
-      endTime += bucketTime;
-
-    let _group = {
-      _id: "$_id.device",
-      _first: {$first: "$record"},
-      _last: {$last: "$record"}
-    };
-
-    let stages = [
-      {
-        $match: {
-          "_id.time": {
-            $gt: new Date(startTime),
-            $lt: new Date(endTime)
-          }
-        }
-      },
-      {
-        $project: {
-          _id: 1,
-          records: { $objectToArray: "$records" }
-        }
-      },
-      {
-        $unwind: "$records"
-      },
-      {
-        $project: {
-          time: {
-            $add: [ "$_id.time", { $toInt: "$records.k" } ]
-          },
-          record: "$records.v"
-        }
-      },
-      {
-        $match: {
-          time: {
-            $gt: options.startTime,
-            $lt: options.endTime
-          }
-        }
-      },
-      {
-        $group: _group
-      }
-    ];
-
-    let subs = [];
-    await new Promise((resolve, reject) => {
-      coll.aggregate(stages, { allowDiskUse: true }).forEach((doc) => {
-        let o1 = {};
-        let o2 = {};
-        let sub = {};
-        for (let k in doc) {
-          if (k === "_first")
-            o1.record = doc[k];
-          else if (k === "_last")
-            o2.record = doc[k];
-          else
-            sub[k] = doc[k];
-        }
-
-        subs.push(_.assign(sub, subtractDocs(o1, o2)));
-      }, (err) => {
-        if (err)
-          return reject();
-
-        resolve();
-      });
-    });
-
-    let iteratees = [];
-    let orders = [];
-    for (let k in options.sort) {
-      iteratees.push(`record.${k}`);
-      orders.push(options.sort[k]);
-    }
-
-    let tops = _.orderBy(subs, iteratees, orders);
-    tops = tops.slice(0, options.limit);
-
-    return tops.length;
-  }
-
-  async queryIntervalTopCount(name, options) {
-    let coll = this.db.collection(`${options.group}_interval`);
-
-    let stages = [
-      {
-        $match: {
-          startTime: { $lt: options.endTime },
-          endTime: { $gt: options.startTime }
-        }
-      },
-      {
-        $group: {
-          _id: "$device",
-          count: { $sum: 1 }
-        }
-      },
-      {
-        $sort: {
-          count: -1
-        }
-      },
-      {
-        $limit : options.limit
-      }
-    ];
-
-    return await new Promise((resolve, reject) => {
-      let count = 0;
-
-      coll.aggregate(stages, { allowDiskUse: true }).forEach((doc) => {
-        if (doc)
-          ++count;
       }, (err) => {
         if (err)
           return reject();
