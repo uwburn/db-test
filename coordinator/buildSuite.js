@@ -282,8 +282,8 @@ async function prepareMachineDataCouchbase(databaseOpts) {
   });
 
   let q;
-  q = couchbase.N1qlQuery.fromString("CREATE PRIMARY INDEX `db-test_primary` ON `db-test`;");
-  await couchbaseBucket.queryAsync(q);
+  /*q = couchbase.N1qlQuery.fromString("CREATE PRIMARY INDEX `db-test_primary` ON `db-test`;");
+  await couchbaseBucket.queryAsync(q);*/
   q = couchbase.N1qlQuery.fromString("CREATE INDEX `db-test_interval_device_times` ON `db-test`(`type`, `group`, `device`, `startTime`, `endTime`) WHERE type = 'interval' USING GSI;");
   await couchbaseBucket.queryAsync(q);
 
