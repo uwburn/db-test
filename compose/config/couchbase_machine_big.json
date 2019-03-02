@@ -5,14 +5,15 @@
     "url": "couchbase://couchbase/",
     "httpUrl": "http://couchbase:8091",
     "username": "admin",
-    "password": "admin123"
+    "password": "admin123",
+    "bucketRamQuotaMB": 8192
   },
   "suite": "MachineData",
   "suiteOpts": {
     "machineSize": "Big",
     "machines": 16,
     "startYear": 2010,
-    "years": 3,
-    "machineUptime": 0.9
+    "years": 1,
+    "machineUptime": 0.75
   }
 }
