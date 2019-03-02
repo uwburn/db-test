@@ -21,8 +21,8 @@ services:
         constraints:
           - node.labels.db2 == true
     ports:
-      - "8091-8094:8091-8094"
-      - "11210:11210"
+      - "9091-9094:8091-8094"
+      - "12210:11210"
     volumes:
       - couchbase2_data:/opt/couchbase/var
     networks:
@@ -34,8 +34,8 @@ services:
         constraints:
           - node.labels.db3 == true
     ports:
-      - "8091-8094:8091-8094"
-      - "11210:11210"
+      - "10091-10094:8091-8094"
+      - "13210:11210"
     volumes:
       - couchbase3_data:/opt/couchbase/var
     networks:
