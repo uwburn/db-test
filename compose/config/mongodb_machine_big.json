@@ -2,6 +2,7 @@
   "database": "mongo",
   "databaseOpts": {
     "url": "mongodb://mongodb:27017",
+    "allowDiskUse": false,
     "options": {
       "useNewUrlParser": true
     }

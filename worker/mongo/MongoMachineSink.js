@@ -191,7 +191,7 @@ module.exports = class MongoMachineSink extends BaseSink {
     return await new Promise((resolve, reject) => {
       let count = 0;
 
-      coll.aggregate(stages, { allowDiskUse: true }).forEach((doc) => {
+      coll.aggregate(stages, { allowDiskUse: this.databaseOpts.allowDiskUse || false }).forEach((doc) => {
         if (doc)
           count++;
       }, (err) => {
@@ -271,7 +271,7 @@ module.exports = class MongoMachineSink extends BaseSink {
     return await new Promise((resolve, reject) => {
       let count = 0;
 
-      coll.aggregate(stages, { allowDiskUse: true }).forEach((doc) => {
+      coll.aggregate(stages, { allowDiskUse: this.databaseOpts.allowDiskUse || false }).forEach((doc) => {
         if (doc)
           ++count;
       }, (err) => {
@@ -344,7 +344,7 @@ module.exports = class MongoMachineSink extends BaseSink {
     ];
 
     let sub = {};
-    await coll.aggregate(stages, { allowDiskUse: true }).forEach((result) => {
+    await coll.aggregate(stages, { allowDiskUse: this.databaseOpts.allowDiskUse || false }).forEach((result) => {
       let o1 = {};
       let o2 = {};
       
@@ -427,7 +427,7 @@ module.exports = class MongoMachineSink extends BaseSink {
     return await new Promise((resolve, reject) => {
       let count = 0;
 
-      coll.aggregate(stages, { allowDiskUse: true }).forEach((doc) => {
+      coll.aggregate(stages, { allowDiskUse: this.databaseOpts.allowDiskUse || false }).forEach((doc) => {
         if (doc)
           count++;
       }, (err) => {
