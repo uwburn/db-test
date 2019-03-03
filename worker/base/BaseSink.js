@@ -1,6 +1,7 @@
 "use strict";
 
 const { Writable } = require("stream");
+const moment = require("moment");
 
 const SINK_STATS_INTERVAL = 60000;
 
@@ -11,14 +12,6 @@ module.exports = class BaseSink {
 
     this.queryHighWaterMark = parseInt(process.env.QUERY_HIGH_WATERMARK) || queryHighWaterMark || 16;
     this.recordHighWaterMark = parseInt(process.env.RECORD_HIGH_WATERMARK) || recordHighWaterMark || 16;
-
-    this.reads = 0;
-    this.successfulReads = 0;
-    this.totalReadLatency = 0;
-    this.writes = 0;
-    this.successfulWrites = 0;
-    this.totalWriteLatency = 0;
-    this.errors = 0;
 
     this.latencyByType = {
       INTERVAL_RANGE: 0,
@@ -65,6 +58,7 @@ module.exports = class BaseSink {
       }),
       reads: 0,
       successfulReads: 0,
+      readRows: 0,
       totalReadLatency: 0,
       writes: 0,
       successfulWrites: 0,
@@ -72,11 +66,21 @@ module.exports = class BaseSink {
       errors: 0
     };
 
+    let i = 0;
+    const log = (chunk, count) => {
+      let fetchedHours = (chunk.options.endTime - chunk.options.startTime) / 3600000 || 0;
+      let startTime = moment(chunk.options.startTime || chunk.options.time).format("YYYY/MM/DD HH:mm:ss");
+      let endTime = chunk.options.endTime ? moment(chunk.options.endTime).format("YYYY/MM/DD HH:mm:ss") : "";
+      console.log(`${(++i).toString().padEnd(5)}\t${chunk.name.padEnd(30)}\t${chunk.type.padEnd(25)}\t${fetchedHours}\t${count}\t${startTime}\t${endTime}`);
+    };
+
     result.stream._write = (chunk, enc, callback) => {
       let t0 = Date.now();
-      this.query(chunk.name, chunk.type, chunk.options, chunk.interval).then(() => {
+      this.query(chunk.name, chunk.type, chunk.options, chunk.interval).then((count) => {
+        log(chunk, count);
         ++result.successfulReads;
         result.totalReadLatency += Date.now() - t0;
+        result.readRows += count;
 
         ++this.countByType[chunk.type];
         this.latencyByType[chunk.type] += Date.now() - t0;
@@ -94,9 +98,11 @@ module.exports = class BaseSink {
       let promises = chunks.map((chunk) => {
         chunk = chunk.chunk;
 
-        return this.query(chunk.name, chunk.type, chunk.options, chunk.interval).then(() => {
+        return this.query(chunk.name, chunk.type, chunk.options, chunk.interval).then((count) => {
+          log(chunk, count);
           ++result.successfulReads;
           result.totalReadLatency += Date.now() - t0;
+          result.readRows += count;
 
           ++this.countByType[chunk.type];
           this.latencyByType[chunk.type] += Date.now() - t0;
@@ -128,6 +134,7 @@ module.exports = class BaseSink {
       }),
       reads: 0,
       successfulReads: 0,
+      readRows: 0,
       totalReadLatency: 0,
       writes: 0,
       successfulWrites: 0,

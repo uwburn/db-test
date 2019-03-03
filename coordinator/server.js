@@ -149,6 +149,7 @@ function logStep() {
   let stepStats = {
     totalTime: 0,
     totalReads: 0,
+    totalReadRows: 0,
     avgReadLatency: 0,
     totalWrites: 0,
     avgWriteLatency: 0,
@@ -161,6 +162,7 @@ function logStep() {
     let worker = stats.steps[stepIndex].workers[workerId];
     stepStats.totalTime += (worker.stats.endTime - worker.stats.startTime);
     stepStats.totalReads += worker.stats.reads;
+    stepStats.totalReadRows += worker.stats.readRows;
     stepStats.avgReadLatency += worker.stats.readLatency;
     stepStats.totalWrites += worker.stats.writes;
     stepStats.avgWriteLatency += worker.stats.writeLatency;
@@ -189,6 +191,7 @@ function logSuite() {
     totalTime: 0,
     totalWrites: 0,
     totalReads: 0,
+    readRows: 0,
     totalErrors: 0,
     wps: 0,
     rps: 0
@@ -198,6 +201,7 @@ function logSuite() {
     stats.totalTime += step.totalTime;
     stats.totalWrites += step.totalWrites;
     stats.totalReads += step.totalReads;
+    stats.totalReadRows += step.totalReadRows;
     stats.totalErrors += step.totalErrors;
     stats.wps += step.wps * step.totalTime;
     stats.rps += step.rps * step.totalTime;
