@@ -20,11 +20,11 @@ module.exports = class MachineStreams {
     this.workloadOpts = workloadOpts;
     this.source = source;
 
-    let timeInterval;
+    this.timeInterval;
     if (this.workloadOpts.endTime)
-      timeInterval = this.workloadOpts.endTime - this.workloadOpts.startTime;
+      this.timeInterval = this.workloadOpts.endTime - this.workloadOpts.startTime;
     else if (this.workloadOpts.duration)
-      timeInterval = this.workloadOpts.duration;
+      this.timeInterval = this.workloadOpts.duration;
 
     this.bulkWritesTimeStep = this.source.sampleIntervals[0];
     this.bulkReadsTimeStep = this.source.queryIntervals[0];
@@ -35,12 +35,12 @@ module.exports = class MachineStreams {
     for (let k in this.source.sampleIntervals) {
       this.bulkWritesTimeStep = gcd(this.bulkWritesTimeStep, this.source.sampleIntervals[k]);
       this.maxSampleStep = Math.max(this.maxSampleStep, this.source.sampleIntervals[k]);
-      this.samples[k] = Math.floor(timeInterval / this.source.sampleIntervals[k] * this.workloadOpts.machineUptime);
+      this.samples[k] = Math.floor(this.timeInterval / this.source.sampleIntervals[k] * this.workloadOpts.machineUptime);
     }
     for (let k in this.source.queryIntervals) {
       this.bulkReadsTimeStep = gcd(this.bulkReadsTimeStep, this.source.queryIntervals[k]);
       this.maxQueryStep = Math.max(this.maxQueryStep, this.source.queryIntervals[k]);
-      this.queries[k] = Math.floor(timeInterval / this.source.queryIntervals[k]);
+      this.queries[k] = Math.floor(this.timeInterval * this.workloadOpts.machineUptime / this.source.queryIntervals[k]);
     }
 
     this.totalSamples = 0;
@@ -52,6 +52,7 @@ module.exports = class MachineStreams {
     for (let k in this.queries)
       this.totalQueries += this.queries[k];
 
+    this.bulkReadsRatio = Math.min(this.workloadOpts.bulkReadsLimit / this.totalQueries, 1);
     if (this.totalQueries > this.workloadOpts.bulkReadsLimit) {
       for (let k in this.queries)
         this.queries[k] = Math.round(this.queries[k] / this.totalQueries * this.workloadOpts.bulkReadsLimit);
@@ -74,7 +75,7 @@ module.exports = class MachineStreams {
     let i = 0;
     this.machines = {};
     for (let machineId of this.workloadOpts.machines) {
-      let writeDelay = timeInterval * (1 - this.workloadOpts.machineUptime) * Math.random();
+      let writeDelay = this.timeInterval * (1 - this.workloadOpts.machineUptime) * Math.random();
       writeDelay = Math.round(writeDelay / this.bulkWritesTimeStep) * this.bulkWritesTimeStep;
 
       let writePhase = this.maxSampleStep * Math.random();
@@ -126,8 +127,10 @@ module.exports = class MachineStreams {
     };
 
     let done = false;
-    let absTime = this.workloadOpts.startTime;
-    let absDate = new Date(this.workloadOpts.startTime);
+
+    let absTime = Math.floor(this.workloadOpts.startTime + this.timeInterval / 2 - this.timeInterval * this.bulkReadsRatio);
+    absTime = Math.floor(absTime / this.bulkReadsTimeStep) * this.bulkReadsTimeStep;
+    let absDate = new Date(absTime);
     let relTime = 0;
     let i = 0;
 
