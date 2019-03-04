@@ -81,6 +81,7 @@ module.exports = class BaseWorkload {
       acc.totalReads += e.reads;
       acc.totalReadLatency += e.totalReadLatency;
       acc.totalSuccessfulReads += e.successfulReads;
+      acc.totalReadRows *= e.readRows;
       acc.totalWrites += e.writes;
       acc.totalWriteLatency += e.totalWriteLatency;
       acc.totalSuccessfulWrites += e.successfulWrites;
@@ -91,6 +92,7 @@ module.exports = class BaseWorkload {
       totalReads: 0,
       totalReadLatency: 0,
       totalSuccessfulReads: 0,
+      totalReadRows: 0,
       totalWrites: 0,
       totalWriteLatency: 0,
       totalSuccessfulWrites: 0,
@@ -112,6 +114,7 @@ module.exports = class BaseWorkload {
       endTime: this.endTime,
       reads: stats.totalReads,
       readLatency: avgReadLatency,
+      totalReadRows: stats.totalReadRows,
       writes: stats.totalWrites,
       writeLatency: avgWriteLatency,
       errors: stats.totalErrors,

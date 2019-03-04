@@ -74,7 +74,7 @@ function buildMachineDataSuite(database, databaseOpts, suiteOptions) {
           workload: `BulkWrite${machineSize}Machine`,
           workloadOpts: {
             startTime: startYear.clone().add(year, "year").valueOf(),
-            endTime: startYear.clone().add(year, "year").month(11).date(31).hour(23).minute(45).valueOf(),
+            endTime: startYear.clone().add(year, "year").endOf("year").valueOf(),
             machineUptime: suiteOptions.machineUptime,
             machines: machines.slice(startIndex, endIndex),
             machineTypeId: machineTypeId
@@ -88,8 +88,8 @@ function buildMachineDataSuite(database, databaseOpts, suiteOptions) {
           databaseOpts: databaseOpts,
           workload: `BulkRead${machineSize}Machine`,
           workloadOpts: {
-            startTime: year === 0 ? startYear.clone().add(year, "year").add(6, "month").valueOf() : startYear.clone().add(year, "year").valueOf(),
-            endTime: startYear.clone().add(year, "year").month(11).date(31).hour(23).minute(45).valueOf(),
+            startTime: startYear.clone().add(year, "year").valueOf(),
+            endTime: startYear.clone().add(year, "year").endOf("year").valueOf(),
             machineUptime: suiteOptions.machineUptime,
             machines: machines.slice(startIndex, endIndex),
             machineTypeId: machineTypeId,
@@ -104,7 +104,7 @@ function buildMachineDataSuite(database, databaseOpts, suiteOptions) {
           databaseOpts: databaseOpts,
           workload: `RealTime${machineSize}Machine`,
           workloadOpts: {
-            startTime: startYear.clone().add(year, "year").month(11).date(31).hour(23).minute(45).valueOf(),
+            startTime: startYear.clone().add(year, "year").add(6, "month").subtract(450, "seconds").valueOf(),
             duration: 900000,
             machineUptime: suiteOptions.machineUptime,
             machines: machines.slice(startIndex, endIndex),
