@@ -8,13 +8,13 @@ services:
     deploy:
       replicas: 8
     environment:
-      QUERY_HIGH_WATERMARK: 2
+      QUERY_HIGH_WATERMARK: 4
     networks:
       mongodb:
 
 secrets:
   coordinator_config.json:
-    file: ./config/mongodb_machine_mid.json
+    file: ./config/mongodb_machine_big.json
 
 networks: 
   mongodb:

@@ -14,7 +14,7 @@ services:
 
 secrets:
   coordinator_config.json:
-    file: ./config/cassandra_machine_big.json
+    file: ./config/cassandra_machine_mid.json
 
 networks: 
   cassandra:
