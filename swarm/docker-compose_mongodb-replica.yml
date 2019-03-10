@@ -40,11 +40,54 @@ services:
       - mongodb3_data:/data/db
     networks:
       mongodb:
+  mongodb4:
+    image: mongo:4.1.8
+    command: mongod --bind_ip_all --slowms 10000 --replSet "rs0"
+    deploy:
+      placement:
+        constraints:
+          - node.labels.db4 == true
+    ports:
+      - "27020:27017"
+    volumes:
+      - mongodb4_data:/data/db
+    networks:
+      mongodb:
+  mongodb5:
+    image: mongo:4.1.8
+    command: mongod --bind_ip_all --slowms 10000 --replSet "rs0"
+    deploy:
+      placement:
+        constraints:
+          - node.labels.db5 == true
+    ports:
+      - "27021:27017"
+    volumes:
+      - mongodb5_data:/data/db
+    networks:
+      mongodb:
+  mongodb6:
+    image: mongo:4.1.8
+    command: mongod --bind_ip_all --slowms 10000 --replSet "rs0"
+    deploy:
+      placement:
+        constraints:
+          - node.labels.db6 == true
+    ports:
+      - "27022:27017"
+    volumes:
+      - mongodb6_data:/data/db
+    networks:
+      mongodb:
+
 
 volumes:
   mongodb1_data:
   mongodb2_data:
   mongodb3_data:
+  mongodb4_data:
+  mongodb5_data:
+  mongodb6_data:
 
 networks:
   mongodb:

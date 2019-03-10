@@ -40,11 +40,56 @@ services:
       - couchbase3_data:/opt/couchbase/var
     networks:
       couchbase:
+  couchbase4:
+    image: couchbase:community
+    deploy:
+      placement:
+        constraints:
+          - node.labels.db4 == true
+    ports:
+      - "11091-11094:8091-8094"
+      - "14210:11210"
+    volumes:
+      - couchbase4_data:/opt/couchbase/var
+    networks:
+      couchbase:
+  couchbase5:
+    image: couchbase:community
+    deploy:
+      placement:
+        constraints:
+          - node.labels.db5 == true
+    ports:
+      - "12091-12094:8091-8094"
+      - "15210:11210"
+    volumes:
+      - couchbase5_data:/opt/couchbase/var
+    networks:
+      couchbase:
+  couchbase6:
+    image: couchbase:community
+    deploy:
+      placement:
+        constraints:
+          - node.labels.db6 == true
+    ports:
+      - "13091-13094:8091-8094"
+      - "16210:11210"
+    volumes:
+      - couchbase6_data:/opt/couchbase/var
+    networks:
+      couchbase:
+
+
+
 
 volumes:
   couchbase1_data:
   couchbase2_data:
   couchbase3_data:
+  couchbase4_data:
+  couchbase5_data:
+  couchbase6_data:
 
 networks:
   couchbase:
