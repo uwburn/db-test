@@ -52,6 +52,17 @@ function buildMachineDataSuite(database, databaseOpts, suiteOptions) {
         return `Year ${year + 1} - Real time`;
       }
     },
+    getStepTags(stepIndex) {
+      let mod = stepIndex % 3;
+      switch (mod) {
+      case 0:
+        return ["WRITE_SPEED"];
+      case 1:
+        return ["READ_SPEED"];
+      case 2:
+        return ["WRITE_LATENCY", "READ_LATENCY"];
+      }
+    },
     getStepForWorker(stepIndex, workerIndex, totalWorkers) {
       let year = Math.floor(stepIndex / 3);
       startYear.clone().add(year, "year").valueOf();
@@ -78,7 +89,8 @@ function buildMachineDataSuite(database, databaseOpts, suiteOptions) {
             machineUptime: suiteOptions.machineUptime,
             machines: machines.slice(startIndex, endIndex),
             machineTypeId: machineTypeId
-          }
+          },
+          tags: ["WRITE_SPEED"]
         };
       case 1:
         return {
@@ -94,7 +106,8 @@ function buildMachineDataSuite(database, databaseOpts, suiteOptions) {
             machines: machines.slice(startIndex, endIndex),
             machineTypeId: machineTypeId,
             bulkReadsLimit: Math.floor(BULK_READS_LIMIT / totalWorkers)
-          }
+          },
+          tags: ["READ_SPEED"]
         };
       case 2:
         return {
@@ -109,7 +122,8 @@ function buildMachineDataSuite(database, databaseOpts, suiteOptions) {
             machineUptime: suiteOptions.machineUptime,
             machines: machines.slice(startIndex, endIndex),
             machineTypeId: machineTypeId
-          }
+          },
+          tags: ["WRITE_LATENCY", "READ_LATENCY"]
         };
       }
     },

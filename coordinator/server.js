@@ -32,6 +32,9 @@ let stats = {
   description: suite.description,
   database: suite.database,
   machines: suite.machines.length,
+  startTime: new Date().getTime(),
+  endTime: null,
+  duration: 0,
   steps: []
 };
 
@@ -150,20 +153,21 @@ function logStep() {
   console.log("Step completed");
 
   let stepStats = {
-    totalTime: 0,
+    workTime: 0,
     totalReads: 0,
     totalReadRows: 0,
     avgReadLatency: 0,
     totalWrites: 0,
     avgWriteLatency: 0,
     totalErrors: 0,
-    workers: 0
+    workers: 0,
+    tags: stats.steps[stepIndex].tags
   };
 
   for (let workerId in stats.steps[stepIndex].workers) {
     ++stepStats.workers;
     let worker = stats.steps[stepIndex].workers[workerId];
-    stepStats.totalTime += (worker.stats.endTime - worker.stats.startTime);
+    stepStats.workTime += (worker.stats.endTime - worker.stats.startTime);
     stepStats.totalReads += worker.stats.reads;
     stepStats.totalReadRows += worker.stats.totalReadRows;
     stepStats.avgReadLatency += worker.stats.readLatency;
@@ -172,8 +176,8 @@ function logStep() {
     stepStats.totalErrors += worker.stats.errors;
   }
 
-  stepStats.wps = stepStats.totalWrites * 1000 / stepStats.totalTime * stepStats.workers;
-  stepStats.rps = stepStats.totalReads * 1000 / stepStats.totalTime * stepStats.workers;
+  stepStats.wps = stepStats.totalWrites * 1000 / stepStats.workTime * stepStats.workers;
+  stepStats.rps = stepStats.totalReads * 1000 / stepStats.workTime * stepStats.workers;
   stepStats.avgReadLatency /= stepStats.workers;
   stepStats.avgWriteLatency /= stepStats.workers;
 
@@ -184,36 +188,68 @@ function logStep() {
   let readLatency = Math.round(stepStats.avgReadLatency * d) / d;
   let writeLatency = Math.round(stepStats.avgWriteLatency * d) / d;
 
-  console.log(`Total time: ${Math.round(stepStats.totalTime / 1000)} s, OPS R/W: ${Math.round(stepStats.rps)}/${Math.round(stepStats.wps)}, avg. latency R/W: ${readLatency}/${writeLatency}  errors: ${stepStats.totalErrors}`);
+  console.log(`Total time: ${Math.round(stepStats.workTime / 1000)} s, OPS R/W: ${Math.round(stepStats.rps)}/${Math.round(stepStats.wps)}, avg. latency R/W: ${readLatency}/${writeLatency}  errors: ${stepStats.totalErrors}`);
 }
 
 function logSuite() {
   console.log("Suite completed");
 
   _.assign(stats, {
-    totalTime: 0,
+    endTime: new Date().getTime(),
+    workTime: 0,
     totalWrites: 0,
     totalReads: 0,
     totalReadRows: 0,
     totalErrors: 0,
     wps: 0,
-    rps: 0
+    rps: 0,
+    avgWriteLatency: 0,
+    avgReadLatency: 0
+  });
+  stats.duration = stats.endTime - stats.startTime;
+
+  stats.steps.forEach((s) => {
+    stats.workTime += s.workTime;
+    stats.totalWrites += s.totalWrites;
+    stats.totalReads += s.totalReads;
+    stats.totalReadRows += s.totalReadRows;
+    stats.totalErrors += s.totalErrors;
   });
 
-  for (let step of stats.steps) {
-    stats.totalTime += step.totalTime;
-    stats.totalWrites += step.totalWrites;
-    stats.totalReads += step.totalReads;
-    stats.totalReadRows += step.totalReadRows;
-    stats.totalErrors += step.totalErrors;
-    stats.wps += step.wps * step.totalTime;
-    stats.rps += step.rps * step.totalTime;
-  }
+  let wpsWorkTime = 0;
+  stats.steps.filter(s => s.tags.indexOf("WRITE_SPEED") >= 0)
+    .forEach((s) => {
+      wpsWorkTime += s.workTime;
+      stats.wps += s.wps * s.workTime;
+    });
+  
+  let rpsWorkTime = 0;
+  stats.steps.filter(s => s.tags.indexOf("READ_SPEED") >= 0)
+    .forEach((s) => {
+      rpsWorkTime += s.workTime;
+      stats.rps += s.rps * s.workTime;
+    });
 
-  stats.wps = stats.wps / stats.totalTime;
-  stats.rps = stats.rps / stats.totalTime;
+  let writeLatencyCount = 0;
+  stats.steps.filter(s => s.tags.indexOf("WRITE_LATENCY") >= 0)
+    .forEach((s) => {
+      ++writeLatencyCount;
+      stats.avgWriteLatency += s.avgWriteLatency;
+    });
 
-  console.log(`Total time: ${Math.round(stats.totalTime / 1000)} s, writes per second: ${Math.round(stats.wps)}, reads per second: ${Math.round(stats.rps)}, errors: ${stats.totalErrors}`);
+  let readLatencyCount = 0;
+  stats.steps.filter(s => s.tags.indexOf("READ_LATENCY") >= 0)
+    .forEach((s) => {
+      ++readLatencyCount;
+      stats.avgReadLatency += s.avgReadLatency;
+    });
+
+  stats.wps = stats.wps / wpsWorkTime;
+  stats.rps = stats.rps / rpsWorkTime;
+  stats.avgWriteLatency /= writeLatencyCount;
+  stats.avgReadLatency /= readLatencyCount;
+
+  console.log(`Total time: ${Math.round(stats.workTime / 1000)} s, writes per second: ${Math.round(stats.wps)}, reads per second: ${Math.round(stats.rps)}, errors: ${stats.totalErrors}`);
 }
 
 function nextStep() {
@@ -232,7 +268,8 @@ function startStep() {
 
   stats.steps[stepIndex] = {
     startTime: new Date().getTime(),
-    workers: {}
+    workers: {},
+    tags: suite.getStepTags(stepIndex)
   };
 
   console.log(`Starting step ${suite.getStepName(stepIndex)}`);
