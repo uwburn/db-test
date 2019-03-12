@@ -13,6 +13,12 @@ module.exports = class BaseWorkload {
     this.writeStreams = [];
   }
 
+  async sleep(duration) {
+    await new Promise((resolve) => {
+      setTimeout(resolve, duration);
+    });
+  }
+
   addReadStream(stream) {
     this.readStreams.push(stream);
   }
@@ -129,6 +135,8 @@ module.exports = class BaseWorkload {
 
     this.startTime = new Date().getTime();
 
+    await this.train();
+
     await this.setupStreams();
 
     await this.streamsCleared();
@@ -148,6 +156,17 @@ module.exports = class BaseWorkload {
 
   async cleanup() {
     await this.sink.cleanup();
+  }
+
+  async train() {
+    let now = new Date();
+    let nilUuid = "00000000-0000-0000-0000-000000000000";
+
+    this.startTime = now.getTime();
+
+    let source = this.machineDataStreams.source;
+    for (let k in source.sampleMethods)
+      this.sink.train(k, source.sampleTypes[k], source.sampleIntervals[k], source.sampleMethods[k](nilUuid, now));
   }
 
 };

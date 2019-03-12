@@ -57,6 +57,10 @@ module.exports = class CassandraMachineSink extends BaseSink {
     await this.cassandraClient.shutdown();
   }
 
+  async train(group, type, interval, sample) {
+    console.log(`"Would train with ${sample}`);
+  }
+
   async query(name, type, options) {
     switch (type) {
     case "INTERVAL_RANGE":

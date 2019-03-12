@@ -87,6 +87,50 @@ module.exports = class MongoMachineSink extends BaseSink {
     this.mongoClient.close();
   }
 
+  async train(group, type) {
+    switch(type) {
+    case "INTERVAL_COMPLEX":
+      return await this.trainIntervalComplex();
+    case "TIME_COMPLEX":
+      return await this.trainTimeComplex();
+    }
+  }
+
+  async trainIntervalComplex(group) {
+    let collection = this.intervalCollections[group];
+    if (!collection) {
+      collection = this.db.collection(`${group}_interval`);
+      try {
+        await collection.createIndex({ device: 1 });
+        await collection.createIndex({ startTime: 1 });
+        await collection.createIndex({ endTime: 1 });
+        await collection.createIndex({ startTime: 1, endTime: -1 });
+        await collection.createIndex({ device: 1, startTime: 1, endTime: -1 });
+      }
+      catch(err) { /* eslint-disable-line */ }
+      this.intervalCollections[group] = collection;
+    }
+
+    return collection;
+  }
+
+  async trainTimeComplex(group) {
+    let collection = this.timeComplexCollections[group];
+    if (!collection) {
+      collection = this.db.collection(`${group}_time_complex`);
+      try {
+        await collection.createIndex({ "_id.device": 1 });
+        await collection.createIndex({ "_id.time": 1 });
+        await collection.createIndex({ "_id.device": 1, "_id.time": 1 });
+        await collection.createIndex({ "_id.device": 1, "_id.time": -1 });
+      }
+      catch(err) { /* eslint-disable-line*/ }
+      this.timeComplexCollections[group] = collection;
+    }
+
+    return collection;
+  }
+
   async query(name, type, options, interval) {
     switch (type) {
     case "INTERVAL_RANGE":
@@ -450,17 +494,8 @@ module.exports = class MongoMachineSink extends BaseSink {
 
   async recordTimeComplex(id, groupName, sample, interval) {
     let collection = this.timeComplexCollections[groupName];
-    if (!collection) {
-      collection = this.db.collection(`${groupName}_time_complex`);
-      try {
-        await collection.createIndex({ "_id.device": 1 });
-        await collection.createIndex({ "_id.time": 1 });
-        await collection.createIndex({ "_id.device": 1, "_id.time": 1 });
-        await collection.createIndex({ "_id.device": 1, "_id.time": -1 });
-      }
-      catch(err) { /* eslint-disable-line*/ }
-      this.timeComplexCollections[groupName] = collection;
-    }
+    if (!collection)
+      collection = this.trainTimeComplex(groupName);
 
     let bucketTime = chooseBucketTime(interval);
     let bucket = sample.time - (sample.time % bucketTime);
@@ -492,18 +527,8 @@ module.exports = class MongoMachineSink extends BaseSink {
 
   async recordInterval(id, groupName, sample) {
     let collection = this.intervalCollections[groupName];
-    if (!collection) {
-      collection = this.db.collection(`${groupName}_interval`);
-      try {
-        await collection.createIndex({ device: 1 });
-        await collection.createIndex({ startTime: 1 });
-        await collection.createIndex({ endTime: 1 });
-        await collection.createIndex({ startTime: 1, endTime: -1 });
-        await collection.createIndex({ device: 1, startTime: 1, endTime: -1 });
-      }
-      catch(err) { /* eslint-disable-line */ }
-      this.intervalCollections[groupName] = collection;
-    }
+    if (!collection)
+      collection = await this.trainIntervalComplex(groupName);
 
     let criteria = {
       _id: Binary(uuidParse.parse(sample.id, Buffer.allocUnsafe(16)), Binary.SUBTYPE_UUID),

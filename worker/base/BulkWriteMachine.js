@@ -16,21 +16,17 @@ module.exports = class BulkWriteMachine extends BaseWorkload {
   }
 
   async setupStreams() {
-    await new Promise((resolve) => {
-      console.log(`Waiting worker delay (${Math.round(this.workerDelay / 1000)} s) to pass... `);
+    console.log(`Waiting worker delay (${Math.round(this.workerDelay / 1000)} s) to pass... `);
 
-      setTimeout(() => {
-        this.startTime = new Date().getTime();
+    await this.sleep(this.workerDelay);
 
-        let bulkWritesSink = this.sink.recordStream();
-        this.addWriteStream(bulkWritesSink);
-        let bulkWritesSource = this.machineDataStreams.bulkWrites();
-        this.addReadStream(bulkWritesSource);
-        bulkWritesSource.stream.pipe(bulkWritesSink.stream);
+    this.startTime = new Date().getTime();
 
-        resolve();
-      }, this.workerDelay);
-    });
+    let bulkWritesSink = this.sink.recordStream();
+    this.addWriteStream(bulkWritesSink);
+    let bulkWritesSource = this.machineDataStreams.bulkWrites();
+    this.addReadStream(bulkWritesSource);
+    bulkWritesSource.stream.pipe(bulkWritesSink.stream);
   }
 
 };
