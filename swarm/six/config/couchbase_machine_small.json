@@ -1,0 +1,18 @@
+{
+  "database": "couchbase",
+  "databaseOpts": {
+    "url": "couchbase://couchbase1,couchbase2,couchbase3,couchbase4,couchbase5,couchbase6/",
+    "username": "admin",
+    "password": "admin123",
+    "bucketRamQuotaMB": 11604,
+    "replicaNumber": 3
+  },
+  "suite": "MachineData",
+  "suiteOpts": {
+    "machineSize": "Small",
+    "machines": 10240,
+    "startYear": 2010,
+    "years": 3,
+    "machineUptime": 0.9
+  }
+}

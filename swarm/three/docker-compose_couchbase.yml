@@ -1,0 +1,20 @@
+version: '3.3'
+
+services:
+  coordinator:
+    networks: 
+      couchbase:
+  worker:
+    deploy:
+      replicas: 8
+    networks:
+      couchbase:
+
+secrets:
+  coordinator_config.json:
+    file: ./config/couchbase_machine_small.json
+
+networks: 
+  couchbase:
+    driver: overlay
+    attachable: true

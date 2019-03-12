@@ -1,0 +1,22 @@
+version: '3.3'
+
+services:
+  coordinator:
+    networks: 
+      cassandra:
+  worker:
+    deploy:
+      replicas: 8
+    environment:
+      QUERY_HIGH_WATERMARK: 16
+    networks:
+      cassandra:
+
+secrets:
+  coordinator_config.json:
+    file: ./config/cassandra_machine_mid.json
+
+networks: 
+  cassandra:
+    driver: overlay
+    attachable: true

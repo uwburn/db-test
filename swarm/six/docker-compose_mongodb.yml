@@ -1,0 +1,22 @@
+version: '3.3'
+
+services:
+  coordinator:
+    networks: 
+      mongodb:
+  worker:
+    deploy:
+      replicas: 8
+    environment:
+      QUERY_HIGH_WATERMARK: 4
+    networks:
+      mongodb:
+
+secrets:
+  coordinator_config.json:
+    file: ./config/mongodb_machine_big.json
+
+networks: 
+  mongodb:
+    driver: overlay
+    attachable: true

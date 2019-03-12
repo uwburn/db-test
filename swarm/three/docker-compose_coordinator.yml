@@ -1,0 +1,26 @@
+version: '3.3'
+
+services:
+  coordinator:
+    image: localhost:5000/db-test_coordinator
+    deploy:
+      restart_policy:
+        condition: none
+      placement:
+        constraints:
+          - node.labels.coordinator == true
+    environment:
+      MQTT_ADDRESS: mqtt://mqtt:1883
+    depends_on:
+      - mqtt
+    secrets:
+      - coordinator_config.json
+    volumes:
+      - ./stats/:/var/log/db-test/
+    networks: 
+      mqtt:
+
+networks:
+  mqtt:
+    driver: overlay
+    attachable: true

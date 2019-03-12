@@ -1,0 +1,18 @@
+{
+  "database": "mongo",
+  "databaseOpts": {
+    "url": "mongodb://mongodb1:27017,mongodb2:27017,mongodb3:27017,mongodb4:27017,mongodb5:27017,mongodb6:27017?replicaSet=rs0&readPreference=secondaryPreferred",
+    "allowDiskUse": true,
+    "options": {
+      "useNewUrlParser": true
+    }
+  },
+  "suite": "MachineData",
+  "suiteOpts": {
+    "machineSize": "Big",
+    "machines": 8,
+    "startYear": 2010,
+    "years": 1,
+    "machineUptime": 0.75
+  }
+}
