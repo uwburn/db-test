@@ -43,6 +43,9 @@ suite.prepareDatabase().then(function () {
     console.log("Coordinator connected to MQTT");
     mqttClient.subscribe("worker/#");
 
+    if (status !== "DISCOVERING_WORKERS")
+      return;
+
     console.log("Discovering workers");
     setTimeout(() => {
       status = "WAITING_WORKERS";
