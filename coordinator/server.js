@@ -162,7 +162,7 @@ function logStep() {
     let worker = stats.steps[stepIndex].workers[workerId];
     stepStats.totalTime += (worker.stats.endTime - worker.stats.startTime);
     stepStats.totalReads += worker.stats.reads;
-    stepStats.totalReadRows += worker.stats.readRows;
+    stepStats.totalReadRows += worker.stats.totalReadRows;
     stepStats.avgReadLatency += worker.stats.readLatency;
     stepStats.totalWrites += worker.stats.writes;
     stepStats.avgWriteLatency += worker.stats.writeLatency;
@@ -191,7 +191,7 @@ function logSuite() {
     totalTime: 0,
     totalWrites: 0,
     totalReads: 0,
-    readRows: 0,
+    totalReadRows: 0,
     totalErrors: 0,
     wps: 0,
     rps: 0
@@ -268,7 +268,7 @@ function shutdown() {
 function writeStats() {
   console.log("Recording stats");
 
-  const statsDir = "/var/log/db-test/";
+  let statsDir = process.env.STATS_DIR || "/var/log/db-test/";
 
   try {
     fs.mkdirSync(statsDir);
