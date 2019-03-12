@@ -507,12 +507,12 @@ module.exports = class MongoMachineSink extends BaseSink {
 
     let criteria = {
       _id: Binary(uuidParse.parse(sample.id, Buffer.allocUnsafe(16)), Binary.SUBTYPE_UUID),
+      device: Binary(uuidParse.parse(sample.device, Buffer.allocUnsafe(16)), Binary.SUBTYPE_UUID)
     };
 
     let update = {
       $setOnInsert: {
         deviceType: Binary(uuidParse.parse(sample.deviceType, Buffer.allocUnsafe(16)), Binary.SUBTYPE_UUID),
-        device: Binary(uuidParse.parse(sample.device, Buffer.allocUnsafe(16)), Binary.SUBTYPE_UUID),
         startTime: sample.startTime,
         endTime: sample.endTime
       },

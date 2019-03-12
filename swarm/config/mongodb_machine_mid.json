@@ -1,7 +1,7 @@
 {
   "database": "mongo",
   "databaseOpts": {
-    "url": "mongodb://mongodb1:27017,mongodb2:27017,mongodb3:27017,mongodb4:27017,mongodb5:27017,mongodb6:27017?replicaSet=rs0&readPreference=secondaryPreferred",
+    "url": "mongodb://mongodb-router-1:27017,mongodb-router-2:27017,mongodb-router-3:27017?readPreference=secondaryPreferred",
     "allowDiskUse": false,
     "options": {
       "useNewUrlParser": true

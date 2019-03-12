@@ -1,0 +1,137 @@
+version: '3.3'
+
+services:
+  mongodb-rs0-1:
+    image: mongo:4.1.8
+    command: mongod --bind_ip_all --slowms 10000 --replSet "rs0" --shardsvr
+    deploy:
+      placement:
+        constraints:
+          - node.labels.db1 == true
+    ports:
+      - "27017:27018"
+    volumes:
+      - mongodb-rs0-1_data:/data/db
+    networks:
+      mongodb:
+  mongodb-rs0-2:
+    image: mongo:4.1.8
+    command: mongod --bind_ip_all --slowms 10000 --replSet "rs0" --shardsvr
+    deploy:
+      placement:
+        constraints:
+          - node.labels.db2 == true
+    ports:
+      - "27018:27018"
+    volumes:
+      - mongodb-rs0-2_data:/data/db
+    networks:
+      mongodb:
+  mongodb-rs0-3:
+    image: mongo:4.1.8
+    command: mongod --bind_ip_all --slowms 10000 --replSet "rs0" --shardsvr
+    deploy:
+      placement:
+        constraints:
+          - node.labels.db3 == true
+    ports:
+      - "27019:27018"
+    volumes:
+      - mongodb-rs0-3_data:/data/db
+    networks:
+      mongodb:
+  mongodb-rs1-1:
+    image: mongo:4.1.8
+    command: mongod --bind_ip_all --slowms 10000 --replSet "rs1" --shardsvr
+    deploy:
+      placement:
+        constraints:
+          - node.labels.db4 == true
+    ports:
+      - "27020:27018"
+    volumes:
+      - mongodb-rs1-1_data:/data/db
+    networks:
+      mongodb:
+  mongodb-rs1-2:
+    image: mongo:4.1.8
+    command: mongod --bind_ip_all --slowms 10000 --replSet "rs1" --shardsvr
+    deploy:
+      placement:
+        constraints:
+          - node.labels.db5 == true
+    ports:
+      - "27021:27018"
+    volumes:
+      - mongodb-rs1-2_data:/data/db
+    networks:
+      mongodb:
+  mongodb-rs1-3:
+    image: mongo:4.1.8
+    command: mongod --bind_ip_all --slowms 10000 --replSet "rs1" --shardsvr
+    deploy:
+      placement:
+        constraints:
+          - node.labels.db6 == true
+    ports:
+      - "27022:27018"
+    volumes:
+      - mongodb-rs1-3_data:/data/db
+    networks:
+      mongodb:
+  mongodb-cfg-1:
+    image: mongo:4.1.8
+    command: mongod --bind_ip_all --slowms 10000 --configsvr --replSet "cfg"
+    deploy:
+      placement:
+        constraints:
+          - node.labels.db7 == true
+    ports:
+      - "27023:27019"
+    volumes:
+      - mongodb-cfg-1_data:/data/configdb
+    networks:
+      mongodb:
+  mongodb-cfg-2:
+    image: mongo:4.1.8
+    command: mongod --bind_ip_all --slowms 10000 --configsvr --replSet "cfg"
+    deploy:
+      placement:
+        constraints:
+          - node.labels.db8 == true
+    ports:
+      - "27024:27019"
+    volumes:
+      - mongodb-cfg-2_data:/data/configdb
+    networks:
+      mongodb:
+  mongodb-cfg-3:
+    image: mongo:4.1.8
+    command: mongod --bind_ip_all --slowms 10000 --configsvr --replSet "cfg"
+    deploy:
+      placement:
+        constraints:
+          - node.labels.db9 == true
+    ports:
+      - "27025:27019"
+    volumes:
+      - mongodb-cfg-3_data:/data/configdb
+    networks:
+      mongodb:
+
+volumes:
+  mongodb-rs0-1_data:
+  mongodb-rs0-2_data:
+  mongodb-rs0-3_data:
+  mongodb-rs1-1_data:
+  mongodb-rs1-2_data:
+  mongodb-rs1-3_data:
+  mongodb-cfg-1_data:
+  mongodb-cfg-2_data:
+  mongodb-cfg-3_data:
+
+networks:
+  mongodb:
+    driver: overlay
+    attachable: true
+
