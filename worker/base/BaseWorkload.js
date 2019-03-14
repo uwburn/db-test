@@ -10,7 +10,7 @@ module.exports = class BaseWorkload {
     this.mqttClient = mqttClient;
 
     this.readStreams = [];
-    this.writeStreams = [];
+    this.writeSinks = [];
   }
 
   addReadStream(stream) {
@@ -23,48 +23,23 @@ module.exports = class BaseWorkload {
       this.readStreams.splice(index, 1);
   }
 
-  addWriteStream(stream) {
-    this.writeStreams.push(stream);
+  addWriteSink(sink) {
+    this.writeSinks.push(sink);
   }
 
-  removeWriteStream(stream) {
-    let index = this.writeStreams.indexOf(stream);
+  removeWriteSinks(sink) {
+    let index = this.writeSinks.indexOf(sink);
     if (index > -1)
-      this.writeStreams.splice(index, 1);
+      this.writeSinks.splice(index, 1);
   }
 
-  get streams() {
-    return this.readStreams.concat(this.writeStreams);
-  }
+  async sinksCleared() {
+    await Promise.all(this.writeSinks.map((s) => s.promise));
 
-  removeStream(stream) {
-    let index = this.readStreams.indexOf(stream);
-    if (index > -1)
-      this.readStreams.splice(index, 1);
+    this.endTime = new Date().getTime();
 
-    index = this.writeStreams.indexOf(stream);
-    if (index > -1)
-      this.writeStreams.splice(index, 1);
-  }
-
-  async streamsCleared() {
-    await new Promise((resolve) => {
-      this.writeStreams.forEach((e) => {
-        e.stream.once("finish", () => {
-          e.finished = true;
-
-          if (this.writeStreams.filter(e => !e.finished).length > 0)
-            return;
-
-          this.endTime = new Date().getTime();
-
-          this.log();
-          console.log("Workload completed");
-
-          resolve();
-        });
-      });
-    });
+    this.log();
+    console.log("Workload completed");
   }
 
   log() {
@@ -77,7 +52,7 @@ module.exports = class BaseWorkload {
       return acc + e / arr.length;
     }, 0);
 
-    let stats = this.writeStreams.reduce((acc, e) => {
+    let stats = this.writeSinks.reduce((acc, e) => {
       acc.totalReads += e.reads;
       acc.totalReadLatency += e.totalReadLatency;
       acc.totalSuccessfulReads += e.successfulReads;
@@ -131,7 +106,7 @@ module.exports = class BaseWorkload {
 
     await this.setupStreams();
 
-    await this.streamsCleared();
+    await this.sinksCleared();
 
     clearInterval(logInterval);
 

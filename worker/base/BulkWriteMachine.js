@@ -22,11 +22,12 @@ module.exports = class BulkWriteMachine extends BaseWorkload {
       setTimeout(() => {
         this.startTime = new Date().getTime();
 
-        let bulkWritesSink = this.sink.recordStream();
-        this.addWriteStream(bulkWritesSink);
         let bulkWritesSource = this.machineDataStreams.bulkWrites();
         this.addReadStream(bulkWritesSource);
-        bulkWritesSource.stream.pipe(bulkWritesSink.stream);
+        bulkWritesSource.stream.pause();
+        let bulkWritesSink = this.sink.recordSink(bulkWritesSource.stream);
+        this.addWriteSink(bulkWritesSink);
+        bulkWritesSource.stream.resume();
 
         resolve();
       }, this.workerDelay);
