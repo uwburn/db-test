@@ -2,7 +2,7 @@ version: '3.3'
 
 services:
   mongodb-router-1:
-    image: mongo:4.1.8
+    image: mongo:4.1.9
     command: mongos --bind_ip_all --configdb cfg/mongodb-cfg-1:27019,mongodb-cfg-2:27019,mongodb-cfg-3:27019
     deploy:
       placement:
@@ -15,7 +15,7 @@ services:
     networks:
       mongodb:
   mongodb-router-2:
-    image: mongo:4.1.8
+    image: mongo:4.1.9
     command: mongos --bind_ip_all --configdb cfg/mongodb-cfg-1:27019,mongodb-cfg-2:27019,mongodb-cfg-3:27019
     deploy:
       placement:
@@ -28,7 +28,7 @@ services:
     networks:
       mongodb:
   mongodb-router-3:
-    image: mongo:4.1.8
+    image: mongo:4.1.9
     command: mongos --bind_ip_all --configdb cfg/mongodb-cfg-1:27019,mongodb-cfg-2:27019,mongodb-cfg-3:27019
     deploy:
       placement:
