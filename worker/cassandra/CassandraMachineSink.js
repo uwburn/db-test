@@ -3,7 +3,6 @@
 const cassandra = require("cassandra-driver");
 const FlattenJS = require("flattenjs");
 const _ = require("lodash");
-const avro = require("avsc");
 
 const BaseSink = require("../base/BaseSink");
 
@@ -49,8 +48,6 @@ module.exports = class CassandraMachineSink extends BaseSink {
     this.cassandraClient = new cassandra.Client(this.databaseOpts);
     await this.cassandraClient.execute("USE db_test;", [], {});
 
-    this.avroTypes = {};
-
     super.init();
   }
 
@@ -63,10 +60,88 @@ module.exports = class CassandraMachineSink extends BaseSink {
   async train(group, type, interval, sample) {
     switch(type) {
     case "TIME_COMPLEX":
-      return this.avroTypes[group] = avro.Type.forValue(sample[group].value);
+      return await this.trainTimeComplex(group, type, interval, sample);
     case "INTERVAL":
-      return this.avroTypes[group] = avro.Type.forValue(sample.value);
+      return await this.trainInterval(group, type, interval, sample);
     }
+  }
+
+  async trainTimeComplex(group, type, interval, sample) {
+    let cql = `CREATE TABLE IF NOT EXISTS ${group}_time_complex (device_type text, group text, device text, timestamp timestamp, original_timestamp timestamp`;
+
+    let flatObj;
+    switch(typeof sample[group].value) {
+    default:
+      flatObj = FlattenJS.convert(sample[group].value);
+      for (let k in flatObj) {
+        cql += `, ${k}`;
+        switch (typeof flatObj[k]) {
+        default:
+        case "string":
+          cql += " text";
+          break;
+        case "number":
+          cql += " decimal";
+          break;
+        case "boolean":
+          cql += " boolean";
+          break;
+        }
+      }
+      break;
+    case "string":
+      cql += ", value text";
+      break;
+    case "number":
+      cql += ", value decimal";
+      break;
+    case "boolean":
+      cql += ", value boolean";
+      break;
+    }
+
+    cql += ", PRIMARY KEY (( device_type, group, device ), timestamp))";
+
+    await this.cassandraClient.execute(cql, [], {});
+  }
+
+  async trainInterval(group, type, interval, sample) {
+    let cql = `CREATE TABLE IF NOT EXISTS ${group}_interval (device_type text, group text, device text, start_time timestamp, end_time timestamp`;
+
+    let flatObj;
+    switch(typeof sample.value) {
+    default:
+      flatObj = FlattenJS.convert(sample.value);
+      for (let k in flatObj) {
+        cql += `, ${k}`;
+        switch (typeof flatObj[k]) {
+        default:
+        case "string":
+          cql += " text";
+          break;
+        case "number":
+          cql += " decimal";
+          break;
+        case "boolean":
+          cql += " boolean";
+          break;
+        }
+      }
+      break;
+    case "string":
+      cql += ", value text";
+      break;
+    case "number":
+      cql += ", value decimal";
+      break;
+    case "boolean":
+      cql += ", value boolean";
+      break;
+    }
+
+    cql += ", PRIMARY KEY (device_type, group, device, start_time, end_time))";
+
+    await this.cassandraClient.execute(cql, [], {});
   }
 
   async query(name, type, options) {
@@ -85,11 +160,9 @@ module.exports = class CassandraMachineSink extends BaseSink {
   }
 
   async queryIntervalRange(name, options) {
-    let avroType = this.avroTypes[options.group];
-
     let count = 0;
     return await new Promise((resolve, reject) => {
-      this.cassandraClient.stream("SELECT * FROM interval WHERE device_type = ? AND group = ? AND device = ? AND start_time <= ? AND end_time >= ? ALLOW FILTERING", [
+      this.cassandraClient.stream(`SELECT * FROM ${options.group}_interval WHERE device_type = ? AND group = ? AND device = ? AND start_time <= ? AND end_time >= ? ALLOW FILTERING`, [
         options.deviceType,
         options.group,
         options.device,
@@ -98,8 +171,8 @@ module.exports = class CassandraMachineSink extends BaseSink {
       ], {
         prepare: true
       }).on("data", function (row) {
-        ++count;
-        row.value = avroType.fromBuffer(row.value);
+        if (row)
+          ++count;
       }).on("end", function () {
         resolve(count);
       }).on("error", function (err) {
@@ -109,11 +182,15 @@ module.exports = class CassandraMachineSink extends BaseSink {
   }
 
   async queryTimeComplexRange(name, options) {
-    let avroType = this.avroTypes[options.group];
+    let select;
+    if (options.select && options.select.length)
+      select = options.select.join(", ");
+    else
+      select = "*";
 
     let count = 0;
     return await new Promise((resolve, reject) => {
-      this.cassandraClient.stream("SELECT * FROM time_complex WHERE device_type = ? AND group = ? AND device = ? AND timestamp >= ? AND timestamp <= ?", [
+      this.cassandraClient.stream(`SELECT ${select} FROM ${options.group}_time_complex WHERE device_type = ? AND group = ? AND device = ? AND timestamp >= ? AND timestamp <= ?`, [
         options.deviceType,
         options.group,
         options.device,
@@ -122,11 +199,8 @@ module.exports = class CassandraMachineSink extends BaseSink {
       ], {
         prepare: true
       }).on("data", function (row) {
-        ++count;
-
-        row.value = avroType.fromBuffer(row.value);
-        if (options.select && options.select.length)
-          row.value = _.pick(row.value, options.select);
+        if (row)
+          ++count;
       }).on("end", function () {
         resolve(count);
       }).on("error", function (err) {
@@ -136,10 +210,11 @@ module.exports = class CassandraMachineSink extends BaseSink {
   }
 
   async queryTimeComplexRangeBucketAvg(name, options) {
-    if (!options.select || options.select.length === 0)
+    let select;
+    if (options.select && options.select.length)
+      select = options.select.join(", ");
+    else
       throw new Error("Selection is required");
-
-    let avroType = this.avroTypes[options.group];
 
     let duration = options.endTime.getTime() - options.startTime.getTime();
     let bucketStep = Math.round(duration / options.buckets);
@@ -159,7 +234,7 @@ module.exports = class CassandraMachineSink extends BaseSink {
 
     let count = 0;
     await new Promise((resolve, reject) => {
-      this.cassandraClient.stream("SELECT * FROM time_complex WHERE device_type = ? AND group = ? AND device = ? AND timestamp >= ? AND timestamp <= ?", [
+      this.cassandraClient.stream(`SELECT ${select} FROM ${options.group}_time_complex WHERE device_type = ? AND group = ? AND device = ? AND timestamp >= ? AND timestamp <= ?`, [
         options.deviceType,
         options.group,
         options.device,
@@ -182,13 +257,11 @@ module.exports = class CassandraMachineSink extends BaseSink {
         if (bucket.maxTime === undefined)
           bucket.maxTime = row.timestamp.getTime();
 
-        row.value = avroType.fromBuffer(row.value);
-
         bucket.minTime = Math.min(bucket.minTime, row.timestamp.getTime());
         bucket.maxTime = Math.max(bucket.maxTime, row.timestamp.getTime());
         ++bucket.count;
         for (let s of options.select)
-          bucket[s + "_avg"] += _.get(row.value, s);
+          bucket[s + "_avg"] += row.value[s];
       }).on("end", function () {
         resolve(count);
       }).on("error", function (err) {
@@ -217,11 +290,9 @@ module.exports = class CassandraMachineSink extends BaseSink {
   }
 
   async queryTimeComplexDifference(name, options) {
-    let avroType = this.avroTypes[options.group];
-
     let promises = [];
 
-    promises.push(this.cassandraClient.execute("SELECT * FROM time_complex WHERE device_type = ? AND group = ? AND device = ? AND timestamp >= ? AND timestamp <= ? ORDER BY timestamp ASC LIMIT 1", [
+    promises.push(this.cassandraClient.execute(`SELECT * FROM ${options.group}_time_complex WHERE device_type = ? AND group = ? AND device = ? AND timestamp >= ? AND timestamp <= ? ORDER BY timestamp ASC LIMIT 1`, [
       options.deviceType,
       options.group,
       options.device,
@@ -231,7 +302,7 @@ module.exports = class CassandraMachineSink extends BaseSink {
       prepare: true
     }));
 
-    promises.push(this.cassandraClient.execute("SELECT * FROM time_complex WHERE device_type = ? AND group = ? AND device = ? AND timestamp >= ? AND timestamp <= ? ORDER BY timestamp DESC LIMIT 1", [
+    promises.push(this.cassandraClient.execute(`SELECT * FROM ${options.group}_time_complex WHERE device_type = ? AND group = ? AND device = ? AND timestamp >= ? AND timestamp <= ? ORDER BY timestamp DESC LIMIT 1`, [
       options.deviceType,
       options.group,
       options.device,
@@ -248,23 +319,11 @@ module.exports = class CassandraMachineSink extends BaseSink {
       let first = results[i].rows[0];
       let last = results[i + 1].rows[0];
 
-      let firstValue;
-      let lastValue;
-      if (first) {
-        firstValue = avroType.fromBuffer(first.value);
-      }
-      else {
+      if (!first)
         first = {};
-        firstValue = {};
-      }
 
-      if (last) {
-        lastValue = avroType.fromBuffer(last.value);
-      }
-      else {
+      if (!last)
         last = {};
-        lastValue = {};
-      }
 
       let sub = {
         deviceType: first.device_type,
@@ -272,7 +331,7 @@ module.exports = class CassandraMachineSink extends BaseSink {
         group: first.group,
         startTime: first.timestamp,
         endTime: last.timestamp,
-        value: subtractValues(firstValue, lastValue)
+        value: subtractValues(first, last)
       };
 
       subs.push(sub);
@@ -282,11 +341,9 @@ module.exports = class CassandraMachineSink extends BaseSink {
   }
 
   async queryTimeComplexLastBefore(name, options) {
-    let avroType = this.avroTypes[options.group];
-
     let count = 0;
     return await new Promise((resolve, reject) => {
-      this.cassandraClient.stream("SELECT * FROM time_complex WHERE device_type = ? AND group = ? AND device = ? AND timestamp <= ? ORDER BY timestamp DESC LIMIT 1", [
+      this.cassandraClient.stream(`SELECT * FROM ${options.group}_time_complex WHERE device_type = ? AND group = ? AND device = ? AND timestamp <= ? ORDER BY timestamp DESC LIMIT 1`, [
         options.deviceType,
         options.group,
         options.device,
@@ -294,9 +351,8 @@ module.exports = class CassandraMachineSink extends BaseSink {
       ], {
         prepare: true
       }).on("data", function (row) {
-        ++count;
-
-        row.value = avroType.fromBuffer(row.value);
+        if (row)
+          ++count;
       }).on("end", function () {
         resolve(count);
       }).on("error", function (err) {
@@ -315,31 +371,75 @@ module.exports = class CassandraMachineSink extends BaseSink {
   }
 
   async recordTimeComplex(id, groupName, sample) {
-    let avroType = this.avroTypes[groupName];
-
-    await this.cassandraClient.execute("INSERT INTO time_complex (device_type, group, device, timestamp, original_timestamp, value) VALUES (?, ?, ?, ?, ?, ?)", [
+    let cql1 = `INSERT INTO ${groupName}_time_complex (device_type, group, device, timestamp, original_timestamp`;
+    let cql2 = ") VALUES (?, ?, ?, ?, ?";
+    let params = [
       sample.deviceType,
       groupName,
       id,
       sample.time,
-      sample[groupName].time,
-      avroType.toBuffer(sample[groupName].value)
-    ], {
+      sample[groupName].time
+    ];
+
+    let flatObj;
+    switch(typeof sample[groupName].value) {
+    default:
+      flatObj = FlattenJS.convert(sample[groupName].value);
+      for (let k in flatObj) {
+        cql1 += `, ${k}`;
+        cql2 += ", ?";
+        params.push(flatObj[k]);
+      }
+      break;
+    case "string":
+    case "number":
+    case "boolean":
+      cql1 += ", value";
+      cql2 += ", ?";
+      params.push(sample[groupName].value);
+      break;
+    }
+
+    let cql = cql1 + cql2 + ")";
+
+    await this.cassandraClient.execute(cql, params, {
       prepare: true
     });
   }
 
   async recordInterval(id, groupName, sample) {
-    let avroType = this.avroTypes[groupName];
-
-    await this.cassandraClient.execute("INSERT INTO interval (device_type, device, group, start_time, end_time, value) VALUES (?, ?, ?, ?, ?, ?)", [
+    let cql1 = `INSERT INTO ${groupName}_interval (device_type,  group, device, start_time, end_time`;
+    let cql2 = ") VALUES (?, ?, ?, ?, ?";
+    let params = [
       sample.deviceType,
       id,
       groupName,
       sample.startTime,
-      sample.endTime,
-      avroType.toBuffer(sample.value)
-    ], {
+      sample.endTime
+    ];
+
+    let flatObj;
+    switch(typeof sample.value) {
+    default:
+      flatObj = FlattenJS.convert(sample.value);
+      for (let k in flatObj) {
+        cql1 += `, ${k}`;
+        cql2 += ", ?";
+        params.push(flatObj[k]);
+      }
+      break;
+    case "string":
+    case "number":
+    case "boolean":
+      cql1 += ", value";
+      cql2 += ", ?";
+      params.push(sample.value);
+      break;
+    }
+
+    let cql = cql1 + cql2 + ")";
+
+    await this.cassandraClient.execute(cql, params, {
       prepare: true
     });
   }
