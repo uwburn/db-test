@@ -166,7 +166,7 @@ module.exports = class BaseWorkload {
 
     let source = this.machineDataStreams.source;
     for (let k in source.sampleMethods)
-      this.sink.train(k, source.sampleTypes[k], source.sampleIntervals[k], source.sampleMethods[k](nilUuid, now));
+      await this.sink.train(k, source.sampleTypes[k], source.sampleIntervals[k], source.sampleMethods[k](nilUuid, now));
   }
 
 };
