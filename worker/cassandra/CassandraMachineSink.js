@@ -3,7 +3,6 @@
 const cassandra = require("cassandra-driver");
 const FlattenJS = require("flattenjs");
 const _ = require("lodash");
-const avro = require("avsc");
 
 const BaseSink = require("../base/BaseSink");
 
@@ -49,8 +48,6 @@ module.exports = class CassandraMachineSink extends BaseSink {
     this.cassandraClient = new cassandra.Client(this.databaseOpts);
     await this.cassandraClient.execute("USE db_test;", [], {});
 
-    this.avroTypes = {};
-
     super.init();
   }
 
@@ -58,15 +55,6 @@ module.exports = class CassandraMachineSink extends BaseSink {
     super.cleanup();
 
     await this.cassandraClient.shutdown();
-  }
-
-  async train(group, type, interval, sample) {
-    switch(type) {
-    case "TIME_COMPLEX":
-      return this.avroTypes[group] = avro.Type.forValue(sample[group].value);
-    case "INTERVAL":
-      return this.avroTypes[group] = avro.Type.forValue(sample.value);
-    }
   }
 
   async query(name, type, options) {
@@ -85,8 +73,6 @@ module.exports = class CassandraMachineSink extends BaseSink {
   }
 
   async queryIntervalRange(name, options) {
-    let avroType = this.avroTypes[options.group];
-
     let count = 0;
     return await new Promise((resolve, reject) => {
       this.cassandraClient.stream("SELECT * FROM interval WHERE device_type = ? AND group = ? AND device = ? AND start_time <= ? AND end_time >= ? ALLOW FILTERING", [
@@ -99,7 +85,7 @@ module.exports = class CassandraMachineSink extends BaseSink {
         prepare: true
       }).on("data", function (row) {
         ++count;
-        row.value = avroType.fromBuffer(row.value);
+        row.value = JSON.parse(row.value);
       }).on("end", function () {
         resolve(count);
       }).on("error", function (err) {
@@ -109,8 +95,6 @@ module.exports = class CassandraMachineSink extends BaseSink {
   }
 
   async queryTimeComplexRange(name, options) {
-    let avroType = this.avroTypes[options.group];
-
     let count = 0;
     return await new Promise((resolve, reject) => {
       this.cassandraClient.stream("SELECT * FROM time_complex WHERE device_type = ? AND group = ? AND device = ? AND timestamp >= ? AND timestamp <= ?", [
@@ -124,7 +108,7 @@ module.exports = class CassandraMachineSink extends BaseSink {
       }).on("data", function (row) {
         ++count;
 
-        row.value = avroType.fromBuffer(row.value);
+        row.value = JSON.parse(row.value);
         if (options.select && options.select.length)
           row.value = _.pick(row.value, options.select);
       }).on("end", function () {
@@ -138,8 +122,6 @@ module.exports = class CassandraMachineSink extends BaseSink {
   async queryTimeComplexRangeBucketAvg(name, options) {
     if (!options.select || options.select.length === 0)
       throw new Error("Selection is required");
-
-    let avroType = this.avroTypes[options.group];
 
     let duration = options.endTime.getTime() - options.startTime.getTime();
     let bucketStep = Math.round(duration / options.buckets);
@@ -182,7 +164,7 @@ module.exports = class CassandraMachineSink extends BaseSink {
         if (bucket.maxTime === undefined)
           bucket.maxTime = row.timestamp.getTime();
 
-        row.value = avroType.fromBuffer(row.value);
+        row.value = JSON.parse(row.value);
 
         bucket.minTime = Math.min(bucket.minTime, row.timestamp.getTime());
         bucket.maxTime = Math.max(bucket.maxTime, row.timestamp.getTime());
@@ -217,8 +199,6 @@ module.exports = class CassandraMachineSink extends BaseSink {
   }
 
   async queryTimeComplexDifference(name, options) {
-    let avroType = this.avroTypes[options.group];
-
     let promises = [];
 
     promises.push(this.cassandraClient.execute("SELECT * FROM time_complex WHERE device_type = ? AND group = ? AND device = ? AND timestamp >= ? AND timestamp <= ? ORDER BY timestamp ASC LIMIT 1", [
@@ -251,7 +231,7 @@ module.exports = class CassandraMachineSink extends BaseSink {
       let firstValue;
       let lastValue;
       if (first) {
-        firstValue = avroType.fromBuffer(first.value);
+        firstValue = JSON.parse(first.value);
       }
       else {
         first = {};
@@ -259,7 +239,7 @@ module.exports = class CassandraMachineSink extends BaseSink {
       }
 
       if (last) {
-        lastValue = avroType.fromBuffer(last.value);
+        lastValue = JSON.parse(last.value);
       }
       else {
         last = {};
@@ -282,8 +262,6 @@ module.exports = class CassandraMachineSink extends BaseSink {
   }
 
   async queryTimeComplexLastBefore(name, options) {
-    let avroType = this.avroTypes[options.group];
-
     let count = 0;
     return await new Promise((resolve, reject) => {
       this.cassandraClient.stream("SELECT * FROM time_complex WHERE device_type = ? AND group = ? AND device = ? AND timestamp <= ? ORDER BY timestamp DESC LIMIT 1", [
@@ -296,7 +274,7 @@ module.exports = class CassandraMachineSink extends BaseSink {
       }).on("data", function (row) {
         ++count;
 
-        row.value = avroType.fromBuffer(row.value);
+        row.value = JSON.parse(row.value);
       }).on("end", function () {
         resolve(count);
       }).on("error", function (err) {
@@ -315,30 +293,26 @@ module.exports = class CassandraMachineSink extends BaseSink {
   }
 
   async recordTimeComplex(id, groupName, sample) {
-    let avroType = this.avroTypes[groupName];
-
     await this.cassandraClient.execute("INSERT INTO time_complex (device_type, group, device, timestamp, original_timestamp, value) VALUES (?, ?, ?, ?, ?, ?)", [
       sample.deviceType,
       groupName,
       id,
       sample.time,
       sample[groupName].time,
-      avroType.toBuffer(sample[groupName].value)
+      JSON.stringify(sample[groupName].value)
     ], {
       prepare: true
     });
   }
 
   async recordInterval(id, groupName, sample) {
-    let avroType = this.avroTypes[groupName];
-
     await this.cassandraClient.execute("INSERT INTO interval (device_type, device, group, start_time, end_time, value) VALUES (?, ?, ?, ?, ?, ?)", [
       sample.deviceType,
       id,
       groupName,
       sample.startTime,
       sample.endTime,
-      avroType.toBuffer(sample.value)
+      JSON.stringify(sample.value)
     ], {
       prepare: true
     });
