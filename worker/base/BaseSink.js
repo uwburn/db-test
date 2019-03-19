@@ -1,16 +1,14 @@
 "use strict";
 
-const { Writable } = require("stream");
-
 const SINK_STATS_INTERVAL = 60000;
 
 module.exports = class BaseSink {
 
-  constructor(databaseOpts, queryHighWaterMark, recordHighWaterMark) {
+  constructor(databaseOpts, queryConcurrency, recordConcurrency) {
     this.databaseOpts = databaseOpts;
 
-    this.queryHighWaterMark = parseInt(process.env.QUERY_HIGH_WATERMARK) || queryHighWaterMark || 16;
-    this.recordHighWaterMark = parseInt(process.env.RECORD_HIGH_WATERMARK) || recordHighWaterMark || 16;
+    this.queryConcurrency = parseInt(process.env.QUERY_CONCURRENCY) || queryConcurrency || 16;
+    this.recordConcurrency = parseInt(process.env.RECORD_CONCURRENCY) || recordConcurrency || 16;
 
     this.latencyByType = {
       INTERVAL_RANGE: 0,
@@ -51,12 +49,11 @@ module.exports = class BaseSink {
 
   async train() { }
 
-  queryStream() {
+  querySink(sourceStream) {
+    let depth = 0;
+    let end = false;
+
     let result = {
-      stream: Writable({
-        objectMode: true,
-        highWaterMark: this.queryHighWaterMark
-      }),
       reads: 0,
       successfulReads: 0,
       readRows: 0,
@@ -67,48 +64,45 @@ module.exports = class BaseSink {
       errors: 0
     };
 
-    result.stream._write = (chunk, enc, callback) => {
-      let t0 = Date.now();
-      this.query(chunk.name, chunk.type, chunk.options, chunk.interval).then((count) => {
-        ++result.successfulReads;
-        result.totalReadLatency += Date.now() - t0;
-        result.readRows += count;
-
-        ++this.countByType[chunk.type];
-        this.latencyByType[chunk.type] += Date.now() - t0;
-      }).catch((err) => {
-        console.error(err);
-        ++result.errors;
-      }).then(() => {
-        ++result.reads;
-      }).then(callback);
-    };
-
-    result.stream._writev = (chunks, callback) => {
-      let t0 = Date.now();
-
-      let promises = chunks.map((chunk) => {
-        chunk = chunk.chunk;
-
-        return this.query(chunk.name, chunk.type, chunk.options, chunk.interval).then((count) => {
+    result.promise = new Promise((resolve) => {
+      sourceStream.on("data", async (chunk) => {
+        ++depth;
+  
+        if (depth === this.queryConcurrency)
+          sourceStream.pause();
+  
+        try {
+          let t0 = Date.now();
+          let count = await this.query(chunk.name, chunk.type, chunk.options, chunk.interval);
           ++result.successfulReads;
           result.totalReadLatency += Date.now() - t0;
           result.readRows += count;
 
           ++this.countByType[chunk.type];
           this.latencyByType[chunk.type] += Date.now() - t0;
-        }).catch((err) => {
+        }
+        catch(err) {
           console.error(err);
           ++result.errors;
-        }).then(() => {
-          ++result.reads;
-        });
+        }
+  
+        if (depth === this.queryConcurrency)
+          sourceStream.resume();  
+  
+        --depth;
+        ++result.reads;
+  
+        if (depth == 0 && end)
+          resolve();
       });
 
-      Promise.all(promises).then(() => {
-        callback();
+      sourceStream.on("end", () => {
+        end = true;
+
+        if (depth === 0)
+          resolve();
       });
-    };
+    });
 
     return result;
   }
@@ -117,12 +111,11 @@ module.exports = class BaseSink {
     throw new Error("Base class doesn't implement query method");
   }
 
-  recordStream() {
+  recordSink(sourceStream) {
+    let depth = 0;
+    let end = false;
+
     let result = {
-      stream: Writable({
-        objectMode: true,
-        highWaterMark: this.recordHighWaterMark
-      }),
       reads: 0,
       successfulReads: 0,
       readRows: 0,
@@ -133,40 +126,41 @@ module.exports = class BaseSink {
       errors: 0
     };
 
-    result.stream._write = (chunk, enc, callback) => {
-      let t0 = Date.now();
-      this.record(chunk.id, chunk.groupName, chunk.sample, chunk.interval).then(() => {
-        ++result.successfulWrites;
-        result.totalWriteLatency += Date.now() - t0;
-      }).catch((err) => {
-        console.error(err);
-        ++result.errors;
-      }).then(() => {
-        ++result.writes;
-      }).then(callback);
-    };
-
-    result.stream._writev = (chunks, callback) => {
-      let t0 = Date.now();
-
-      let promises = chunks.map((chunk) => {
-        chunk = chunk.chunk;
-
-        return this.record(chunk.id, chunk.groupName, chunk.sample, chunk.interval).then(() => {
+    result.promise = new Promise((resolve) => {
+      sourceStream.on("data", async (chunk) => {
+        ++depth;
+  
+        if (depth === this.recordConcurrency)
+          sourceStream.pause();
+  
+        try {
+          let t0 = Date.now();
+          await this.record(chunk.id, chunk.groupName, chunk.sample, chunk.interval);
           ++result.successfulWrites;
           result.totalWriteLatency += Date.now() - t0;
-        }).catch((err) => {
+        }
+        catch(err) {
           console.error(err);
           ++result.errors;
-        }).then(() => {
-          ++result.writes;
-        });
+        }
+  
+        if (depth === this.recordConcurrency)
+          sourceStream.resume();  
+  
+        --depth;
+        ++result.writes;
+  
+        if (depth == 0 && end)
+          resolve();
       });
+  
+      sourceStream.on("end", () => {
+        end = true;
 
-      Promise.all(promises).then(() => {
-        callback();
+        if (depth === 0)
+          resolve();
       });
-    };
+    });
 
     return result;
   }
