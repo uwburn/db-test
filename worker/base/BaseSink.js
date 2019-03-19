@@ -8,7 +8,7 @@ module.exports = class BaseSink {
     this.databaseOpts = databaseOpts;
 
     this.queryConcurrency = parseInt(process.env.QUERY_CONCURRENCY) || queryConcurrency || 16;
-    this.recordConcurrency = parseInt(process.env.RECORD_CONCURRENCY) || recordConcurrency || 16;
+    this.recordConcurrency = parseInt(process.env.RECORD_CONCURRENCY) || recordConcurrency || 4;
 
     this.latencyByType = {
       INTERVAL_RANGE: 0,
