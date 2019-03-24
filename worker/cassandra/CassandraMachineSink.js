@@ -58,12 +58,15 @@ module.exports = class CassandraMachineSink extends BaseSink {
   }
 
   async train(group, type, interval, sample) {
-    switch(type) {
-    case "TIME_COMPLEX":
-      return await this.trainTimeComplex(group, type, interval, sample);
-    case "INTERVAL":
-      return await this.trainInterval(group, type, interval, sample);
+    try {
+      switch(type) {
+      case "TIME_COMPLEX":
+        return await this.trainTimeComplex(group, type, interval, sample);
+      case "INTERVAL":
+        return await this.trainInterval(group, type, interval, sample);
+      }
     }
+    catch(err) { /* eslint-ignore-line */ }
   }
 
   async trainTimeComplex(group, type, interval, sample) {
@@ -74,7 +77,7 @@ module.exports = class CassandraMachineSink extends BaseSink {
     default:
       flatObj = FlattenJS.convert(sample[group].value);
       for (let k in flatObj) {
-        cql += `, ${k}`;
+        cql += `, "${k}"`;
         switch (typeof flatObj[k]) {
         default:
         case "string":
@@ -113,7 +116,7 @@ module.exports = class CassandraMachineSink extends BaseSink {
     default:
       flatObj = FlattenJS.convert(sample.value);
       for (let k in flatObj) {
-        cql += `, ${k}`;
+        cql += `, "${k}"`;
         switch (typeof flatObj[k]) {
         default:
         case "string":
@@ -184,7 +187,7 @@ module.exports = class CassandraMachineSink extends BaseSink {
   async queryTimeComplexRange(name, options) {
     let select;
     if (options.select && options.select.length)
-      select = options.select.join(", ");
+      select = options.select.map(s => `"${s}"`).join(", ");
     else
       select = "*";
 
@@ -212,7 +215,7 @@ module.exports = class CassandraMachineSink extends BaseSink {
   async queryTimeComplexRangeBucketAvg(name, options) {
     let select;
     if (options.select && options.select.length)
-      select = options.select.join(", ");
+      select = options.select.map(s => `"${s}"`).join(", ");
     else
       throw new Error("Selection is required");
 
@@ -386,7 +389,7 @@ module.exports = class CassandraMachineSink extends BaseSink {
     default:
       flatObj = FlattenJS.convert(sample[groupName].value);
       for (let k in flatObj) {
-        cql1 += `, ${k}`;
+        cql1 += `, "${k}"`;
         cql2 += ", ?";
         params.push(flatObj[k]);
       }
@@ -423,7 +426,7 @@ module.exports = class CassandraMachineSink extends BaseSink {
     default:
       flatObj = FlattenJS.convert(sample.value);
       for (let k in flatObj) {
-        cql1 += `, ${k}`;
+        cql1 += `, "${k}"`;
         cql2 += ", ?";
         params.push(flatObj[k]);
       }
