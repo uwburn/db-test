@@ -293,26 +293,28 @@ module.exports = class CassandraMachineSink extends BaseSink {
   }
 
   async recordTimeComplex(id, groupName, sample) {
-    await this.cassandraClient.execute("INSERT INTO time_complex (device_type, group, device, timestamp, original_timestamp, value) VALUES (?, ?, ?, ?, ?, ?)", [
+    await this.cassandraClient.execute("INSERT INTO time_complex (device_type, group, device, timestamp, original_timestamp, value) VALUES (?, ?, ?, ?, ?, ?) USING TIMESTAMP ?", [
       sample.deviceType,
       groupName,
       id,
       sample.time,
       sample[groupName].time,
-      JSON.stringify(sample[groupName].value)
+      JSON.stringify(sample[groupName].value),
+      sample.time.getTime() * 1000
     ], {
       prepare: true
     });
   }
 
   async recordInterval(id, groupName, sample) {
-    await this.cassandraClient.execute("INSERT INTO interval (device_type, device, group, start_time, end_time, value) VALUES (?, ?, ?, ?, ?, ?)", [
+    await this.cassandraClient.execute("INSERT INTO interval (device_type, device, group, start_time, end_time, value) VALUES (?, ?, ?, ?, ?, ?) USING TIMESTAMP ?", [
       sample.deviceType,
       id,
       groupName,
       sample.startTime,
       sample.endTime,
-      JSON.stringify(sample.value)
+      JSON.stringify(sample.value),
+      sample.endTime.getTime() * 1000
     ], {
       prepare: true
     });
