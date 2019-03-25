@@ -3,8 +3,11 @@
 const cassandra = require("cassandra-driver");
 const FlattenJS = require("flattenjs");
 const _ = require("lodash");
+const StreamConcat = require("stream-concat");
 
 const BaseSink = require("../base/BaseSink");
+
+const INTERVAL_BUCKET_TIME = 60000;
 
 function subtractValues(o1, o2) {
   let d = { };
@@ -29,6 +32,17 @@ function subtractValues(o1, o2) {
     _.set(res, k, d[k]);
 
   return res;
+}
+
+function chooseBucketTime(interval) {
+  if (interval <= 1000)         // 1 second
+    return 43200000;            // 12 hours
+  else if (interval <= 30000)   // 30 seconds
+    return 604800000;           // 1 week
+  else if (interval <= 900000)  // 15 minutes
+    return 7776000000;          // 3 months
+  else
+    return 31536000000;         // 1 year
 }
 
 module.exports = class CassandraMachineSink extends BaseSink {
@@ -57,35 +71,66 @@ module.exports = class CassandraMachineSink extends BaseSink {
     await this.cassandraClient.shutdown();
   }
 
-  async query(name, type, options) {
+  async query(name, type, options, interval) {
     switch (type) {
     case "INTERVAL_RANGE":
-      return await this.queryIntervalRange(name, options);
+      return await this.queryIntervalRange(name, options, interval);
     case "TIME_COMPLEX_RANGE":
-      return await  this.queryTimeComplexRange(name, options);
+      return await  this.queryTimeComplexRange(name, options, interval);
     case "TIME_COMPLEX_RANGE_BUCKET_AVG":
-      return await this.queryTimeComplexRangeBucketAvg(name, options);
+      return await this.queryTimeComplexRangeBucketAvg(name, options, interval);
     case "TIME_COMPLEX_DIFFERENCE":
-      return await this.queryTimeComplexDifference(name, options);
+      return await this.queryTimeComplexDifference(name, options, interval);
     case "TIME_COMPLEX_LAST_BEFORE":
-      return await this.queryTimeComplexLastBefore(name, options);
+      return await this.queryTimeComplexLastBefore(name, options, interval);
     }
   }
 
-  async queryIntervalRange(name, options) {
-    let count = 0;
-    return await new Promise((resolve, reject) => {
-      this.cassandraClient.stream("SELECT * FROM interval WHERE device_type = ? AND group = ? AND device = ? AND start_time <= ? AND end_time >= ? ALLOW FILTERING", [
+  async queryIntervalRange(name, options, interval) {
+    let bucketTime = chooseBucketTime(interval);
+
+    let startTime = new Date(Math.floor(options.startTime / INTERVAL_BUCKET_TIME) * INTERVAL_BUCKET_TIME);
+    let endTime = new Date(Math.floor(options.endTime / INTERVAL_BUCKET_TIME) * INTERVAL_BUCKET_TIME);
+
+    let time = Math.floor(options.startTime.getTime() / bucketTime) * bucketTime;
+    let nextStream = () => {
+      if (time >= (Math.floor(options.endTime.getTime() / bucketTime) * bucketTime + bucketTime)) {
+        return null;
+      }
+
+      let currentTime = new Date(time);
+      time += bucketTime;
+     
+      return this.cassandraClient.stream("SELECT * FROM interval_closed WHERE device_type = ? AND group = ? AND device = ? AND bucket = ? AND interval_bucket >= ? AND interval_bucket <= ?", [
         options.deviceType,
         options.group,
         options.device,
-        options.endTime,
-        options.startTime
+        currentTime,
+        startTime,
+        endTime
       ], {
         prepare: true
-      }).on("data", function (row) {
+      });
+    };
+
+    let combinedStream = new StreamConcat(nextStream);
+
+    let intervals = {};
+    let count = 0;
+    return await new Promise((resolve, reject) => {
+      combinedStream.on("data", function (row) {
+        if (row.start_time > options.endTime)
+          return;
+
+        if (row.end_time < options.startTime)
+          return;
+
+        if (intervals[row.id])
+          return;
+
         ++count;
         row.value = JSON.parse(row.value);
+        intervals[row.id] = true;
       }).on("end", function () {
         resolve(count);
       }).on("error", function (err) {
@@ -94,18 +139,35 @@ module.exports = class CassandraMachineSink extends BaseSink {
     });
   }
 
-  async queryTimeComplexRange(name, options) {
-    let count = 0;
-    return await new Promise((resolve, reject) => {
-      this.cassandraClient.stream("SELECT * FROM time_complex WHERE device_type = ? AND group = ? AND device = ? AND timestamp >= ? AND timestamp <= ?", [
+  async queryTimeComplexRange(name, options, interval) {
+    let bucketTime = chooseBucketTime(interval);
+
+    let time = Math.floor(options.startTime.getTime() / bucketTime) * bucketTime;
+    let nextStream = () => {
+      if (time >= (Math.floor(options.endTime.getTime() / bucketTime) * bucketTime + bucketTime)) {
+        return null;
+      }
+
+      let currentTime = new Date(time);
+      time += bucketTime;
+     
+      return this.cassandraClient.stream("SELECT * FROM time_complex WHERE device_type = ? AND group = ? AND device = ? AND bucket = ? AND timestamp >= ? AND timestamp <= ?", [
         options.deviceType,
         options.group,
         options.device,
+        currentTime,
         options.startTime,
         options.endTime,
       ], {
         prepare: true
-      }).on("data", function (row) {
+      });
+    };
+
+    let combinedStream = new StreamConcat(nextStream);
+
+    let count = 0;
+    return await new Promise((resolve, reject) => {
+      combinedStream.on("data", function (row) {
         ++count;
 
         row.value = JSON.parse(row.value);
@@ -119,9 +181,11 @@ module.exports = class CassandraMachineSink extends BaseSink {
     });
   }
 
-  async queryTimeComplexRangeBucketAvg(name, options) {
+  async queryTimeComplexRangeBucketAvg(name, options, interval) {
     if (!options.select || options.select.length === 0)
       throw new Error("Selection is required");
+
+    let bucketTime = chooseBucketTime(interval);
 
     let duration = options.endTime.getTime() - options.startTime.getTime();
     let bucketStep = Math.round(duration / options.buckets);
@@ -139,17 +203,32 @@ module.exports = class CassandraMachineSink extends BaseSink {
         buckets[i][s + "_avg"] = 0;
     }
 
-    let count = 0;
-    await new Promise((resolve, reject) => {
-      this.cassandraClient.stream("SELECT * FROM time_complex WHERE device_type = ? AND group = ? AND device = ? AND timestamp >= ? AND timestamp <= ?", [
+    let time = Math.floor(options.startTime.getTime() / bucketTime) * bucketTime;
+    let nextStream = () => {
+      if (time >= (Math.floor(options.endTime.getTime() / bucketTime) * bucketTime + bucketTime)) {
+        return null;
+      }
+
+      let currentTime = new Date(time);
+      time += bucketTime;
+     
+      return this.cassandraClient.stream("SELECT * FROM time_complex WHERE device_type = ? AND group = ? AND device = ? AND bucket = ? AND timestamp >= ? AND timestamp <= ?", [
         options.deviceType,
         options.group,
         options.device,
+        currentTime,
         options.startTime,
         options.endTime,
       ], {
         prepare: true
-      }).on("data", function (row) {
+      });
+    };
+
+    let combinedStream = new StreamConcat(nextStream);
+
+    let count = 0;
+    await new Promise((resolve, reject) => {
+      combinedStream.on("data", function (row) {
         ++count;
 
         let bucketIndex = Math.floor((row.timestamp - options.startTime.getTime()) / bucketStep) - 1;
@@ -198,105 +277,138 @@ module.exports = class CassandraMachineSink extends BaseSink {
     return buckets.length;
   }
 
-  async queryTimeComplexDifference(name, options) {
+  async queryTimeComplexDifference(name, options, interval) {
+    let bucketTime = chooseBucketTime(interval);
+
+    let time = Math.floor(options.startTime.getTime() / bucketTime) * bucketTime;
+
     let promises = [];
-
-    promises.push(this.cassandraClient.execute("SELECT * FROM time_complex WHERE device_type = ? AND group = ? AND device = ? AND timestamp >= ? AND timestamp <= ? ORDER BY timestamp ASC LIMIT 1", [
-      options.deviceType,
-      options.group,
-      options.device,
-      options.startTime,
-      options.endTime,
-    ], {
-      prepare: true
-    }));
-
-    promises.push(this.cassandraClient.execute("SELECT * FROM time_complex WHERE device_type = ? AND group = ? AND device = ? AND timestamp >= ? AND timestamp <= ? ORDER BY timestamp DESC LIMIT 1", [
-      options.deviceType,
-      options.group,
-      options.device,
-      options.startTime,
-      options.endTime,
-    ], {
-      prepare: true
-    }));
-
-    let results = await Promise.all(promises);
-
-    let subs = [];
-    for (let i = 0; i < results.length -1; ++i) {
-      let first = results[i].rows[0];
-      let last = results[i + 1].rows[0];
-
-      let firstValue;
-      let lastValue;
-      if (first) {
-        firstValue = JSON.parse(first.value);
-      }
-      else {
-        first = {};
-        firstValue = {};
-      }
-
-      if (last) {
-        lastValue = JSON.parse(last.value);
-      }
-      else {
-        last = {};
-        lastValue = {};
-      }
-
-      let sub = {
-        deviceType: first.device_type,
-        device: first.device,
-        group: first.group,
-        startTime: first.timestamp,
-        endTime: last.timestamp,
-        value: subtractValues(firstValue, lastValue)
-      };
-
-      subs.push(sub);
-    }
-
-    return subs.length;
-  }
-
-  async queryTimeComplexLastBefore(name, options) {
-    let count = 0;
-    return await new Promise((resolve, reject) => {
-      this.cassandraClient.stream("SELECT * FROM time_complex WHERE device_type = ? AND group = ? AND device = ? AND timestamp <= ? ORDER BY timestamp DESC LIMIT 1", [
+    while (time < Math.floor(options.endTime.getTime() / bucketTime) * bucketTime + bucketTime) {
+      promises.push(this.cassandraClient.execute("SELECT * FROM time_complex WHERE device_type = ? AND group = ? AND device = ? AND bucket = ? AND timestamp >= ? AND timestamp <= ? ORDER BY timestamp ASC LIMIT 1", [
         options.deviceType,
         options.group,
         options.device,
-        options.time,
+        new Date(time),
+        options.startTime,
+        options.endTime,
       ], {
         prepare: true
-      }).on("data", function (row) {
-        ++count;
+      }));
+  
+      promises.push(this.cassandraClient.execute("SELECT * FROM time_complex WHERE device_type = ? AND group = ? AND device = ? AND bucket = ? AND timestamp >= ? AND timestamp <= ? ORDER BY timestamp DESC LIMIT 1", [
+        options.deviceType,
+        options.group,
+        options.device,
+        new Date(time),
+        options.startTime,
+        options.endTime,
+      ], {
+        prepare: true
+      }));
 
+      time += bucketTime;
+    }
+
+    let rawResults = await Promise.all(promises);
+
+    let results = [];
+    for (let i = 0; i < rawResults.length; i += 2) {
+      if (!results[0] && rawResults[i].rowLength)
+        results[0] = rawResults[i];
+
+      if (rawResults[i + 1].rowLength)
+        results[1] = rawResults[i + 1];
+    }
+
+    if (!results[0])
+      results[0] = rawResults[0];
+
+    if (!results[1])
+      results[1] = rawResults[rawResults.length - 1];
+
+    let first = results[0].rows[0];
+    let last = results[1].rows[0];
+
+    let firstValue;
+    let lastValue;
+    if (first) {
+      firstValue = JSON.parse(first.value);
+    }
+    else {
+      first = {};
+      firstValue = {};
+    }
+
+    if (last) {
+      lastValue = JSON.parse(last.value);
+    }
+    else {
+      last = {};
+      lastValue = {};
+    }
+
+    subtractValues(firstValue, lastValue);
+
+    return 1;
+  }
+
+  async queryTimeComplexLastBefore(name, options, interval) {
+    /*let bucketTime = chooseBucketTime(interval);
+
+    let time = Math.floor(options.startTime.getTime() / bucketTime) * bucketTime;
+    let nextStream = () => {
+      if (time >= (Math.floor(options.endTime.getTime() / bucketTime) * bucketTime + bucketTime)) {
+        return null;
+      }
+
+      let currentTime = new Date(time);
+      time += bucketTime;
+     
+      return this.cassandraClient.stream("SELECT * FROM time_complex WHERE device_type = ? AND group = ? AND device = ? AND bucket = ? AND timestamp <= ? ORDER BY timestamp DESC LIMIT 1", [
+        options.deviceType,
+        options.group,
+        options.device,
+        currentTime,
+        options.time
+      ], {
+        prepare: true
+      });
+    };
+
+    let combinedStream = new StreamConcat(nextStream);
+USS John C. Stennis
+    await new Promise((resolve, reject) => {
+      combinedStream.on("data", function (row) {
         row.value = JSON.parse(row.value);
       }).on("end", function () {
-        resolve(count);
+        resolve();
       }).on("error", function (err) {
         reject(err);
       });
     });
+
+    return 1;*/
   }
 
-  async record(id, groupName, sample) {
+  async record(id, groupName, sample, interval) {
     switch (sample.type) {
     case "TIME_COMPLEX":
-      return await this.recordTimeComplex(id, groupName, sample.value);
+      return await this.recordTimeComplex(id, groupName, sample.value, interval);
     case "INTERVAL":
-      return await this.recordInterval(id, groupName, sample.value);
+      return await this.recordInterval(id, groupName, sample.value, interval);
     }
   }
 
-  async recordTimeComplex(id, groupName, sample) {
-    await this.cassandraClient.execute("INSERT INTO time_complex (device_type, group, device, timestamp, original_timestamp, value) VALUES (?, ?, ?, ?, ?, ?) USING TIMESTAMP ?", [
+  async recordTimeComplex(id, groupName, sample, interval) {
+    let bucketTime = chooseBucketTime(interval);
+
+    let bucket = new Date(Math.floor(sample.time / bucketTime) * bucketTime);
+
+    await this.cassandraClient.execute("INSERT INTO time_complex (device_type, group, device, bucket, timestamp, original_timestamp, value) VALUES (?, ?, ?, ?, ?, ?, ?) USING TIMESTAMP ?", [
       sample.deviceType,
       groupName,
-      id,
+      sample.device,
+      bucket,
       sample.time,
       sample[groupName].time,
       JSON.stringify(sample[groupName].value),
@@ -306,18 +418,33 @@ module.exports = class CassandraMachineSink extends BaseSink {
     });
   }
 
-  async recordInterval(id, groupName, sample) {
-    await this.cassandraClient.execute("INSERT INTO interval (device_type, device, group, start_time, end_time, value) VALUES (?, ?, ?, ?, ?, ?) USING TIMESTAMP ?", [
-      sample.deviceType,
-      id,
-      groupName,
-      sample.startTime,
-      sample.endTime,
-      JSON.stringify(sample.value),
-      sample.endTime.getTime() * 1000
-    ], {
-      prepare: true
-    });
+  async recordInterval(id, groupName, sample, interval) {
+    let cql = "INSERT INTO interval_closed (device_type, group, device, bucket, interval_bucket, id, start_time, end_time, value) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) USING TIMESTAMP ?";
+
+    let promises = [];
+    let time = Math.floor(sample.startTime.getTime() / INTERVAL_BUCKET_TIME) * INTERVAL_BUCKET_TIME;
+    while (time < (sample.endTime.getTime() + INTERVAL_BUCKET_TIME)) {
+      let bucketTime = chooseBucketTime(interval);
+
+      promises.push(this.cassandraClient.execute(cql, [
+        sample.deviceType,
+        groupName,
+        sample.device,
+        bucketTime,
+        new Date(time),
+        id,
+        sample.startTime,
+        sample.endTime,
+        JSON.stringify(sample.value),
+        sample.endTime.getTime() * 1000
+      ], {
+        prepare: true
+      }));
+
+      time += INTERVAL_BUCKET_TIME;
+    }
+
+    await Promise.all(promises);
   }
 
 };

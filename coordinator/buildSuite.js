@@ -174,8 +174,9 @@ async function prepareMachineDataCassandra(databaseOpts) {
   console.log("Preparing keyspace and tables");
   await cassandraClient.execute(`CREATE KEYSPACE IF NOT EXISTS db_test WITH replication = {'class' : 'SimpleStrategy', 'replication_factor' : ${replicationFactor}};`, [], {});
   await cassandraClient.execute("USE db_test;", [], {});
-  await cassandraClient.execute("CREATE TABLE IF NOT EXISTS time_complex (device_type text, group text, device text, timestamp timestamp, original_timestamp timestamp, value text, PRIMARY KEY (( device_type, group, device ), timestamp)) WITH COMPACTION = {'class': 'LeveledCompactionStrategy'};", [], {});
-  await cassandraClient.execute("CREATE TABLE IF NOT EXISTS interval (device_type text, group text, device text, start_time timestamp, end_time timestamp, value text, PRIMARY KEY (device_type, group, device, start_time, end_time)) WITH COMPACTION = {'class': 'LeveledCompactionStrategy'};", [], {});
+  await cassandraClient.execute("CREATE TABLE IF NOT EXISTS time_complex (device_type text, group text, device text, bucket timestamp, timestamp timestamp, original_timestamp timestamp, value text, PRIMARY KEY (( device_type, group, device, bucket ), timestamp)) WITH COMPACTION = {'class': 'LeveledCompactionStrategy'};", [], {});
+  await cassandraClient.execute("CREATE TABLE IF NOT EXISTS interval_closed (device_type text, group text, device text, bucket timestamp, interval_bucket timestamp, id text, start_time timestamp, end_time timestamp, value text, PRIMARY KEY ((device_type, group, device, bucket), interval_bucket, id)) WITH COMPACTION = {'class': 'LeveledCompactionStrategy'};", [], {});
+  await cassandraClient.execute("CREATE TABLE IF NOT EXISTS interval_open (device_type text, group text, device text, start_time timestamp, id text, value text, PRIMARY KEY ((device_type, group, device), start_time, id)) WITH COMPACTION = {'class': 'LeveledCompactionStrategy'};", [], {});
 
   await cassandraClient.shutdown();
 }
