@@ -41,7 +41,7 @@ function subtractDocs(o1, o2) {
 function chooseBucketTime(interval) {
   if (interval <= 1000) // Second
     return 300000; // Five minutes - 300
-  if (interval <= 5000)
+  else if (interval <= 5000)
     return 600000; // Ten minutes - 120
   else if (interval <= 60000) // Minute
     return 3600000; // Hour - 60
@@ -404,7 +404,7 @@ module.exports = class MongoMachineSink extends BaseSink {
       return _.assign(sub, subtractDocs(o1, o2));
     });
 
-    return 2;
+    return 1;
   }
 
   async queryTimeComplexLastBefore(name, options, interval) {
