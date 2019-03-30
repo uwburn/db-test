@@ -46,6 +46,14 @@ function chooseBucketTime(interval) {
     return 31536000000;         // 1 year
 }
 
+function forwardError(srcStream, dstStream) {
+  srcStream.on("error", (err) => {
+    dstStream.destroy(err);
+  });
+
+  return srcStream;
+}
+
 module.exports = class CassandraMachineSink extends BaseSink {
 
   constructor(databaseOpts) {
@@ -95,7 +103,8 @@ module.exports = class CassandraMachineSink extends BaseSink {
 
     let time = Math.floor(options.startTime.getTime() / bucketTime) * bucketTime;
     let openIntervals = false;
-    let nextStream = () => {
+    let self = this;
+    let nextStream = function() {
       if (time >= (Math.floor(options.endTime.getTime() / bucketTime) * bucketTime + bucketTime)) {
         if (openIntervals) {
           return null;
@@ -106,20 +115,20 @@ module.exports = class CassandraMachineSink extends BaseSink {
       }
 
       if (openIntervals) {
-        return this.cassandraClient.stream("SELECT id, start_time, value FROM interval_open WHERE device_type = ? AND group = ? AND device = ? AND start_time <= ?", [
+        return forwardError(self.cassandraClient.stream("SELECT id, start_time, value FROM interval_open WHERE device_type = ? AND group = ? AND device = ? AND start_time <= ?", [
           options.deviceType,
           options.group,
           options.device,
           options.endTime
         ], {
           prepare: true
-        });
+        }), this);
       }
 
       let currentTime = new Date(time);
       time += bucketTime;
      
-      return this.cassandraClient.stream("SELECT id, start_time, end_time, value FROM interval_closed WHERE device_type = ? AND group = ? AND device = ? AND bucket = ? AND interval_bucket >= ? AND interval_bucket <= ?", [
+      return forwardError(self.cassandraClient.stream("SELECT id, start_time, end_time, value FROM interval_closed WHERE device_type = ? AND group = ? AND device = ? AND bucket = ? AND interval_bucket >= ? AND interval_bucket <= ?", [
         options.deviceType,
         options.group,
         options.device,
@@ -128,7 +137,7 @@ module.exports = class CassandraMachineSink extends BaseSink {
         endTime
       ], {
         prepare: true
-      });
+      }), this);
     };
 
     let combinedStream = new StreamConcat(nextStream, {
@@ -164,7 +173,8 @@ module.exports = class CassandraMachineSink extends BaseSink {
     let bucketTime = chooseBucketTime(interval);
 
     let time = Math.floor(options.startTime.getTime() / bucketTime) * bucketTime;
-    let nextStream = () => {
+    let self = this;
+    let nextStream = function() {
       if (time >= (Math.floor(options.endTime.getTime() / bucketTime) * bucketTime + bucketTime)) {
         return null;
       }
@@ -172,7 +182,7 @@ module.exports = class CassandraMachineSink extends BaseSink {
       let currentTime = new Date(time);
       time += bucketTime;
      
-      return this.cassandraClient.stream("SELECT timestamp, original_timestamp, value FROM time_complex WHERE device_type = ? AND group = ? AND device = ? AND bucket = ? AND timestamp >= ? AND timestamp <= ?", [
+      return forwardError(self.cassandraClient.stream("SELECT timestamp, original_timestamp, value FROM time_complex WHERE device_type = ? AND group = ? AND device = ? AND bucket = ? AND timestamp >= ? AND timestamp <= ?", [
         options.deviceType,
         options.group,
         options.device,
@@ -181,7 +191,7 @@ module.exports = class CassandraMachineSink extends BaseSink {
         options.endTime,
       ], {
         prepare: true
-      });
+      }), this);
     };
 
     let combinedStream = new StreamConcat(nextStream, {
@@ -228,7 +238,8 @@ module.exports = class CassandraMachineSink extends BaseSink {
     }
 
     let time = Math.floor(options.startTime.getTime() / bucketTime) * bucketTime;
-    let nextStream = () => {
+    let self = this;
+    let nextStream = function() {
       if (time >= (Math.floor(options.endTime.getTime() / bucketTime) * bucketTime + bucketTime)) {
         return null;
       }
@@ -236,7 +247,7 @@ module.exports = class CassandraMachineSink extends BaseSink {
       let currentTime = new Date(time);
       time += bucketTime;
      
-      return this.cassandraClient.stream("SELECT timestamp, value FROM time_complex WHERE device_type = ? AND group = ? AND device = ? AND bucket = ? AND timestamp >= ? AND timestamp <= ?", [
+      return forwardError(self.cassandraClient.stream("SELECT timestamp, value FROM time_complex WHERE device_type = ? AND group = ? AND device = ? AND bucket = ? AND timestamp >= ? AND timestamp <= ?", [
         options.deviceType,
         options.group,
         options.device,
@@ -245,7 +256,7 @@ module.exports = class CassandraMachineSink extends BaseSink {
         options.endTime,
       ], {
         prepare: true
-      });
+      }), this);
     };
 
     let combinedStream = new StreamConcat(nextStream, {
