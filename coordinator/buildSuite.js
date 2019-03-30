@@ -172,10 +172,12 @@ async function prepareMachineDataCassandra(databaseOpts) {
   let replicationFactor = databaseOpts.replicationFactor || 1;
 
   console.log("Preparing keyspace and tables");
-  await cassandraClient.execute(`CREATE KEYSPACE IF NOT EXISTS db_test WITH replication = {'class' : 'SimpleStrategy', 'replication_factor' : ${replicationFactor}};`, [], {});
+  await cassandraClient.execute("DROP KEYSPACE IF EXISTS db_test;", [], {});
+  await cassandraClient.execute(`CREATE KEYSPACE db_test WITH replication = {'class' : 'SimpleStrategy', 'replication_factor' : ${replicationFactor}};`, [], {});
   await cassandraClient.execute("USE db_test;", [], {});
-  await cassandraClient.execute("CREATE TABLE IF NOT EXISTS time_complex (device_type text, group text, device text, timestamp timestamp, original_timestamp timestamp, value text, PRIMARY KEY (( device_type, group, device ), timestamp));", [], {});
-  await cassandraClient.execute("CREATE TABLE IF NOT EXISTS interval (device_type text, group text, device text, start_time timestamp, end_time timestamp, value text, PRIMARY KEY (device_type, group, device, start_time, end_time));", [], {});
+  await cassandraClient.execute("CREATE TABLE time_complex (device_type uuid, group text, device uuid, bucket timestamp, timestamp timestamp, original_timestamp timestamp, value text, PRIMARY KEY (( device_type, group, device, bucket ), timestamp)) WITH COMPACTION = {'class': 'LeveledCompactionStrategy'};", [], {});
+  await cassandraClient.execute("CREATE TABLE interval_closed (device_type uuid, group text, device uuid, bucket timestamp, interval_bucket timestamp, id uuid, start_time timestamp, end_time timestamp, value text, PRIMARY KEY ((device_type, group, device, bucket), interval_bucket, id)) WITH COMPACTION = {'class': 'LeveledCompactionStrategy'};", [], {});
+  await cassandraClient.execute("CREATE TABLE interval_open (device_type uuid, group text, device uuid, start_time timestamp, id uuid, value text, PRIMARY KEY ((device_type, group, device), start_time, id)) WITH COMPACTION = {'class': 'LeveledCompactionStrategy'};", [], {});
 
   await cassandraClient.shutdown();
 }
