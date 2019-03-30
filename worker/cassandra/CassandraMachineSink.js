@@ -434,11 +434,12 @@ module.exports = class CassandraMachineSink extends BaseSink {
 
     let count = 0;
     for (let i = rawResults.length - 1; i >= 0; --i) {
-      if (rawResults[i].rowLength)
+      if (rawResults[i].rowLength) {
         ++count;
 
-      if (count === 1)
-        rawResults[i].rows[0].value = avroType.fromBuffer(rawResults[i].rows[0].value);
+        if (count === 1)
+          rawResults[i].rows[0].value = avroType.fromBuffer(rawResults[i].rows[0].value);
+      }
     }
 
     return count;
