@@ -2,7 +2,7 @@ version: '3.3'
 
 services:
   mongodb1:
-    image: mongo:4.1.8
+    image: mongo:4.1.9
     command: mongod --bind_ip_all --slowms 10000 --replSet "rs0"
     deploy:
       placement:
@@ -15,7 +15,7 @@ services:
     networks:
       mongodb:
   mongodb2:
-    image: mongo:4.1.8
+    image: mongo:4.1.9
     command: mongod --bind_ip_all --slowms 10000 --replSet "rs0"
     deploy:
       placement:
@@ -28,7 +28,7 @@ services:
     networks:
       mongodb:
   mongodb3:
-    image: mongo:4.1.8
+    image: mongo:4.1.9
     command: mongod --bind_ip_all --slowms 10000 --replSet "rs0"
     deploy:
       placement:
@@ -41,7 +41,7 @@ services:
     networks:
       mongodb:
   mongodb4:
-    image: mongo:4.1.8
+    image: mongo:4.1.9
     command: mongod --bind_ip_all --slowms 10000 --replSet "rs0"
     deploy:
       placement:
@@ -54,7 +54,7 @@ services:
     networks:
       mongodb:
   mongodb5:
-    image: mongo:4.1.8
+    image: mongo:4.1.9
     command: mongod --bind_ip_all --slowms 10000 --replSet "rs0"
     deploy:
       placement:
@@ -67,7 +67,7 @@ services:
     networks:
       mongodb:
   mongodb6:
-    image: mongo:4.1.8
+    image: mongo:4.1.9
     command: mongod --bind_ip_all --slowms 10000 --replSet "rs0"
     deploy:
       placement:

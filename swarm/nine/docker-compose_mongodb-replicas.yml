@@ -2,7 +2,7 @@ version: '3.3'
 
 services:
   mongodb-rs0-1:
-    image: mongo:4.1.8
+    image: mongo:4.1.9
     command: mongod --bind_ip_all --slowms 10000 --replSet "rs0" --shardsvr
     deploy:
       placement:
@@ -15,7 +15,7 @@ services:
     networks:
       mongodb:
   mongodb-rs0-2:
-    image: mongo:4.1.8
+    image: mongo:4.1.9
     command: mongod --bind_ip_all --slowms 10000 --replSet "rs0" --shardsvr
     deploy:
       placement:
@@ -28,7 +28,7 @@ services:
     networks:
       mongodb:
   mongodb-rs0-3:
-    image: mongo:4.1.8
+    image: mongo:4.1.9
     command: mongod --bind_ip_all --slowms 10000 --replSet "rs0" --shardsvr
     deploy:
       placement:
@@ -41,7 +41,7 @@ services:
     networks:
       mongodb:
   mongodb-rs1-1:
-    image: mongo:4.1.8
+    image: mongo:4.1.9
     command: mongod --bind_ip_all --slowms 10000 --replSet "rs1" --shardsvr
     deploy:
       placement:
@@ -54,7 +54,7 @@ services:
     networks:
       mongodb:
   mongodb-rs1-2:
-    image: mongo:4.1.8
+    image: mongo:4.1.9
     command: mongod --bind_ip_all --slowms 10000 --replSet "rs1" --shardsvr
     deploy:
       placement:
@@ -67,7 +67,7 @@ services:
     networks:
       mongodb:
   mongodb-rs1-3:
-    image: mongo:4.1.8
+    image: mongo:4.1.9
     command: mongod --bind_ip_all --slowms 10000 --replSet "rs1" --shardsvr
     deploy:
       placement:
@@ -80,7 +80,7 @@ services:
     networks:
       mongodb:
   mongodb-cfg-1:
-    image: mongo:4.1.8
+    image: mongo:4.1.9
     command: mongod --bind_ip_all --slowms 10000 --configsvr --replSet "cfg"
     deploy:
       placement:
@@ -93,7 +93,7 @@ services:
     networks:
       mongodb:
   mongodb-cfg-2:
-    image: mongo:4.1.8
+    image: mongo:4.1.9
     command: mongod --bind_ip_all --slowms 10000 --configsvr --replSet "cfg"
     deploy:
       placement:
@@ -106,7 +106,7 @@ services:
     networks:
       mongodb:
   mongodb-cfg-3:
-    image: mongo:4.1.8
+    image: mongo:4.1.9
     command: mongod --bind_ip_all --slowms 10000 --configsvr --replSet "cfg"
     deploy:
       placement:
