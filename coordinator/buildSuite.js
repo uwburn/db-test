@@ -14,7 +14,7 @@ module.exports = function (config) {
   let suite;
   switch (config.suite) {
   case "MachineData":
-    suite = buildMachineDataSuite(config.database, config.databaseOpts, config.suiteOptions);
+    suite = buildMachineDataSuite(config.database, config.databaseOpts, config.suiteOpts);
     break;
   default:
     throw new Error(`Unknown suite ${suite}`);
