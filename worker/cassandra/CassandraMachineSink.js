@@ -61,6 +61,10 @@ module.exports = class CassandraMachineSink extends BaseSink {
   }
 
   async init() {
+    this.databaseOpts.queryOptions = {
+      consistency: 1
+    };
+
     this.databaseOpts.profiles = [
       new cassandra.ExecutionProfile("default", {
         consistency: 1,
