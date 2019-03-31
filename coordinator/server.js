@@ -25,11 +25,12 @@ matcher.add("worker/+/work/+/log", workLog);
 
 const config = require(process.env.CONFIG || "/run/secrets/coordinator_config.json");
 
-const suite = require("./buildSuite")(config.database, config.databaseOpts, config.suite, config.suiteOpts);
+const suite = require("./buildSuite")(config);
 let status = "DISCOVERING_WORKERS";
 let stepIndex = 0;
 let stats = {
   description: suite.description,
+  comment: suite.comment,
   database: suite.database,
   machines: suite.machines.length,
   startTime: new Date().getTime(),
