@@ -10,13 +10,19 @@ const request = require("request-promise-native");
 
 const BULK_READS_LIMIT = 32768;
 
-module.exports = function (database, databaseOpts, suite, suiteOptions) {
-  switch (suite) {
+module.exports = function (config) {
+  let suite;
+  switch (config.suite) {
   case "MachineData":
-    return buildMachineDataSuite(database, databaseOpts, suiteOptions);
+    suite = buildMachineDataSuite(config.database, config.databaseOpts, config.suiteOpts);
+    break;
   default:
     throw new Error(`Unknown suite ${suite}`);
   }
+
+  suite.comment = config.comment;
+
+  return suite;
 };
 
 function buildMachineDataSuite(database, databaseOpts, suiteOptions) {
