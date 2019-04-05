@@ -92,7 +92,11 @@ module.exports = class CassandraMachineSink extends BaseSink {
     case "TIME_COMPLEX":
       return this.avroTypes[group] = avro.Type.forValue(sample[group].value);
     case "INTERVAL":
-      return this.avroTypes[group] = avro.Type.forValue(sample.value);
+      return this.avroTypes[group] = avro.Type.forValue({
+        st: sample.startTime,
+        et: sample.endTime,
+        v: sample.value
+      });
     }
   }
 
@@ -132,7 +136,7 @@ module.exports = class CassandraMachineSink extends BaseSink {
       }
 
       if (openIntervals) {
-        return forwardError(self.cassandraClient.stream("SELECT id, start_time, value FROM interval_open WHERE device_type = ? AND group = ? AND device = ? AND start_time <= ?", [
+        return forwardError(self.cassandraClient.stream("SELECT id, st, v FROM interval_open WHERE dt = ? AND g = ? AND d = ? AND st <= ?", [
           options.deviceType,
           options.group,
           options.device,
@@ -145,7 +149,7 @@ module.exports = class CassandraMachineSink extends BaseSink {
       let currentTime = new Date(time);
       time += bucketTime;
      
-      return forwardError(self.cassandraClient.stream("SELECT id, start_time, end_time, value FROM interval_closed WHERE device_type = ? AND group = ? AND device = ? AND bucket = ? AND interval_bucket >= ? AND interval_bucket <= ?", [
+      return forwardError(self.cassandraClient.stream("SELECT id, v FROM interval_closed WHERE dt = ? AND g = ? AND d = ? AND p = ? AND b >= ? AND b <= ?", [
         options.deviceType,
         options.group,
         options.device,
@@ -166,17 +170,17 @@ module.exports = class CassandraMachineSink extends BaseSink {
     let count = 0;
     return await new Promise((resolve, reject) => {
       combinedStream.on("data", function (row) {
-        if (row.start_time > options.endTime)
+        row.v = avroType.fromBuffer(row.v);
+        if (row.v.st > options.endTime)
           return;
 
-        if (row.end_time < options.startTime)
+        if (row.v.et < options.startTime)
           return;
 
         if (intervals[row.id])
           return;
 
         ++count;
-        row.value = avroType.fromBuffer(row.value);
         intervals[row.id] = true;
       }).on("end", function () {
         resolve(count);
@@ -200,7 +204,7 @@ module.exports = class CassandraMachineSink extends BaseSink {
       let currentTime = new Date(time);
       time += bucketTime;
      
-      return forwardError(self.cassandraClient.stream("SELECT timestamp, original_timestamp, value FROM time_complex WHERE device_type = ? AND group = ? AND device = ? AND bucket = ? AND timestamp >= ? AND timestamp <= ?", [
+      return forwardError(self.cassandraClient.stream("SELECT t, v FROM time_complex WHERE dt = ? AND g = ? AND d = ? AND p = ? AND t >= ? AND t <= ?", [
         options.deviceType,
         options.group,
         options.device,
@@ -222,9 +226,9 @@ module.exports = class CassandraMachineSink extends BaseSink {
       combinedStream.on("data", function (row) {
         ++count;
 
-        row.value = avroType.fromBuffer(row.value);
+        row.v = avroType.fromBuffer(row.v);
         if (options.select && options.select.length)
-          row.value = _.pick(row.value, options.select);
+          row.v = _.pick(row.v, options.select);
       }).on("end", function () {
         resolve(count);
       }).on("error", function (err) {
@@ -266,7 +270,7 @@ module.exports = class CassandraMachineSink extends BaseSink {
       let currentTime = new Date(time);
       time += bucketTime;
      
-      return forwardError(self.cassandraClient.stream("SELECT timestamp, value FROM time_complex WHERE device_type = ? AND group = ? AND device = ? AND bucket = ? AND timestamp >= ? AND timestamp <= ?", [
+      return forwardError(self.cassandraClient.stream("SELECT t, v FROM time_complex WHERE dt = ? AND g = ? AND d = ? AND p = ? AND t >= ? AND t <= ?", [
         options.deviceType,
         options.group,
         options.device,
@@ -300,13 +304,13 @@ module.exports = class CassandraMachineSink extends BaseSink {
         if (bucket.maxTime === undefined)
           bucket.maxTime = row.timestamp.getTime();
 
-        row.value = avroType.fromBuffer(row.value);
+        row.v = avroType.fromBuffer(row.v);
 
         bucket.minTime = Math.min(bucket.minTime, row.timestamp.getTime());
         bucket.maxTime = Math.max(bucket.maxTime, row.timestamp.getTime());
         ++bucket.count;
         for (let s of options.select)
-          bucket[s + "_avg"] += _.get(row.value, s);
+          bucket[s + "_avg"] += _.get(row.v, s);
       }).on("end", function () {
         resolve(count);
       }).on("error", function (err) {
@@ -342,7 +346,7 @@ module.exports = class CassandraMachineSink extends BaseSink {
 
     let promises = [];
     while (time < Math.floor(options.endTime.getTime() / bucketTime) * bucketTime + bucketTime) {
-      promises.push(this.cassandraClient.execute("SELECT timestamp, value FROM time_complex WHERE device_type = ? AND group = ? AND device = ? AND bucket = ? AND timestamp >= ? AND timestamp <= ? ORDER BY timestamp ASC LIMIT 1", [
+      promises.push(this.cassandraClient.execute("SELECT t, v FROM time_complex WHERE dt = ? AND g = ? AND d = ? AND p = ? AND t >= ? AND t <= ? ORDER BY t ASC LIMIT 1", [
         options.deviceType,
         options.group,
         options.device,
@@ -353,7 +357,7 @@ module.exports = class CassandraMachineSink extends BaseSink {
         prepare: true
       }));
   
-      promises.push(this.cassandraClient.execute("SELECT timestamp, value FROM time_complex WHERE device_type = ? AND group = ? AND device = ? AND bucket = ? AND timestamp >= ? AND timestamp <= ? ORDER BY timestamp DESC LIMIT 1", [
+      promises.push(this.cassandraClient.execute("SELECT t, v FROM time_complex WHERE dt = ? AND g = ? AND d = ? AND p = ? AND t >= ? AND t <= ? ORDER BY t DESC LIMIT 1", [
         options.deviceType,
         options.group,
         options.device,
@@ -390,7 +394,7 @@ module.exports = class CassandraMachineSink extends BaseSink {
     let firstValue;
     let lastValue;
     if (first) {
-      firstValue = avroType.fromBuffer(first.value);
+      firstValue = avroType.fromBuffer(first.v);
     }
     else {
       first = {};
@@ -398,7 +402,7 @@ module.exports = class CassandraMachineSink extends BaseSink {
     }
 
     if (last) {
-      lastValue = avroType.fromBuffer(last.value);
+      lastValue = avroType.fromBuffer(last.v);
     }
     else {
       last = {};
@@ -421,7 +425,7 @@ module.exports = class CassandraMachineSink extends BaseSink {
 
     let promises = [];
     while (time < Math.floor(endTime.getTime() / bucketTime) * bucketTime + bucketTime) {
-      promises.push(this.cassandraClient.execute("SELECT timestamp, original_timestamp, value FROM time_complex WHERE device_type = ? AND group = ? AND device = ? AND bucket = ? AND timestamp <= ? ORDER BY timestamp DESC LIMIT 1", [
+      promises.push(this.cassandraClient.execute("SELECT t, v FROM time_complex WHERE dt = ? AND g = ? AND d = ? AND p = ? AND t <= ? ORDER BY t DESC LIMIT 1", [
         options.deviceType,
         options.group,
         options.device,
@@ -464,13 +468,12 @@ module.exports = class CassandraMachineSink extends BaseSink {
 
     let bucket = new Date(Math.floor(sample.time / bucketTime) * bucketTime);
 
-    await this.cassandraClient.execute("INSERT INTO time_complex (device_type, group, device, bucket, timestamp, original_timestamp, value) VALUES (?, ?, ?, ?, ?, ?, ?) USING TIMESTAMP ?", [
+    await this.cassandraClient.execute("INSERT INTO time_complex (dt, g, d, p, t, v) VALUES (?, ?, ?, ?, ?, ?) USING TIMESTAMP ?", [
       sample.deviceType,
       groupName,
       sample.device,
       bucket,
       sample.time,
-      sample[groupName].time,
       avroType.toBuffer(sample[groupName].value),
       sample.time.getTime() * 1000
     ], {
@@ -480,8 +483,7 @@ module.exports = class CassandraMachineSink extends BaseSink {
 
   async recordInterval(id, groupName, sample, interval) {
     let avroType = this.avroTypes[groupName];
-
-    let cql = "INSERT INTO interval_closed (device_type, group, device, bucket, interval_bucket, id, start_time, end_time, value) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) USING TIMESTAMP ?";
+    let cql = "INSERT INTO interval_closed (dt, g, d, p, b, id, v) VALUES (?, ?, ?, ?, ?, ?, ?) USING TIMESTAMP ?";
 
     let promises = [];
     let time = Math.floor(sample.startTime.getTime() / INTERVAL_BUCKET_TIME) * INTERVAL_BUCKET_TIME;
@@ -497,9 +499,11 @@ module.exports = class CassandraMachineSink extends BaseSink {
         bucket,
         new Date(time),
         id,
-        sample.startTime,
-        sample.endTime,
-        avroType.toBuffer(sample.value),
+        avroType.toBuffer({
+          st: sample.startTime,
+          et: sample.endTime,
+          v: sample.value
+        }),
         sample.endTime.getTime() * 1000
       ], {
         prepare: true

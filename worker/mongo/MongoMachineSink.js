@@ -495,7 +495,7 @@ module.exports = class MongoMachineSink extends BaseSink {
   async recordTimeComplex(id, groupName, sample, interval) {
     let collection = this.timeComplexCollections[groupName];
     if (!collection)
-      collection = this.trainTimeComplex(groupName);
+      collection = await this.trainTimeComplex(groupName);
 
     let bucketTime = chooseBucketTime(interval);
     let bucket = sample.time - (sample.time % bucketTime);
