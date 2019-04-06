@@ -274,22 +274,22 @@ module.exports = class CassandraMachineSink extends BaseSink {
       combinedStream.on("data", function (row) {
         ++count;
 
-        let bucketIndex = Math.floor((row.timestamp - options.startTime.getTime()) / bucketStep) - 1;
+        let bucketIndex = Math.floor((row.t - options.startTime.getTime()) / bucketStep);
         let bucket = buckets[bucketIndex];
 
         if (!bucket)
           return;
 
         if (bucket.minTime === undefined)
-          bucket.minTime = row.timestamp.getTime();
+          bucket.minTime = row.t.getTime();
 
         if (bucket.maxTime === undefined)
-          bucket.maxTime = row.timestamp.getTime();
+          bucket.maxTime = row.t.getTime();
 
         row.v = JSON.parse(row.v);
 
-        bucket.minTime = Math.min(bucket.minTime, row.timestamp.getTime());
-        bucket.maxTime = Math.max(bucket.maxTime, row.timestamp.getTime());
+        bucket.minTime = Math.min(bucket.minTime, row.t.getTime());
+        bucket.maxTime = Math.max(bucket.maxTime, row.t.getTime());
         ++bucket.count;
         for (let s of options.select)
           bucket[s + "_avg"] += _.get(row.v, s);
