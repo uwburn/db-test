@@ -57,7 +57,7 @@ function forwardError(srcStream, dstStream) {
 module.exports = class CassandraMachineSink extends BaseSink {
 
   constructor(databaseOpts) {
-    super(databaseOpts, 16, 4);
+    super(databaseOpts, 8, 64);
   }
 
   async init() {
