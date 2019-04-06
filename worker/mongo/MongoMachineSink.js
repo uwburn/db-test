@@ -305,7 +305,7 @@ module.exports = class MongoMachineSink extends BaseSink {
       },
       {
         $bucketAuto: {
-          groupBy: "$_id.time",
+          groupBy: "$time",
           buckets: options.buckets,
           output: output
         }
