@@ -181,9 +181,9 @@ async function prepareMachineDataCassandra(databaseOpts) {
   await cassandraClient.execute("DROP KEYSPACE IF EXISTS db_test;", [], {});
   await cassandraClient.execute(`CREATE KEYSPACE db_test WITH replication = {'class' : 'SimpleStrategy', 'replication_factor' : ${replicationFactor}};`, [], {});
   await cassandraClient.execute("USE db_test;", [], {});
-  await cassandraClient.execute("CREATE TABLE time_complex (dt uuid, g text, d uuid, p timestamp, t timestamp, v blob, PRIMARY KEY (( dt, g, d, p ), t)) WITH COMPACTION = {'class': 'LeveledCompactionStrategy'} AND COMPACT STORAGE;", [], {});
-  await cassandraClient.execute("CREATE TABLE interval_closed (dt uuid, g text, d uuid, p timestamp, b timestamp, id uuid, v blob, PRIMARY KEY ((dt, g, d, p), b, id)) WITH COMPACTION = {'class': 'LeveledCompactionStrategy'} AND COMPACT STORAGE;", [], {});
-  await cassandraClient.execute("CREATE TABLE interval_open (dt uuid, g text, d uuid, st timestamp, id uuid, v blob, PRIMARY KEY ((dt, g, d), st, id)) WITH COMPACTION = {'class': 'LeveledCompactionStrategy'} AND COMPACT STORAGE;", [], {});
+  await cassandraClient.execute("CREATE TABLE time_complex (dt uuid, g text, d uuid, p timestamp, t timestamp, v blob, PRIMARY KEY (( dt, g, d, p ), t)) WITH COMPACTION = {'class': 'LeveledCompactionStrategy'};", [], {});
+  await cassandraClient.execute("CREATE TABLE interval_closed (dt uuid, g text, d uuid, p timestamp, b timestamp, id uuid, v blob, PRIMARY KEY ((dt, g, d, p), b, id)) WITH COMPACTION = {'class': 'LeveledCompactionStrategy'};", [], {});
+  await cassandraClient.execute("CREATE TABLE interval_open (dt uuid, g text, d uuid, st timestamp, id uuid, v blob, PRIMARY KEY ((dt, g, d), st, id)) WITH COMPACTION = {'class': 'LeveledCompactionStrategy'};", [], {});
 
   await cassandraClient.shutdown();
 }
