@@ -1,7 +1,5 @@
 "use strict";
 
-const SINK_STATS_INTERVAL = 60000;
-
 module.exports = class BaseSink {
 
   constructor(databaseOpts, queryConcurrency, recordConcurrency) {
@@ -25,26 +23,28 @@ module.exports = class BaseSink {
       TIME_COMPLEX_DIFFERENCE: 0,
       TIME_COMPLEX_LAST_BEFORE: 0
     };
-  }
 
-  async init() {
-    this.sinkStatsInterval = setInterval(() => {
-      for (let k in this.latencyByType) {
-        if (!this.countByType[k])
-          continue;
-
-        let latency = this.latencyByType[k]/this.countByType[k];
-
-        let d = Math.pow(10, 2);
-        latency = Math.round(latency * d) / d;
-
-        console.log(`${k} avg. latency: ${latency}, tot. latency: ${this.latencyByType[k]}, count: ${this.countByType[k]}`);
-      }
-    }, SINK_STATS_INTERVAL);
+    this.readRowsByType = {
+      INTERVAL_RANGE: 0,
+      TIME_COMPLEX_RANGE: 0,
+      TIME_COMPLEX_RANGE_BUCKET_AVG: 0,
+      TIME_COMPLEX_DIFFERENCE: 0,
+      TIME_COMPLEX_LAST_BEFORE: 0
+    };
   }
 
   async cleanup() {
-    clearInterval(this.sinkStatsInterval);
+    for (let k in this.latencyByType) {
+      if (!this.countByType[k])
+        continue;
+
+      let latency = this.latencyByType[k]/this.countByType[k];
+
+      let d = Math.pow(10, 2);
+      latency = Math.round(latency * d) / d;
+
+      console.log(`${k} avg. latency: ${latency}, tot. latency: ${this.latencyByType[k]}, count: ${this.countByType[k]}, read rows: ${this.readRowsByType[k]}`);
+    }
   }
 
   async train() { }
@@ -80,6 +80,7 @@ module.exports = class BaseSink {
 
           ++this.countByType[chunk.type];
           this.latencyByType[chunk.type] += Date.now() - t0;
+          this.readRowsByType[chunk.type] += count;
         }
         catch(err) {
           console.error(err);
