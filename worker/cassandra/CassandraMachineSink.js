@@ -335,7 +335,7 @@ module.exports = class CassandraMachineSink extends BaseSink {
       }
     });
 
-    return buckets.length;
+    return count;
   }
 
   async queryTimeComplexDifference(name, options, interval) {
@@ -371,47 +371,31 @@ module.exports = class CassandraMachineSink extends BaseSink {
       time += bucketTime;
     }
 
-    let rawResults = await Promise.all(promises);
+    let results = await Promise.all(promises);
 
-    let results = [];
-    for (let i = 0; i < rawResults.length; i += 2) {
-      if (!results[0] && rawResults[i].rowLength)
-        results[0] = rawResults[i];
-
-      if (rawResults[i + 1].rowLength)
-        results[1] = rawResults[i + 1];
-    }
-
-    if (!results[0])
-      results[0] = rawResults[0];
-
-    if (!results[1])
-      results[1] = rawResults[rawResults.length - 1];
-
-    let first = results[0].rows[0];
-    let last = results[1].rows[0];
-
+    let count = 0;
     let firstValue;
     let lastValue;
-    if (first) {
-      firstValue = avroType.fromBuffer(first.v);
+
+    if (results[0].rowLength) {
+      ++count;
+      firstValue = avroType.fromBuffer(results[0].rows[0].v);
     }
     else {
-      first = {};
       firstValue = {};
     }
 
-    if (last) {
-      lastValue = avroType.fromBuffer(last.v);
+    if (results[1].rowLength) {
+      ++count;
+      lastValue = avroType.fromBuffer(results[1].rows[0].v);
     }
     else {
-      last = {};
       lastValue = {};
     }
 
     subtractValues(firstValue, lastValue);
 
-    return 1;
+    return count;
   }
 
   async queryTimeComplexLastBefore(name, options, interval) {
