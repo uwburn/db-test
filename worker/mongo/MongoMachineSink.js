@@ -150,9 +150,9 @@ module.exports = class MongoMachineSink extends BaseSink {
     let coll = this.db.collection(`${options.group}_interval`);
 
     let criteria = {
-      device: Binary(uuidParse.parse(options.device, Buffer.allocUnsafe(16)), Binary.SUBTYPE_UUID),
-      startTime: { $lt: options.endTime },
-      endTime: { $gt: options.startTime }
+      d: Binary(uuidParse.parse(options.device, Buffer.allocUnsafe(16)), Binary.SUBTYPE_UUID),
+      st: { $lt: options.endTime },
+      et: { $gt: options.startTime }
     };
 
     return await new Promise((resolve, reject) => {
@@ -185,8 +185,8 @@ module.exports = class MongoMachineSink extends BaseSink {
     let stages = [
       {
         $match: {
-          "_id.device": Binary(uuidParse.parse(options.device, Buffer.allocUnsafe(16)), Binary.SUBTYPE_UUID),
-          "_id.time": {
+          "_id.d": Binary(uuidParse.parse(options.device, Buffer.allocUnsafe(16)), Binary.SUBTYPE_UUID),
+          "_id.t": {
             $gt: new Date(startTime),
             $lt: new Date(endTime)
           }
@@ -195,23 +195,23 @@ module.exports = class MongoMachineSink extends BaseSink {
       {
         $project: {
           _id: 1,
-          records: { $objectToArray: "$records" }
+          r: { $objectToArray: "$r" }
         }
       },
       {
-        $unwind: "$records"
+        $unwind: "$r"
       },
       {
         $project: {
-          time: {
-            $add: [ "$_id.time", { $toInt: "$records.k" } ]
+          t: {
+            $add: [ "$_id.t", { $toInt: "$r.k" } ]
           },
-          record: "$records.v"
+          r: "$r.v"
         }
       },
       {
         $match: {
-          time: {
+          t: {
             $gt: options.startTime,
             $lt: options.endTime
           }
@@ -221,11 +221,11 @@ module.exports = class MongoMachineSink extends BaseSink {
 
     if (options.select) {
       let project = {
-        time: 1
+        t: 1
       };
 
       for (let s of options.select)
-        _.set(project, `record.${s}`, 1);
+        _.set(project, `r.${s}`, 1);
 
       stages.push({
         $project: project
@@ -263,16 +263,16 @@ module.exports = class MongoMachineSink extends BaseSink {
       endTime += bucketTime;
 
     let output = {
-      count: { $sum: 1 }
+      c: { $sum: 1 }
     };
     for (let s of options.select)
-      output[s] =  { $avg: `$record.${s}` };
+      output[s] =  { $avg: `$r.${s}` };
 
     let stages = [
       {
         $match: {
-          "_id.device": Binary(uuidParse.parse(options.device, Buffer.allocUnsafe(16)), Binary.SUBTYPE_UUID),
-          "_id.time": {
+          "_id.d": Binary(uuidParse.parse(options.device, Buffer.allocUnsafe(16)), Binary.SUBTYPE_UUID),
+          "_id.t": {
             $gt: new Date(startTime),
             $lt: new Date(endTime)
           }
@@ -281,23 +281,23 @@ module.exports = class MongoMachineSink extends BaseSink {
       {
         $project: {
           _id: 1,
-          records: { $objectToArray: "$records" }
+          r: { $objectToArray: "$r" }
         }
       },
       {
-        $unwind: "$records"
+        $unwind: "$r"
       },
       {
         $project: {
-          time: {
-            $add: [ "$_id.time", { $toInt: "$records.k" } ]
+          t: {
+            $add: [ "$_id.t", { $toInt: "$r.k" } ]
           },
-          record: "$records.v"
+          r: "$r.v"
         }
       },
       {
         $match: {
-          time: {
+          t: {
             $gt: options.startTime,
             $lt: options.endTime
           }
@@ -305,7 +305,7 @@ module.exports = class MongoMachineSink extends BaseSink {
       },
       {
         $bucketAuto: {
-          groupBy: "$time",
+          groupBy: "$t",
           buckets: options.buckets,
           output: output
         }
@@ -342,16 +342,16 @@ module.exports = class MongoMachineSink extends BaseSink {
       endTime += bucketTime;
 
     let _group = {
-      _id: "$_id.device",
-      _first: {$first: "$record"},
-      _last: {$last: "$record"}
+      _id: "$_id.d",
+      _first: {$first: "$r"},
+      _last: {$last: "$r"}
     };
 
     let stages = [
       {
         $match: {
-          "_id.device": Binary(uuidParse.parse(options.device, Buffer.allocUnsafe(16)), Binary.SUBTYPE_UUID),
-          "_id.time": {
+          "_id.d": Binary(uuidParse.parse(options.device, Buffer.allocUnsafe(16)), Binary.SUBTYPE_UUID),
+          "_id.t": {
             $gt: new Date(startTime),
             $lt: new Date(endTime)
           }
@@ -360,23 +360,23 @@ module.exports = class MongoMachineSink extends BaseSink {
       {
         $project: {
           _id: 1,
-          records: { $objectToArray: "$records" }
+          r: { $objectToArray: "$r" }
         }
       },
       {
-        $unwind: "$records"
+        $unwind: "$r"
       },
       {
         $project: {
-          time: {
-            $add: [ "$_id.time", { $toInt: "$records.k" } ]
+          t: {
+            $add: [ "$_id.time", { $toInt: "$r.k" } ]
           },
-          record: "$records.v"
+          r: "$r.v"
         }
       },
       {
         $match: {
-          time: {
+          t: {
             $gt: oStartTime,
             $lt: oEndTime
           }
@@ -394,9 +394,9 @@ module.exports = class MongoMachineSink extends BaseSink {
       
       for (let k in result) {
         if (k === "_first")
-          o1.record = result[k];
+          o1.r = result[k];
         else if (k === "_last")
-          o2.record = result[k];
+          o2.r = result[k];
         else
           sub[k] = result[k];
       }
@@ -420,15 +420,15 @@ module.exports = class MongoMachineSink extends BaseSink {
     let stages = [
       {
         $match: {
-          "_id.device": Binary(uuidParse.parse(options.device, Buffer.allocUnsafe(16)), Binary.SUBTYPE_UUID),
-          "_id.time": {
+          "_id.d": Binary(uuidParse.parse(options.device, Buffer.allocUnsafe(16)), Binary.SUBTYPE_UUID),
+          "_id.t": {
             $lt: new Date(time)
           }
         }
       },
       {
         $sort: {
-          "_id.time": -1
+          "_id.t": -1
         }
       },
       {
@@ -437,30 +437,30 @@ module.exports = class MongoMachineSink extends BaseSink {
       {
         $project: {
           _id: 1,
-          records: { $objectToArray: "$records" }
+          r: { $objectToArray: "$r" }
         }
       },
       {
-        $unwind: "$records"
+        $unwind: "$r"
       },
       {
         $project: {
-          time: {
-            $add: [ "$_id.time", { $toInt: "$records.k" } ]
+          t: {
+            $add: [ "$_id.t", { $toInt: "$r.k" } ]
           },
-          record: "$records.v"
+          r: "$r.v"
         }
       },
       {
         $match: {
-          time: {
+          t: {
             $lt: options.time
           }
         }
       },
       {
         $sort: {
-          time: -1
+          t: -1
         }
       },
       {
@@ -503,20 +503,20 @@ module.exports = class MongoMachineSink extends BaseSink {
 
     let criteria = {
       _id: {
-        device: Binary(uuidParse.parse(sample.device, Buffer.allocUnsafe(16)), Binary.SUBTYPE_UUID),
-        time: new Date(bucket)
+        d: Binary(uuidParse.parse(sample.device, Buffer.allocUnsafe(16)), Binary.SUBTYPE_UUID),
+        t: new Date(bucket)
       }
     };
 
     let update = {
       $setOnInsert: {
-        deviceType: Binary(uuidParse.parse(sample.deviceType, Buffer.allocUnsafe(16)), Binary.SUBTYPE_UUID),
-        bucketTime: bucketTime
+        dt: Binary(uuidParse.parse(sample.deviceType, Buffer.allocUnsafe(16)), Binary.SUBTYPE_UUID),
+        bt: bucketTime
       },
       $set: {}
     };
 
-    update.$set[`records.${offsetTime}`] = sample[groupName].value;
+    update.$set[`r.${offsetTime}`] = sample[groupName].value;
 
     let options = {
       upsert: true
@@ -532,17 +532,17 @@ module.exports = class MongoMachineSink extends BaseSink {
 
     let criteria = {
       _id: Binary(uuidParse.parse(sample.id, Buffer.allocUnsafe(16)), Binary.SUBTYPE_UUID),
-      device: Binary(uuidParse.parse(sample.device, Buffer.allocUnsafe(16)), Binary.SUBTYPE_UUID)
+      d: Binary(uuidParse.parse(sample.device, Buffer.allocUnsafe(16)), Binary.SUBTYPE_UUID)
     };
 
     let update = {
       $setOnInsert: {
-        deviceType: Binary(uuidParse.parse(sample.deviceType, Buffer.allocUnsafe(16)), Binary.SUBTYPE_UUID),
-        startTime: sample.startTime,
-        endTime: sample.endTime
+        dt: Binary(uuidParse.parse(sample.deviceType, Buffer.allocUnsafe(16)), Binary.SUBTYPE_UUID),
+        st: sample.startTime,
+        et: sample.endTime
       },
       $set: {
-        value: sample.value
+        v: sample.value
       }
     };
 
