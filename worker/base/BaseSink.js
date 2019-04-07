@@ -33,6 +33,8 @@ module.exports = class BaseSink {
     };
   }
 
+  async init() { }
+
   async cleanup() {
     for (let k in this.latencyByType) {
       if (!this.countByType[k])
