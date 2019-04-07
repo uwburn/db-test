@@ -126,8 +126,6 @@ module.exports = class MachineStreams {
       percent: percent
     };
 
-    let done = false;
-
     let absTime = Math.floor(this.workloadOpts.startTime + this.timeInterval / 2 - this.timeInterval * this.bulkReadsRatio);
     absTime = Math.floor(absTime / this.bulkReadsTimeStep) * this.bulkReadsTimeStep;
     let absDate = new Date(absTime);
@@ -144,14 +142,11 @@ module.exports = class MachineStreams {
 
     result.stream._read = (size) => {
       let readQueries = 0;
-      while (!done) {
-        done = i == 0;
+      while (queriesCount < this.totalQueries) {
         for (; i < queryNames.length; ++i) {
           let queryName = queryNames[i];
           if (queries[queryName] <= 0)
             continue;
-
-          done = false;
 
           if (relTime % this.source.queryIntervals[queryName] === 0) {
             let pushRes = result.stream.push(this.source.query(queryName, absDate));
@@ -206,7 +201,6 @@ module.exports = class MachineStreams {
     for (let k in machines)
       initialDelay = Math.min(machines[k].writeDelay, initialDelay);
 
-    let done = false;
     let absTime = this.workloadOpts.startTime + initialDelay;
     let absDate = new Date(absTime);
     let relTime = initialDelay;
@@ -221,23 +215,19 @@ module.exports = class MachineStreams {
 
     result.stream._read = (size) => {
       let readSamples = 0;
-      while (!done) {
-        done = (i == 0 && j == 0);
+      while (samplesCount < this.totalSamples) {
         for (; i < this.machineIds.length; ++i) {
           let id = this.machineIds[i];
           let machine = machines[id];
 
-          if (machine.writeDelay > relTime) {
-            done = false;
+          if (machine.writeDelay > relTime)
             continue;
-          }
 
           for (; j < machine.groupNames.length; ++j) {
             let groupName = machine.groupNames[j];
             if (machine.groups[groupName] >= samples[groupName])
               continue;
 
-            done = false;
             let interval = this.source.sampleIntervals[groupName];
             if ((relTime + machine.writeDelay) % interval === 0) {
               let pushRes = result.stream.push({
