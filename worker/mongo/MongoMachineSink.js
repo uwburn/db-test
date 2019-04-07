@@ -101,11 +101,11 @@ module.exports = class MongoMachineSink extends BaseSink {
     if (!collection) {
       collection = this.db.collection(`${group}_interval`);
       try {
-        await collection.createIndex({ device: 1 });
-        await collection.createIndex({ startTime: 1 });
-        await collection.createIndex({ endTime: 1 });
-        await collection.createIndex({ startTime: 1, endTime: -1 });
-        await collection.createIndex({ device: 1, startTime: 1, endTime: -1 });
+        await collection.createIndex({ d: 1 });
+        await collection.createIndex({ st: 1 });
+        await collection.createIndex({ et: 1 });
+        await collection.createIndex({ st: 1, et: -1 });
+        await collection.createIndex({ device: 1, st: 1, et: -1 });
       }
       catch(err) { /* eslint-disable-line */ }
       this.intervalCollections[group] = collection;
@@ -119,10 +119,10 @@ module.exports = class MongoMachineSink extends BaseSink {
     if (!collection) {
       collection = this.db.collection(`${group}_time_complex`);
       try {
-        await collection.createIndex({ "_id.device": 1 });
-        await collection.createIndex({ "_id.time": 1 });
-        await collection.createIndex({ "_id.device": 1, "_id.time": 1 });
-        await collection.createIndex({ "_id.device": 1, "_id.time": -1 });
+        await collection.createIndex({ "_id.d": 1 });
+        await collection.createIndex({ "_id.t": 1 });
+        await collection.createIndex({ "_id.d": 1, "_id.t": 1 });
+        await collection.createIndex({ "_id.d": 1, "_id.t": -1 });
       }
       catch(err) { /* eslint-disable-line*/ }
       this.timeComplexCollections[group] = collection;
