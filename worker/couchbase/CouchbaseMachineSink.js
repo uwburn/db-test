@@ -35,7 +35,7 @@ function subtractValues(o1, o2) {
 module.exports = class CouchbaseMachineSink extends BaseSink {
 
   constructor(databaseOpts) {
-    super(databaseOpts, 16, 4);
+    super(databaseOpts, 8, 8);
   }
 
   async init() {
